@@ -1,0 +1,34 @@
+services:
+  futterrechner:
+    build: .
+    container_name: agff-futterrechner
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data
+      - ./templates:/app/templates
+      - ./static:/app/static
+    environment:
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+    networks:
+      - web-netzwerk
+    labels:
+      - "traefik.enable=true"
+      
+      # REGEL 1: Routing
+      # Wenn jemand die IP aufruft UND der Pfad mit /futter beginnt...
+      - "traefik.http.routers.futter.rule=PathPrefix(`/futter`)"
+      - "traefik.http.routers.futter.entrypoints=web"
+      
+      # REGEL 2: Pfad bereinigen (Middleware)
+      # Wichtig: Die Python-App erwartet "/", nicht "/futter".
+      # Wir schneiden "/futter" ab, bevor wir die Anfrage an Python weitergeben.
+      - "traefik.http.middlewares.futter-strip.stripprefix.prefixes=/futter"
+      - "traefik.http.routers.futter.middlewares=futter-strip"
+      
+      # REGEL 3: Wohin?
+      # Sende es an Port 5000 im Container
+      - "traefik.http.services.futter.loadbalancer.server.port=5000"
+
+networks:
+  web-netzwerk:
+    external: true

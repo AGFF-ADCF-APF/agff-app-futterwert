@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Futterernte Pro 2026 - Eigenständige App</title>
+    <base href="/futter/">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root { --lego-shadow: rgba(0,0,0,0.25); }
+        body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
+        
+        /* LEGO-DESIGN */
+        .baustein { 
+            cursor: grab; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); 
+            position: relative; border-radius: 12px;
+            border-bottom: 6px solid var(--lego-shadow);
+            border-right: 2px solid rgba(0,0,0,0.1);
+            background-image: radial-gradient(circle at 15px 15px, rgba(255,255,255,0.15) 3px, transparent 0);
+            background-size: 30px 30px;
+        }
+        .baustein:active { cursor: grabbing; transform: translateY(2px); border-bottom-width: 2px; }
+        .baustein:hover { filter: brightness(1.05); transform: translateY(-2px); }
+        
+        .arbeitsflaeche { 
+            min-height: 500px; border: 3px dashed #cbd5e1; background-color: #f8fafc;
+            background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        .traktor-label { 
+            position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%); 
+            background: #1e293b; color: white; padding: 2px 8px; border-radius: 8px; 
+            font-size: 9px; font-weight: bold; border: 1px solid white; white-space: nowrap;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 10;
+        }
+
+        .remove-btn { 
+            position: absolute; top: -10px; right: -10px; background: #ef4444; color: white; 
+            width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; 
+            justify-content: center; font-size: 12px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2); opacity: 0; transition: opacity 0.2s; z-index: 20;
+        }
+        .baustein:hover .remove-btn { opacity: 1; }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-slate-100 p-2 md:p-6 text-slate-900">
+
+    <div class="container mx-auto bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden">
+        <div class="bg-slate-800 p-4 flex flex-wrap justify-between items-center gap-4 text-white">
+            <div class="flex items-center gap-3">
+                <span class="text-3xl">🌱</span>
+                <div>
+                    <h1 class="font-black uppercase tracking-tighter leading-none">Futterernte Pro</h1>
+                    <p class="text-[9px] text-slate-400 uppercase font-bold tracking-widest">Agroscope Richtwerte 2025</p>
+                    <p id="probe-badge" class="hidden mt-1 text-[10px] font-bold tracking-wide text-emerald-300">Probe: -</p>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="undo()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-xs font-bold transition-all">↩️ Rückgängig</button>
+                <button onclick="redo()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-xs font-bold transition-all">↪️ Wiederholen</button>
+                <button onclick="loadStandardHeu()" class="ml-2 px-6 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-900 rounded-xl font-black text-xs uppercase shadow-lg transition-all">✨ Heu-Standard laden</button>
+            </div>
+        </div>
+
+        <div class="flex flex-col lg:flex-row">
+            <aside class="lg:w-80 p-6 bg-slate-50 border-r border-slate-200">
+                <h2 class="text-xs font-black text-slate-400 uppercase mb-4 tracking-widest">Maschinenkategorien</h2>
+                <div id="baustein-palette" class="grid grid-cols-1 gap-3 mb-8">
+                    </div>
+
+                <div class="pt-6 border-t border-slate-200">
+                    <h2 class="text-xs font-black text-slate-400 uppercase mb-4 tracking-widest">Maschinenliste</h2>
+                    <div class="space-y-3">
+                        <select id="katalog-scope" class="w-full p-3 bg-white border border-slate-300 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="all">Alle Maschinen</option>
+                            <option value="standard">Nur Standardmaschinen</option>
+                            <option value="custom">Nur eigene Maschinen</option>
+                        </select>
+                        <select id="filter-kategorie" class="w-full p-3 bg-white border border-slate-300 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500" onchange="updateKatalogDropdown()">
+                            <option value="">-- Gruppe wählen --</option>
+                        </select>
+                        <input id="katalog-search" type="text" class="w-full p-3 bg-white border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Suche nach Code oder Maschine...">
+                        <select id="katalog-dropdown" class="w-full p-3 bg-white border border-slate-300 rounded-xl text-xs outline-none">
+                            <option value="">Maschine wählen...</option>
+                        </select>
+                        <button onclick="addFromCatalog()" class="w-full py-3 bg-slate-900 text-white rounded-xl text-xs font-black uppercase hover:bg-black transition-all">📦 Übernehmen</button>
+                    </div>
+                </div>
+
+                <div class="pt-6 mt-6 border-t border-slate-200">
+                    <h2 class="text-xs font-black text-slate-400 uppercase mb-3 tracking-widest">Eigene Maschinen</h2>
+                    <div class="bg-white border border-slate-200 rounded-xl p-3 space-y-3">
+                        <p class="text-[11px] text-slate-500">Spezialblock für betriebsindividuelle Maschinen.</p>
+                        <div id="custom-machines-list" class="space-y-2"></div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button id="export-custom-machines-btn" type="button" class="w-full py-2 bg-slate-700 text-white rounded-lg text-[10px] font-black uppercase hover:bg-slate-800 transition-all">Export JSON</button>
+                            <button id="import-custom-machines-btn" type="button" class="w-full py-2 bg-slate-200 text-slate-700 rounded-lg text-[10px] font-black uppercase hover:bg-slate-300 transition-all">Import JSON</button>
+                        </div>
+                        <input id="import-custom-machines-input" type="file" accept="application/json,.json" class="hidden">
+                        <button id="add-custom-machine-btn" type="button" class="w-full py-2 bg-indigo-600 text-white rounded-lg text-xs font-black uppercase hover:bg-indigo-700 transition-all">+ Eigene Maschine erfassen</button>
+                    </div>
+                </div>
+            </aside>
+
+            <main class="flex-grow p-6">
+                <div id="arbeitsflaeche" class="arbeitsflaeche rounded-3xl p-8 mb-8 flex flex-wrap content-start gap-12 transition-all">
+                    </div>
+
+                <div class="bg-slate-900 text-white p-8 rounded-[2rem] shadow-2xl grid grid-cols-2 md:grid-cols-6 gap-8 items-center">
+                    <div class="col-span-2 md:col-span-1">
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-2">Gesamtfläche</label>
+                        <div class="flex items-baseline gap-2">
+                            <input type="number" id="flaeche-input" value="10" oninput="pushHistory(); calc();" class="bg-transparent text-4xl font-black w-24 outline-none text-white focus:text-indigo-400">
+                            <span class="text-slate-500 font-bold uppercase">ha</span>
+                        </div>
+                    </div>
+                    <div class="col-span-2 md:col-span-1">
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-2">Dieselpreis</label>
+                        <div class="flex items-baseline gap-2">
+                            <input type="number" id="sprit-preis-input" value="1.80" step="0.01" oninput="calc();" class="bg-transparent text-4xl font-black w-24 outline-none text-white focus:text-indigo-400">
+                            <span class="text-slate-500 font-bold uppercase">CHF</span>
+                        </div>
+                    </div>
+                    <div class="col-span-2 md:col-span-1">
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-2">Ertrag</label>
+                        <div class="flex items-baseline gap-2">
+                            <input type="number" id="ertrag-dt-ts-ha-input" value="80" step="0.1" oninput="calc();" class="bg-transparent text-4xl font-black w-24 outline-none text-white focus:text-indigo-400">
+                            <span class="text-slate-500 font-bold uppercase">dt TS/ha</span>
+                        </div>
+                    </div>
+                    <div class="border-l border-slate-800 pl-6 hidden md:block">
+                        <p class="text-slate-500 text-[10px] uppercase font-bold mb-1">Total Zeit / Traktor</p>
+                        <p id="gesamtzeit" class="text-lg font-bold">0.00 h</p>
+                        <p id="traktorzeit" class="text-lg font-bold text-indigo-400">0.00 h</p>
+                    </div>
+                    <div class="col-span-2 md:col-span-2 text-right">
+                        <p class="text-emerald-500 text-[10px] uppercase font-bold tracking-widest mb-1">Verfahrenskosten Total</p>
+                        <div class="flex items-baseline justify-end gap-3">
+                            <span id="gesamtkosten" class="text-5xl font-black tracking-tighter">0.00</span>
+                            <span class="text-emerald-500 font-bold">CHF</span>
+                        </div>
+                        <p class="text-slate-400 text-[10px] uppercase font-bold tracking-widest mt-3 mb-1">Kosten je dt TS</p>
+                        <div class="flex items-baseline justify-end gap-2">
+                            <span id="kosten-pro-dt-ts" class="text-2xl font-black tracking-tight text-emerald-300">-</span>
+                            <span class="text-emerald-300 font-bold">CHF/dt TS</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-8 bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-slate-50 text-[10px] uppercase text-slate-400 font-black tracking-wider">
+                            <tr>
+                                <th class="p-4">Arbeitsschritt</th>
+                                <th class="p-4">Zugfahrzeug</th>
+                                <th class="p-4">Leistung</th>
+                                <th class="p-4">Stunden</th>
+                                <th class="p-4 text-right">Total CHF</th>
+                                <th class="p-4 text-center">Aktion</th>
+                            </tr>
+                        </thead>
+                        <tbody id="evaluation-table" class="text-xs font-medium">
+                            </tbody>
+                    </table>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <div id="edit-modal" class="fixed inset-0 bg-slate-900/90 hidden flex items-center justify-center p-4 z-50 backdrop-blur-md">
+        <div class="bg-white rounded-[2.5rem] p-10 w-full max-w-2xl shadow-2xl border-4 border-slate-200">
+            <div class="flex justify-between items-start mb-8">
+                <div>
+                    <h3 class="text-3xl font-black text-slate-800" id="modal-title">Anpassung</h3>
+                    <p class="text-xs font-bold text-indigo-500 uppercase tracking-widest" id="modal-subtitle">Agroscope Parameter</p>
+                </div>
+                <span class="text-6xl" id="modal-icon">⚙️</span>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="space-y-5">
+                    <div class="bg-slate-50 p-5 rounded-2xl border border-slate-200">
+                        <label class="text-[10px] font-black text-slate-500 uppercase block mb-2">Zugfahrzeug (Traktor)</label>
+                        <select id="traktor-select" class="w-full p-3 rounded-xl font-bold bg-white border border-slate-300 outline-none focus:ring-2 focus:ring-indigo-500"></select>
+                        <div class="mt-4 flex flex-col gap-2">
+                            <label class="flex items-center gap-3 text-xs font-bold text-slate-600 cursor-pointer">
+                                <input type="checkbox" id="front-hydraulik" class="w-4 h-4 rounded text-indigo-600"> Fronthydraulik (+5 CHF/h)
+                            </label>
+                            <label class="flex items-center gap-3 text-xs font-bold text-slate-600 cursor-pointer">
+                                <input type="checkbox" id="front-lader" class="w-4 h-4 rounded text-indigo-600"> Frontlader (+8 CHF/h)
+                            </label>
+                        </div>
+                    </div>
+                    <div class="bg-indigo-50 p-5 rounded-2xl border border-indigo-100">
+                        <label class="text-[10px] font-black text-indigo-400 uppercase block mb-2">Arbeitstarif</label>
+                        <select id="arbeit-select" class="w-full p-3 rounded-xl font-bold bg-white border border-indigo-200 outline-none">
+                            <option value="28">Selbst / Familie (28.-/h)</option>
+                            <option value="33">Angestellt (33.-/h)</option>
+                            <option value="45">Lohnunternehmer (45.-/h)</option>
+                            <option value="55">Öffentlicher Dienst (55.-/h)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 gap-4">
+                    <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                        <label class="text-[9px] text-slate-400 font-bold uppercase">Katalog-Variante</label>
+                        <select id="variant-changer" class="w-full bg-transparent font-bold text-indigo-600 outline-none py-1" onchange="applyVariant(this.value)"></select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                            <label class="text-[9px] text-slate-400 font-bold uppercase">ha / h</label>
+                            <input type="number" id="edit-leist" class="w-full bg-transparent font-black text-xl outline-none" step="0.1">
+                        </div>
+                        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                            <label class="text-[9px] text-slate-400 font-bold uppercase">Gerät CHF/h</label>
+                            <input type="number" id="edit-kost" class="w-full bg-transparent font-black text-xl outline-none">
+                        </div>
+                    </div>
+                    <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                        <label class="text-[9px] text-slate-400 font-bold uppercase">Sprit Liter/h</label>
+                        <input type="number" id="edit-sprit" class="w-full bg-transparent font-black text-xl outline-none" step="0.1">
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-10 flex flex-wrap gap-4">
+                <button onclick="resetRowToDefault()" class="px-6 py-3 border border-red-200 rounded-2xl text-[10px] font-bold text-red-500 hover:bg-red-50 transition-all uppercase tracking-widest">↺ Standard-Werte</button>
+                <div class="flex-grow"></div>
+                <button onclick="closeModal()" class="px-6 py-3 text-slate-400 font-bold hover:text-slate-600">Abbrechen</button>
+                <button onclick="saveModal()" class="px-12 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl hover:bg-black active:scale-95 transition-all">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="custom-machine-modal" class="fixed inset-0 bg-slate-900/85 hidden items-center justify-center p-4 z-50 backdrop-blur-sm">
+        <div class="bg-white rounded-3xl p-6 w-full max-w-xl shadow-2xl border border-slate-200">
+            <div class="flex items-center justify-between mb-4">
+                <h3 id="custom-machine-modal-title" class="text-xl font-black text-slate-800">Eigene Maschine</h3>
+                <button id="close-custom-machine-modal" type="button" class="text-2xl text-slate-400 leading-none">&times;</button>
+            </div>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">Bezeichnung</label>
+                    <input id="custom-machine-name" type="text" class="w-full p-3 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="z.B. Eigenbau-Presskombi">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">Kurzbeschreibung</label>
+                    <input id="custom-machine-desc" type="text" class="w-full p-3 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="z.B. 6m, Front/Heck, Jahrgang 2019">
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">Leistung (ha/h)</label>
+                        <input id="custom-machine-leist" type="number" min="0" step="0.01" class="w-full p-3 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="1.80">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">Kosten (CHF/h)</label>
+                        <input id="custom-machine-kost" type="number" min="0" step="0.01" class="w-full p-3 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="120.00">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">Treibstoff (CHF/h)</label>
+                        <input id="custom-machine-sprit" type="number" min="0" step="0.01" class="w-full p-3 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="18.00">
+                    </div>
+                </div>
+            </div>
+            <div class="mt-5 flex items-center gap-3">
+                <button id="save-custom-machine-btn" type="button" class="px-5 py-2 bg-slate-900 text-white rounded-xl text-sm font-black uppercase hover:bg-black">Speichern</button>
+                <button id="cancel-custom-machine-btn" type="button" class="px-4 py-2 text-slate-500 text-sm font-bold hover:text-slate-700">Abbrechen</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const CUSTOM_MACHINE_STORAGE_KEY = 'agffCustomMachines';
+        const CUSTOM_GROUP_CODE = 990000;
+        let history = [];
+        let historyIndex = -1;
+        const globals = {
+            bausteineOnArbeitsflaeche: [],
+            editIdx: null,
+            serverCategories: [],
+            serverMachines: [],
+            customMachines: [],
+            categories: [],
+            machines: [],
+            machinesByCode: new Map(),
+            machinesByGroup: new Map(),
+            tractorOptions: [],
+            selectedGroupCode: '',
+            searchTerm: '',
+            customMachineEditId: null,
+            catalogScope: 'all'
+        };
+        const FODDERCOST_RESULT_KEY = 'agffFoddercostResult';
+        const activeProbeNr = (() => {
+            const params = new URLSearchParams(window.location.search || '');
+            return (params.get('probeNr') || params.get('p') || '').trim();
+        })();
+
+        function machineColorByGroup(groupCode) {
+            if (Number(groupCode) === CUSTOM_GROUP_CODE) {
+                return 'bg-violet-600 text-white';
+            }
+            const palette = [
+                'bg-slate-800 text-white',
+                'bg-blue-600 text-white',
+                'bg-emerald-600 text-white',
+                'bg-amber-500 text-slate-900',
+                'bg-rose-600 text-white',
+                'bg-indigo-600 text-white',
+                'bg-cyan-600 text-white',
+                'bg-orange-600 text-white'
+            ];
+            const parsed = Number(groupCode || 0);
+            const idx = Number.isFinite(parsed) ? (Math.abs(parsed) % palette.length) : 0;
+            return palette[idx];
+        }
+
+        function getCategoryEmoji(groupCode) {
+            const code = Number(groupCode || 0);
+            if (code === CUSTOM_GROUP_CODE) return '🧩';
+            if (code < 2000) return '🚜';
+            if (code < 5000) return '🔧';
+            if (code < 7000) return '🌾';
+            if (code < 10000) return '🚛';
+            return '⚙️';
+        }
+
+        function getCategorySvg(groupCode) {
+            const code = Number(groupCode || 0);
+            if (code === CUSTOM_GROUP_CODE) {
+                return '<svg viewBox="0 0 64 64" class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10h8v8h4a4 4 0 014 4v4h8v8h-8v4a4 4 0 01-4 4h-4v8h-8v-8h-4a4 4 0 01-4-4v-4H6v-8h8v-4a4 4 0 014-4h4z"/></svg>';
+            }
+            if (code < 2000) {
+                return '<svg viewBox="0 0 64 64" class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="44" r="8"/><circle cx="46" cy="44" r="10"/><path d="M10 44h6m12 0h8m20 0h2M12 36h18l4-10h10l6 10v8H12z"/><path d="M26 26V18h12v8"/></svg>';
+            }
+            if (code < 5000) {
+                return '<svg viewBox="0 0 64 64" class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2"><path d="M32 10l4 8 9 1-6 6 2 9-9-5-9 5 2-9-6-6 9-1z"/><circle cx="32" cy="44" r="10"/><path d="M32 34v20M22 44h20"/></svg>';
+            }
+            if (code < 7000) {
+                return '<svg viewBox="0 0 64 64" class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 44h44"/><path d="M16 44l8-18 8 18m8 0l6-14 6 14"/><path d="M28 22l2-8m6 8l2-8"/></svg>';
+            }
+            if (code < 10000) {
+                return '<svg viewBox="0 0 64 64" class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="24" width="30" height="16" rx="2"/><rect x="38" y="28" width="14" height="12" rx="2"/><circle cx="20" cy="46" r="6"/><circle cx="46" cy="46" r="6"/><path d="M52 32h4"/></svg>';
+            }
+            return '<svg viewBox="0 0 64 64" class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2"><circle cx="32" cy="32" r="8"/><path d="M32 10v8M32 46v8M10 32h8M46 32h8M17 17l6 6M41 41l6 6M47 17l-6 6M23 41l-6 6"/></svg>';
+        }
+
+        async function loadMachineCatalog() {
+            const url = new URL('/futter/api/machines/catalog', window.location.origin);
+            const response = await fetch(url.toString(), { cache: 'no-store' });
+            if (!response.ok) throw new Error(`Katalog-Laden fehlgeschlagen (${response.status})`);
+            const data = await response.json();
+            globals.serverCategories = Array.isArray(data?.categories) ? data.categories : [];
+            globals.serverMachines = Array.isArray(data?.machines) ? data.machines : [];
+        }
+
+        function loadCustomMachines() {
+            try {
+                const raw = localStorage.getItem(CUSTOM_MACHINE_STORAGE_KEY);
+                const parsed = raw ? JSON.parse(raw) : [];
+                if (!Array.isArray(parsed)) {
+                    globals.customMachines = [];
+                    return;
+                }
+                globals.customMachines = parsed
+                    .filter((m) => m && typeof m === 'object')
+                    .map((m) => ({
+                        id: String(m.id || `custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`),
+                        name: String(m.name || '').trim(),
+                        beschreibung: String(m.beschreibung || '').trim(),
+                        leist: Number(m.leist) > 0 ? Number(m.leist) : 1,
+                        kost: Number(m.kost) >= 0 ? Number(m.kost) : 0,
+                        sprit: Number(m.sprit) >= 0 ? Number(m.sprit) : 0
+                    }))
+                    .filter((m) => m.name);
+            } catch (e) {
+                globals.customMachines = [];
+            }
+        }
+
+        function saveCustomMachines() {
+            localStorage.setItem(CUSTOM_MACHINE_STORAGE_KEY, JSON.stringify(globals.customMachines));
+        }
+
+        function machineMatchesScope(machine) {
+            const isCustom = Number(machine?.groupCode) === CUSTOM_GROUP_CODE || Boolean(machine?.isCustom);
+            if (globals.catalogScope === 'custom') return isCustom;
+            if (globals.catalogScope === 'standard') return !isCustom;
+            return true;
+        }
+
+        function getVisibleCategories() {
+            const visible = globals.categories.filter((cat) => {
+                const isCustomCategory = Number(cat.groupCode) === CUSTOM_GROUP_CODE;
+                if (globals.catalogScope === 'custom') return isCustomCategory;
+                if (globals.catalogScope === 'standard') return !isCustomCategory;
+                return true;
+            });
+            return visible;
+        }
+
+        function ensureSelectedCategoryVisible() {
+            const visible = getVisibleCategories();
+            const isCurrentVisible = visible.some((cat) => String(cat.groupCode) === String(globals.selectedGroupCode));
+            if (isCurrentVisible) return;
+            globals.selectedGroupCode = visible.length ? String(visible[0].groupCode) : '';
+        }
+
+        function rebuildCatalogData() {
+            const serverMachines = globals.serverMachines.map((m) => ({
+                ...m,
+                farbe: machineColorByGroup(m.groupCode)
+            }));
+
+            const customMachines = globals.customMachines.map((m, idx) => ({
+                code: `CUST-${idx + 1}`,
+                groupCode: CUSTOM_GROUP_CODE,
+                groupLabel: 'Eigene Maschinen',
+                name: m.name,
+                beschreibung: m.beschreibung,
+                leist: Number(m.leist) > 0 ? Number(m.leist) : 1,
+                leistRaw: Number(m.leist) > 0 ? Number(m.leist) : 1,
+                leistEinheit: 'ha/h',
+                kost: Number(m.kost) >= 0 ? Number(m.kost) : 0,
+                sprit: Number(m.sprit) >= 0 ? Number(m.sprit) : 0,
+                farbe: machineColorByGroup(CUSTOM_GROUP_CODE),
+                isCustom: true,
+                customId: m.id
+            }));
+
+            const categories = [...globals.serverCategories];
+            if (customMachines.length) {
+                categories.push({
+                    groupCode: CUSTOM_GROUP_CODE,
+                    label: 'Eigene Maschinen',
+                    count: customMachines.length
+                });
+            }
+
+            globals.categories = categories.sort((a, b) => Number(a.groupCode) - Number(b.groupCode));
+            globals.machines = [...serverMachines, ...customMachines];
+            globals.machinesByCode = new Map(globals.machines.map((m) => [String(m.code), m]));
+            globals.machinesByGroup = new Map();
+
+            globals.machines.forEach((m) => {
+                const key = String(m.groupCode);
+                if (!globals.machinesByGroup.has(key)) globals.machinesByGroup.set(key, []);
+                globals.machinesByGroup.get(key).push(m);
+            });
+
+            globals.tractorOptions = globals.machines.filter((m) =>
+                /traktor/i.test(m.name || '') || m.groupCode === 1000
+            );
+        }
+
+        function renderCustomMachinesList() {
+            const list = document.getElementById('custom-machines-list');
+            if (!list) return;
+            list.innerHTML = '';
+            if (!globals.customMachines.length) {
+                list.innerHTML = '<p class="text-[11px] text-slate-400">Noch keine eigenen Maschinen.</p>';
+                return;
+            }
+
+            globals.customMachines.forEach((m) => {
+                const row = document.createElement('div');
+                row.className = 'rounded-lg border border-slate-200 p-2 bg-slate-50';
+                row.innerHTML = `
+                    <p class="text-xs font-bold text-slate-800">${m.name}</p>
+                    <p class="text-[11px] text-slate-500 truncate">${m.beschreibung || '-'}</p>
+                    <p class="text-[10px] text-slate-500 mt-1">${m.leist.toFixed(2)} ha/h · ${m.kost.toFixed(2)} CHF/h · ${m.sprit.toFixed(2)} CHF/h</p>
+                    <div class="flex gap-2 mt-2">
+                        <button type="button" class="px-2 py-1 text-[10px] font-bold rounded bg-indigo-100 text-indigo-700 hover:bg-indigo-200" data-custom-edit="${m.id}">Bearbeiten</button>
+                        <button type="button" class="px-2 py-1 text-[10px] font-bold rounded bg-rose-100 text-rose-700 hover:bg-rose-200" data-custom-delete="${m.id}">Löschen</button>
+                    </div>
+                `;
+                list.appendChild(row);
+            });
+
+            list.querySelectorAll('[data-custom-edit]').forEach((btn) => {
+                btn.addEventListener('click', () => openCustomMachineModal(btn.getAttribute('data-custom-edit')));
+            });
+            list.querySelectorAll('[data-custom-delete]').forEach((btn) => {
+                btn.addEventListener('click', () => deleteCustomMachine(btn.getAttribute('data-custom-delete')));
+            });
+        }
+
+        function openCustomMachineModal(customId = null) {
+            globals.customMachineEditId = customId;
+            const modal = document.getElementById('custom-machine-modal');
+            const title = document.getElementById('custom-machine-modal-title');
+            const nameInput = document.getElementById('custom-machine-name');
+            const descInput = document.getElementById('custom-machine-desc');
+            const leistInput = document.getElementById('custom-machine-leist');
+            const kostInput = document.getElementById('custom-machine-kost');
+            const spritInput = document.getElementById('custom-machine-sprit');
+            if (!modal || !title || !nameInput || !descInput || !leistInput || !kostInput || !spritInput) return;
+
+            const existing = customId ? globals.customMachines.find((m) => m.id === customId) : null;
+            title.textContent = existing ? 'Eigene Maschine bearbeiten' : 'Eigene Maschine erfassen';
+            nameInput.value = existing?.name || '';
+            descInput.value = existing?.beschreibung || '';
+            leistInput.value = existing ? String(existing.leist) : '';
+            kostInput.value = existing ? String(existing.kost) : '';
+            spritInput.value = existing ? String(existing.sprit) : '';
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            setTimeout(() => nameInput.focus(), 30);
+        }
+
+        function closeCustomMachineModal() {
+            const modal = document.getElementById('custom-machine-modal');
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            globals.customMachineEditId = null;
+        }
+
+        function saveCustomMachineFromModal() {
+            const nameInput = document.getElementById('custom-machine-name');
+            const descInput = document.getElementById('custom-machine-desc');
+            const leistInput = document.getElementById('custom-machine-leist');
+            const kostInput = document.getElementById('custom-machine-kost');
+            const spritInput = document.getElementById('custom-machine-sprit');
+            const name = (nameInput?.value || '').trim();
+            if (!name) {
+                alert('Bitte eine Bezeichnung erfassen.');
+                nameInput?.focus();
+                return;
+            }
+
+            const nextValue = {
+                id: globals.customMachineEditId || `custom-${Date.now()}`,
+                name,
+                beschreibung: (descInput?.value || '').trim(),
+                leist: Math.max(0.01, Number(leistInput?.value || 0) || 1),
+                kost: Math.max(0, Number(kostInput?.value || 0) || 0),
+                sprit: Math.max(0, Number(spritInput?.value || 0) || 0)
+            };
+
+            const index = globals.customMachines.findIndex((m) => m.id === nextValue.id);
+            if (index >= 0) globals.customMachines[index] = nextValue;
+            else globals.customMachines.push(nextValue);
+
+            saveCustomMachines();
+            rebuildCatalogData();
+            if (globals.selectedGroupCode === String(CUSTOM_GROUP_CODE) || !globals.selectedGroupCode) {
+                globals.selectedGroupCode = String(CUSTOM_GROUP_CODE);
+            }
+            ensureSelectedCategoryVisible();
+            populateCategoryFilter();
+            renderCategoryTiles();
+            updateKatalogDropdown();
+            renderCustomMachinesList();
+            closeCustomMachineModal();
+        }
+
+        function deleteCustomMachine(customId) {
+            const existing = globals.customMachines.find((m) => m.id === customId);
+            if (!existing) return;
+            if (!confirm(`Eigene Maschine "${existing.name}" wirklich löschen?`)) return;
+            globals.customMachines = globals.customMachines.filter((m) => m.id !== customId);
+            saveCustomMachines();
+            rebuildCatalogData();
+            if (globals.selectedGroupCode === String(CUSTOM_GROUP_CODE) && !globals.customMachines.length) {
+                globals.selectedGroupCode = globals.categories[0] ? String(globals.categories[0].groupCode) : '';
+            }
+            ensureSelectedCategoryVisible();
+            populateCategoryFilter();
+            renderCategoryTiles();
+            updateKatalogDropdown();
+            renderCustomMachinesList();
+        }
+
+        function exportCustomMachines() {
+            const payload = {
+                exportedAt: new Date().toISOString(),
+                version: 1,
+                machines: globals.customMachines
+            };
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `agff-custom-machines-${new Date().toISOString().slice(0, 10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        }
+
+        async function importCustomMachinesFromFile(event) {
+            const file = event?.target?.files?.[0];
+            if (!file) return;
+            try {
+                const text = await file.text();
+                const parsed = JSON.parse(text);
+                const incoming = Array.isArray(parsed)
+                    ? parsed
+                    : (Array.isArray(parsed?.machines) ? parsed.machines : []);
+                if (!incoming.length) {
+                    alert('Keine Maschinen im JSON gefunden.');
+                    return;
+                }
+
+                const normalized = incoming
+                    .filter((m) => m && typeof m === 'object')
+                    .map((m) => ({
+                        id: String(m.id || `custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`),
+                        name: String(m.name || '').trim(),
+                        beschreibung: String(m.beschreibung || '').trim(),
+                        leist: Math.max(0.01, Number(m.leist) || 1),
+                        kost: Math.max(0, Number(m.kost) || 0),
+                        sprit: Math.max(0, Number(m.sprit) || 0)
+                    }))
+                    .filter((m) => m.name);
+
+                if (!normalized.length) {
+                    alert('Importdatei enthält keine gültigen Maschinen.');
+                    return;
+                }
+
+                const mode = confirm('OK = importierte Maschinen hinzufügen\nAbbrechen = bestehende ersetzen');
+                if (mode) {
+                    const existingByName = new Set(globals.customMachines.map((m) => m.name.toLowerCase()));
+                    const toAdd = normalized.filter((m) => !existingByName.has(m.name.toLowerCase()));
+                    globals.customMachines.push(...toAdd);
+                } else {
+                    globals.customMachines = normalized;
+                }
+
+                saveCustomMachines();
+                rebuildCatalogData();
+                globals.selectedGroupCode = String(CUSTOM_GROUP_CODE);
+                ensureSelectedCategoryVisible();
+                populateCategoryFilter();
+                renderCategoryTiles();
+                updateKatalogDropdown();
+                renderCustomMachinesList();
+            } catch (e) {
+                alert(`Import fehlgeschlagen: ${e.message}`);
+            } finally {
+                event.target.value = '';
+            }
+        }
+
+        function renderCategoryTiles() {
+            const palette = document.getElementById('baustein-palette');
+            if (!palette) return;
+            palette.innerHTML = '';
+
+            const visibleCategories = getVisibleCategories();
+
+            if (!visibleCategories.length) {
+                palette.innerHTML = '<p class="text-xs text-slate-500">Keine Kategorien verfügbar.</p>';
+                return;
+            }
+
+            visibleCategories.forEach((cat) => {
+                const isActive = String(cat.groupCode) === String(globals.selectedGroupCode);
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = [
+                    'w-full rounded-xl border p-3 text-left transition-all shadow-sm',
+                    isActive ? 'border-indigo-400 bg-indigo-50 ring-2 ring-indigo-200' : 'border-slate-200 bg-white hover:bg-slate-100'
+                ].join(' ');
+                btn.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="shrink-0 text-indigo-600">${getCategorySvg(cat.groupCode)}</div>
+                        <div class="min-w-0">
+                            <p class="text-[11px] font-black uppercase tracking-wide text-slate-700 truncate">${cat.groupCode} · ${cat.label}</p>
+                            <p class="text-[10px] text-slate-500">${cat.count} Maschinen</p>
+                        </div>
+                    </div>
+                `;
+                btn.addEventListener('click', () => {
+                    setSelectedCategory(String(cat.groupCode));
+                });
+                palette.appendChild(btn);
+            });
+        }
+
+        function populateCategoryFilter() {
+            const filter = document.getElementById('filter-kategorie');
+            if (!filter) return;
+            filter.innerHTML = '<option value="">-- Gruppe wählen --</option>';
+            const visibleCategories = getVisibleCategories();
+            visibleCategories.forEach((cat) => {
+                filter.add(new Option(`${cat.groupCode} - ${cat.label}`, String(cat.groupCode)));
+            });
+            if (globals.selectedGroupCode) {
+                filter.value = String(globals.selectedGroupCode);
+            }
+        }
+
+        function setSelectedCategory(groupCode) {
+            globals.selectedGroupCode = String(groupCode || '');
+            const filter = document.getElementById('filter-kategorie');
+            if (filter) filter.value = globals.selectedGroupCode;
+            renderCategoryTiles();
+            updateKatalogDropdown();
+        }
+
+        async function init() {
+            if (activeProbeNr) {
+                const badge = document.getElementById('probe-badge');
+                if (badge) {
+                    badge.textContent = `Probe: ${activeProbeNr}`;
+                    badge.classList.remove('hidden');
+                }
+            }
+
+            try {
+                await loadMachineCatalog();
+            } catch (e) {
+                alert(`Maschinenkatalog konnte nicht geladen werden: ${e.message}`);
+            }
+
+            loadCustomMachines();
+            rebuildCatalogData();
+
+            if (globals.categories.length) {
+                const defaultCategory = globals.categories[0];
+                globals.selectedGroupCode = String(defaultCategory.groupCode);
+            }
+
+            const scopeSelect = document.getElementById('katalog-scope');
+            if (scopeSelect) {
+                scopeSelect.addEventListener('change', () => {
+                    globals.catalogScope = scopeSelect.value || 'all';
+                    ensureSelectedCategoryVisible();
+                    populateCategoryFilter();
+                    renderCategoryTiles();
+                    updateKatalogDropdown();
+                });
+            }
+
+            const searchInput = document.getElementById('katalog-search');
+            if (searchInput) {
+                searchInput.addEventListener('input', () => {
+                    globals.searchTerm = (searchInput.value || '').trim().toLowerCase();
+                    updateKatalogDropdown();
+                });
+            }
+
+            const addCustomBtn = document.getElementById('add-custom-machine-btn');
+            if (addCustomBtn) addCustomBtn.addEventListener('click', () => openCustomMachineModal(null));
+            const exportCustomBtn = document.getElementById('export-custom-machines-btn');
+            if (exportCustomBtn) exportCustomBtn.addEventListener('click', exportCustomMachines);
+            const importCustomBtn = document.getElementById('import-custom-machines-btn');
+            const importCustomInput = document.getElementById('import-custom-machines-input');
+            if (importCustomBtn && importCustomInput) {
+                importCustomBtn.addEventListener('click', () => importCustomInput.click());
+                importCustomInput.addEventListener('change', importCustomMachinesFromFile);
+            }
+            const saveCustomBtn = document.getElementById('save-custom-machine-btn');
+            if (saveCustomBtn) saveCustomBtn.addEventListener('click', saveCustomMachineFromModal);
+            const closeCustomBtn = document.getElementById('close-custom-machine-modal');
+            if (closeCustomBtn) closeCustomBtn.addEventListener('click', closeCustomMachineModal);
+            const cancelCustomBtn = document.getElementById('cancel-custom-machine-btn');
+            if (cancelCustomBtn) cancelCustomBtn.addEventListener('click', closeCustomMachineModal);
+
+            populateCategoryFilter();
+            renderCategoryTiles();
+            updateKatalogDropdown();
+            renderCustomMachinesList();
+
+            pushHistory();
+            renderArbeitsflaeche();
+        }
+
+        function publishFoddercostResult(chfPerDtTs) {
+            if (!activeProbeNr) return;
+            if (!Number.isFinite(chfPerDtTs) || chfPerDtTs < 0) return;
+
+            const payload = {
+                type: 'agff:foddercost-result',
+                probeNr: activeProbeNr,
+                chfDtTs: Number(chfPerDtTs.toFixed(2)),
+                timestamp: Date.now()
+            };
+
+            try {
+                localStorage.setItem(FODDERCOST_RESULT_KEY, JSON.stringify(payload));
+            } catch (e) {
+                // ignore storage errors
+            }
+
+            try {
+                if (window.opener && !window.opener.closed) {
+                    window.opener.postMessage(payload, window.location.origin);
+                }
+            } catch (e) {
+                // ignore cross-window errors
+            }
+        }
+
+        function suggestTraktor(m) {
+            if (!globals.tractorOptions.length) return null;
+            const heavy = globals.tractorOptions.find((t) => /90-104|90–104|110-130|110–130/i.test(t.name || ''));
+            const medium = globals.tractorOptions.find((t) => /75-89|75–89/i.test(t.name || ''));
+            if (/mähen|laden|häcks/i.test((m?.name || '').toLowerCase())) return heavy || medium || globals.tractorOptions[0];
+            return medium || heavy || globals.tractorOptions[0];
+        }
+
+        function calculateRowMetrics(block, flaecheHa, dieselpreisChf) {
+            const safeLeistung = Number(block?.leist) > 0 ? Number(block.leist) : 0;
+            const hours = safeLeistung > 0 ? (flaecheHa / safeLeistung) : 0;
+            const tractorCostPerHour = block?.traktor ? Number(block.traktor.kost || 0) : 0;
+            const tractorDieselPerHour = block?.traktor ? Number(block.traktor.sprit || 0) : 0;
+            const frontHydrSurcharge = block?.frontHydr ? 5 : 0;
+            const frontLaderSurcharge = block?.frontLader ? 8 : 0;
+            const baseCostPerHour = Number(block?.kost || 0) + Number(block?.arbeitAnsatz || 28);
+            const dieselCostPerHour = (Number(block?.sprit || 0) + tractorDieselPerHour) * dieselpreisChf;
+            const totalPerHour = baseCostPerHour + tractorCostPerHour + frontHydrSurcharge + frontLaderSurcharge + dieselCostPerHour;
+            const totalCost = hours * totalPerHour;
+            return { hours, totalCost, tractorHours: block?.traktor ? hours : 0 };
+        }
+
+        function updateEvaluationTableRows(flaecheHa, dieselpreisChf) {
+            const rows = document.querySelectorAll('#evaluation-table tr[data-block-index]');
+            rows.forEach((row) => {
+                const idx = Number(row.getAttribute('data-block-index'));
+                const block = globals.bausteineOnArbeitsflaeche[idx];
+                if (!block) return;
+                const metrics = calculateRowMetrics(block, flaecheHa, dieselpreisChf);
+
+                const hoursCell = row.querySelector('[data-col="hours"]');
+                const costCell = row.querySelector('[data-col="cost"]');
+                if (hoursCell) hoursCell.textContent = `${metrics.hours.toFixed(2)}h`;
+                if (costCell) {
+                    costCell.textContent = metrics.totalCost.toLocaleString('de-CH', { minimumFractionDigits: 2 });
+                }
+            });
+        }
+
+        function renderArbeitsflaeche() {
+            const container = document.getElementById('arbeitsflaeche');
+            container.innerHTML = globals.bausteineOnArbeitsflaeche.length === 0 ? '<div class="w-full text-center mt-20 opacity-10 font-black uppercase tracking-[1rem] select-none">Leer</div>' : '';
+            
+            const tableBody = document.getElementById('evaluation-table');
+            tableBody.innerHTML = '';
+            const f = parseFloat(document.getElementById('flaeche-input').value) || 0;
+            const p = parseFloat(document.getElementById('sprit-preis-input').value) || 0;
+
+            globals.bausteineOnArbeitsflaeche.forEach((b, idx) => {
+                const el = document.createElement('div');
+                el.className = `baustein p-6 ${b.farbe} w-48 text-center shadow-xl`;
+                const tLabel = b.traktor ? `<div class="traktor-label">🚜 ${b.traktor.name}</div>` : '';
+                el.innerHTML = `<div class="remove-btn" onclick="removeBlock(${idx})">✕</div><div class="text-5xl mb-3">${b.icon || '⚙️'}</div><div class="font-black text-[10px] uppercase h-10 flex items-center justify-center leading-tight tracking-tighter">${b.name}</div>${tLabel}`;
+                el.ondblclick = () => openEdit(idx);
+                container.appendChild(el);
+
+                const metrics = calculateRowMetrics(b, f, p);
+                tableBody.insertAdjacentHTML('beforeend', `
+                    <tr class="border-b hover:bg-slate-50 transition-colors" data-block-index="${idx}">
+                        <td class="p-4">
+                            <p class="font-bold text-slate-700">${b.name}</p>
+                            <p class="text-[10px] text-slate-500">${b.beschreibung || '-'}</p>
+                        </td>
+                        <td class="p-4 text-slate-500 font-bold">${b.traktor ? b.traktor.name : '-'}</td>
+                        <td class="p-4 font-medium">${b.leist} ha/h</td>
+                        <td class="p-4 font-medium" data-col="hours">${metrics.hours.toFixed(2)}h</td>
+                        <td class="p-4 font-black text-right text-indigo-600" data-col="cost">${metrics.totalCost.toLocaleString('de-CH', {minimumFractionDigits:2})}</td>
+                        <td class="p-4 text-center"><button onclick="openEdit(${idx})" class="text-[10px] bg-slate-900 text-white px-3 py-1 rounded-lg font-black uppercase tracking-widest hover:bg-indigo-600 transition-all">Edit</button></td>
+                    </tr>
+                `);
+            });
+            calc();
+        }
+
+        function openEdit(idx) {
+            globals.editIdx = idx;
+            const b = globals.bausteineOnArbeitsflaeche[idx];
+            document.getElementById('modal-title').innerText = b.name;
+            
+            const tSel = document.getElementById('traktor-select');
+            tSel.innerHTML = '<option value="null">-- Kein Zugfahrzeug --</option>';
+            globals.tractorOptions.forEach(t => {
+                const opt = new Option(`${t.name} (${t.kost}.-/h)`, JSON.stringify(t));
+                if(b.traktor && b.traktor.name === t.name) opt.selected = true;
+                tSel.add(opt);
+            });
+
+            const vSel = document.getElementById('variant-changer');
+            vSel.innerHTML = '<option value="">Andere Variante wählen...</option>';
+            const variants = globals.machinesByGroup.get(String(b.groupCode || '')) || [];
+            variants.forEach(v => vSel.add(new Option(v.name, JSON.stringify(v))));
+
+            document.getElementById('edit-leist').value = b.leist;
+            document.getElementById('edit-kost').value = b.kost;
+            document.getElementById('edit-sprit').value = b.sprit;
+            document.getElementById('arbeit-select').value = b.arbeitAnsatz || 28;
+            document.getElementById('front-hydraulik').checked = b.frontHydr || false;
+            document.getElementById('front-lader').checked = b.frontLader || false;
+            
+            document.getElementById('edit-modal').classList.remove('hidden');
+        }
+
+        function applyVariant(vStr) {
+            if (!vStr) return;
+            const v = JSON.parse(vStr);
+            document.getElementById('edit-leist').value = v.leist;
+            document.getElementById('edit-kost').value = v.kost;
+            document.getElementById('edit-sprit').value = v.sprit;
+            document.getElementById('modal-title').innerText = v.name;
+        }
+
+        function saveModal() {
+            const b = globals.bausteineOnArbeitsflaeche[globals.editIdx];
+            b.leist = parseFloat(document.getElementById('edit-leist').value);
+            b.kost = parseFloat(document.getElementById('edit-kost').value);
+            b.sprit = parseFloat(document.getElementById('edit-sprit').value);
+            b.arbeitAnsatz = parseFloat(document.getElementById('arbeit-select').value);
+            b.frontHydr = document.getElementById('front-hydraulik').checked;
+            b.frontLader = document.getElementById('front-lader').checked;
+            const tVal = document.getElementById('traktor-select').value;
+            b.traktor = tVal === "null" ? null : JSON.parse(tVal);
+            b.name = document.getElementById('modal-title').innerText;
+            
+            closeModal(); pushHistory(); renderArbeitsflaeche();
+        }
+
+        function calc() {
+            const f = parseFloat(document.getElementById('flaeche-input').value) || 0;
+            const p = parseFloat(document.getElementById('sprit-preis-input').value) || 0;
+            const ertragDtTsHa = parseFloat(document.getElementById('ertrag-dt-ts-ha-input').value) || 0;
+            let tk = 0, tz = 0, trz = 0;
+            globals.bausteineOnArbeitsflaeche.forEach(b => {
+                const metrics = calculateRowMetrics(b, f, p);
+                tz += metrics.hours;
+                trz += metrics.tractorHours;
+                tk += metrics.totalCost;
+            });
+
+            updateEvaluationTableRows(f, p);
+
+            const totalDtTs = f * ertragDtTsHa;
+            const chfPerDtTs = totalDtTs > 0 ? (tk / totalDtTs) : NaN;
+            document.getElementById('gesamtkosten').innerText = tk.toLocaleString('de-CH', {minimumFractionDigits: 2});
+            document.getElementById('gesamtzeit').innerText = tz.toFixed(2) + ' h';
+            document.getElementById('traktorzeit').innerText = trz.toFixed(2) + ' h';
+            document.getElementById('kosten-pro-dt-ts').innerText = Number.isFinite(chfPerDtTs)
+                ? chfPerDtTs.toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                : '-';
+            publishFoddercostResult(chfPerDtTs);
+        }
+
+        function pushHistory() {
+            const state = JSON.stringify(globals.bausteineOnArbeitsflaeche);
+            if (historyIndex === -1 || state !== history[historyIndex]) {
+                history = history.slice(0, historyIndex + 1);
+                history.push(state);
+                historyIndex++;
+            }
+        }
+
+        function undo() { if (historyIndex > 0) { historyIndex--; globals.bausteineOnArbeitsflaeche = JSON.parse(history[historyIndex]); renderArbeitsflaeche(); } }
+        function redo() { if (historyIndex < history.length - 1) { historyIndex++; globals.bausteineOnArbeitsflaeche = JSON.parse(history[historyIndex]); renderArbeitsflaeche(); } }
+
+        function loadStandardHeu() {
+            const wanted = [/mäh/i, /heuer|zetten|wenden/i, /schwad/i, /ladewagen|ballenpresse|laden/i];
+            const picked = [];
+            wanted.forEach((regex) => {
+                const hit = globals.machines.find((m) => regex.test((m.name || '').toLowerCase()) && !picked.some((p) => p.code === m.code));
+                if (hit) picked.push(hit);
+            });
+            if (!picked.length) {
+                picked.push(...globals.machines.slice(0, 4));
+            }
+            globals.bausteineOnArbeitsflaeche = picked.map((m) => ({
+                ...m,
+                icon: getCategoryEmoji(m.groupCode),
+                traktor: suggestTraktor(m),
+                original: { ...m }
+            }));
+            pushHistory(); renderArbeitsflaeche();
+        }
+
+        function updateKatalogDropdown() {
+            const kat = document.getElementById('filter-kategorie').value;
+            const dropdown = document.getElementById('katalog-dropdown');
+            dropdown.innerHTML = '';
+            if (!kat) return;
+            globals.selectedGroupCode = String(kat);
+            renderCategoryTiles();
+            const machines = globals.machinesByGroup.get(String(kat)) || [];
+            const filtered = machines.filter((m) => {
+                if (!machineMatchesScope(m)) return false;
+                if (!globals.searchTerm) return true;
+                const haystack = `${m.code} ${m.name} ${m.beschreibung || ''}`.toLowerCase();
+                return haystack.includes(globals.searchTerm);
+            });
+            filtered.forEach((m) => {
+                const label = `${m.code} · ${m.name}`;
+                dropdown.add(new Option(label, String(m.code)));
+            });
+        }
+
+        function addFromCatalog() {
+            const val = document.getElementById('katalog-dropdown').value;
+            if (!val) return;
+            const machine = globals.machinesByCode.get(String(val));
+            if (!machine) return;
+            const block = {
+                ...machine,
+                icon: getCategoryEmoji(machine.groupCode),
+                original: { ...machine },
+                traktor: suggestTraktor(machine)
+            };
+            globals.bausteineOnArbeitsflaeche.push(block);
+            pushHistory(); renderArbeitsflaeche();
+        }
+
+        function resetRowToDefault() {
+            const b = globals.bausteineOnArbeitsflaeche[globals.editIdx];
+            if (b.original) {
+                document.getElementById('edit-leist').value = b.original.leist;
+                document.getElementById('edit-kost').value = b.original.kost;
+                document.getElementById('edit-sprit').value = b.original.sprit;
+                const tr = suggestTraktor(b.original);
+                document.getElementById('traktor-select').value = JSON.stringify(tr);
+            }
+        }
+
+        function closeModal() { document.getElementById('edit-modal').classList.add('hidden'); }
+        function removeBlock(i) { globals.bausteineOnArbeitsflaeche.splice(i,1); pushHistory(); renderArbeitsflaeche(); }
+        
+        const af = document.getElementById('arbeitsflaeche');
+        af.ondragover = (e) => e.preventDefault();
+        af.ondrop = (e) => {
+            try {
+                const m = JSON.parse(e.dataTransfer.getData('application/json'));
+                if (!m) return;
+                const block = {...m, original: {...m}, traktor: suggestTraktor(m), icon: m.icon || getCategoryEmoji(m.groupCode)};
+                globals.bausteineOnArbeitsflaeche.push(block);
+                pushHistory(); renderArbeitsflaeche();
+            } catch (err) {
+                // ignore invalid drag payloads
+            }
+        };
+
+        init();
+    </script>
+</body>
+</html>

@@ -1,0 +1,1865 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AGFF Futter-Dashboard</title>
+    <base href="/futter/">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+
+    <script>
+        async function verifyAdminPassword(pwd) {
+            try {
+                const response = await fetch('api/admin/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-Admin-Pass': pwd },
+                    body: '{}'
+                });
+                return response.ok;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        const FUTTERART_FARBEN = {
+            'Wiesenfutter': 'rgba(0, 158, 115, 1)',
+            'Silomais': 'rgba(230, 159, 0, 1)',
+            'Ganzpflanzensilage (GPS)': 'rgba(0, 120, 186, 1)',
+            'Zuckerrüben-Schnitzel': 'rgba(213, 94, 0, 1)',
+            'Malztreber': 'rgba(86, 180, 233, 1)',
+            'Unbekannt': 'rgba(128, 128, 128, 1)'
+        };
+        const STANDARD_FARBE = 'rgba(128, 128, 128, 1)';
+
+        let alleProben = [];
+        let selectedSample = null;
+        let tableSort = { key: 'probeNr', dir: 'asc' };
+        let tableFilters = {};
+        let inputTableSort = { key: 'probeNr', dir: 'asc' };
+        let inputTableFilters = {};
+        let summaryRows = [];
+        let summaryTableSort = { key: 'probeNr', dir: 'asc' };
+        let summaryTableFilters = {};
+        let outlierReviewerSet = new Set();
+        let prefixOptions = [];
+        let editMode = false;
+        let reviewerOptions = [];
+        let fitAllOnScreen = false;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            showLoading(true, "Lade Daten vom Server...");
+
+            loadDashboardSettings();
+            
+            // Event Listener UI
+            setupEventListeners();
+
+            // Admin Auto-Login (Gerät)
+            const storedAdminPass = localStorage.getItem('agffAdminPass');
+            if (storedAdminPass && await verifyAdminPassword(storedAdminPass)) {
+                document.getElementById('admin-passwort').value = storedAdminPass;
+                document.getElementById('admin-unlock-wrapper').classList.add('hidden');
+                document.getElementById('admin-wrapper').classList.remove('hidden');
+                localStorage.setItem('agffAdminUnlocked', '1');
+                const bf = document.getElementById('filter-beurteiler');
+                if (bf) bf.classList.remove('hidden');
+            } else if (storedAdminPass) {
+                localStorage.removeItem('agffAdminPass');
+                localStorage.removeItem('agffAdminUnlocked');
+            }
+            
+            // Daten laden
+            await loadData();
+        });
+
+        // --- DATEN LADEN (PYTHON API) ---
+        async function loadData() {
+            try {
+                // API Aufruf an Flask
+                const response = await fetch('api/proben'); // Relativer Pfad!
+                if (!response.ok) throw new Error("Server Fehler beim Laden");
+                
+                alleProben = await response.json();
+                console.log(`${alleProben.length} Proben geladen.`);
+                updatePrefixOptions();
+                updateReviewerOptions();
+                updateChart();
+                await loadSummaryData();
+                showLoading(false);
+            } catch (e) {
+                console.error(e);
+                showLoading(false, "Fehler: " + e.message, true);
+            }
+        }
+
+        async function loadSummaryData() {
+            try {
+                const response = await fetch('api/results/summary');
+                if (!response.ok) throw new Error("Server Fehler beim Laden");
+                summaryRows = await response.json();
+                renderSummaryTable(summaryRows || []);
+            } catch (e) {
+                summaryRows = [];
+                renderSummaryTable([]);
+            }
+        }
+
+        // --- ADMIN FUNKTIONEN ---
+        // Wir senden das Passwort im Header 'X-Admin-Pass'
+        
+        async function apiAdminRequest(endpoint, payload) {
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Admin-Pass': document.getElementById('admin-passwort').value
+                    },
+                    body: JSON.stringify(payload)
+                });
+                return await response.json();
+            } catch (e) {
+                return { error: e.message };
+            }
+        }
+
+        async function handleDeleteProbe() {
+            const probeNr = document.getElementById('admin-delete-probe-nr').value.trim();
+            const statusEl = document.getElementById('admin-status');
+            if(!probeNr) return;
+
+            // Einfacher Bestätigungs-Check
+            if(!confirm(`Probe '${probeNr}' wirklich löschen?`)) return;
+
+            statusEl.textContent = "Lösche...";
+            const res = await apiAdminRequest('api/admin/delete', { probeNr });
+            
+            if (res.error) {
+                statusEl.textContent = "Fehler: " + res.error;
+                statusEl.className = "text-xs text-red-600";
+            } else {
+                statusEl.textContent = "Gelöscht!";
+                statusEl.className = "text-xs text-green-600";
+                loadData(); // Neu laden
+            }
+        }
+
+        async function handleUpdatePrefix(action) {
+            const prefix = document.getElementById(action === 'remove' ? 'admin-remove-prefix' : (action === 'swap' ? 'admin-swap-prefix-new' : 'admin-add-prefix')).value.trim();
+            const oldPrefix = action === 'swap' ? document.getElementById('admin-swap-prefix-old').value.trim() : null;
+            const statusEl = document.getElementById('admin-status');
+
+            statusEl.textContent = "Arbeite...";
+            const res = await apiAdminRequest('api/admin/prefix', { action, prefix, oldPrefix });
+
+            if (res.error) {
+                statusEl.textContent = "Fehler: " + res.error;
+                statusEl.className = "text-xs text-red-600";
+            } else {
+                statusEl.textContent = "Fertig! Aktualisiert.";
+                statusEl.className = "text-xs text-green-600";
+                loadData();
+            }
+        }
+
+        async function handleRenameProbe() {
+            const oldProbe = document.getElementById('admin-rename-probe-old').value.trim();
+            const newProbe = document.getElementById('admin-rename-probe-new').value.trim();
+            const statusEl = document.getElementById('admin-status');
+
+            if (!oldProbe || !newProbe) return;
+            if (!confirm(`Probe '${oldProbe}' wirklich umbenennen in '${newProbe}'?`)) return;
+
+            statusEl.textContent = "Arbeite...";
+            const res = await apiAdminRequest('api/admin/rename', { oldProbe, newProbe });
+
+            if (res.error) {
+                statusEl.textContent = "Fehler: " + res.error;
+                statusEl.className = "text-xs text-red-600";
+            } else {
+                statusEl.textContent = "Fertig! Umbenannt.";
+                statusEl.className = "text-xs text-green-600";
+                loadData();
+            }
+        }
+
+        // --- UI & CHARTS (Rest fast identisch zu vis.html) ---
+        
+        function setupEventListeners() {
+            // Filter Change Events
+            ['filter-metrik', 'filter-gruppe', 'filter-futterart', 'filter-aufwuchs', 'filter-konservierung', 'filter-bestand', 'filter-probe-suffix', 'filter-chart-mode'].forEach(id => {
+                document.getElementById(id)?.addEventListener('change', () => {
+                    saveDashboardSettings();
+                    updateChart();
+                });
+            });
+            document.getElementById('filter-beurteiler')?.addEventListener('change', () => {
+                saveDashboardSettings();
+                updateChart();
+            });
+            const prefixInput = document.getElementById('filter-prefix');
+            const prefixMenu = document.getElementById('filter-prefix-menu');
+            prefixInput?.addEventListener('input', () => {
+                saveDashboardSettings();
+                updateChart();
+                renderPrefixMenu(prefixInput.value);
+                showPrefixMenu(true);
+            });
+            prefixInput?.addEventListener('focus', () => {
+                renderPrefixMenu(prefixInput.value);
+                showPrefixMenu(true);
+            });
+            prefixInput?.addEventListener('blur', () => {
+                setTimeout(() => showPrefixMenu(false), 150);
+            });
+            prefixMenu?.addEventListener('mousedown', (e) => {
+                const item = e.target.closest('[data-prefix-value]');
+                if (!item) return;
+                prefixInput.value = item.getAttribute('data-prefix-value') || '';
+                saveDashboardSettings();
+                updateChart();
+                showPrefixMenu(false);
+            });
+
+            // Admin Unlock
+            document.getElementById('admin-unlock-btn').addEventListener('click', async () => {
+                const pwd = document.getElementById('admin-passwort').value;
+                if(await verifyAdminPassword(pwd)) {
+                    document.getElementById('admin-unlock-wrapper').classList.add('hidden');
+                    document.getElementById('admin-wrapper').classList.remove('hidden');
+                    localStorage.setItem('agffAdminPass', pwd);
+                    localStorage.setItem('agffAdminUnlocked', '1');
+                    const bf = document.getElementById('filter-beurteiler');
+                    if (bf) bf.classList.remove('hidden');
+                } else {
+                    document.getElementById('admin-unlock-status').textContent = "Falsch";
+                }
+            });
+
+            // Admin Buttons
+            document.getElementById('btn-delete-probe').addEventListener('click', handleDeleteProbe);
+            document.getElementById('btn-rename-probe').addEventListener('click', handleRenameProbe);
+            document.getElementById('btn-swap-prefix').addEventListener('click', () => handleUpdatePrefix('swap'));
+            document.getElementById('edit-close').addEventListener('click', closeEditModal);
+            document.getElementById('edit-cancel').addEventListener('click', closeEditModal);
+            document.getElementById('edit-save').addEventListener('click', saveEditModal);
+            document.getElementById('edit-archive').addEventListener('click', archiveEditModal);
+            document.getElementById('edit-delete').addEventListener('click', deleteEditModal);
+            document.getElementById('edit-toggle').addEventListener('click', () => {
+                setEditMode(!editMode);
+            });
+            document.getElementById('edit-modal').addEventListener('click', (e) => {
+                if (e.target.id === 'edit-modal') closeEditModal();
+            });
+
+            document.getElementById('edit-section-probeinfos-btn').addEventListener('click', () => toggleEditSection('probeinfos'));
+            document.getElementById('edit-section-beurteilung-btn').addEventListener('click', () => toggleEditSection('beurteilung'));
+            document.getElementById('edit-futterart').addEventListener('change', updateEditFutterartVisibility);
+            const editAufwuchsNr = document.getElementById('edit-aufwuchs_nr');
+            if (editAufwuchsNr) {
+                editAufwuchsNr.addEventListener('input', () => normalizeIntegerInputValue('edit-aufwuchs_nr'));
+                editAufwuchsNr.addEventListener('change', () => normalizeIntegerInputValue('edit-aufwuchs_nr'));
+            }
+            document.getElementById('edit-aufwuchs-nr-minus')?.addEventListener('click', () => adjustIntegerField('edit-aufwuchs_nr', -1));
+            document.getElementById('edit-aufwuchs-nr-plus')?.addEventListener('click', () => adjustIntegerField('edit-aufwuchs_nr', 1));
+
+            document.getElementById('chart-fullscreen-btn').addEventListener('click', toggleChartFullscreen);
+            document.getElementById('chart-count').addEventListener('click', toggleFitAllOnScreen);
+            document.addEventListener('fullscreenchange', () => {
+                const container = document.getElementById('chart-container');
+                if (container && window.Plotly) {
+                    Plotly.Plots.resize(container);
+                }
+            });
+            
+            // Accordion Admin
+            document.getElementById('admin-accordion-toggle').addEventListener('click', () => {
+                 document.getElementById('admin-accordion-content').classList.toggle('hidden');
+            });
+
+            document.getElementById('data-table-toggle').addEventListener('click', () => {
+                document.getElementById('data-table-content').classList.toggle('hidden');
+                document.getElementById('data-table-icon').classList.toggle('rotate-180');
+            });
+            document.getElementById('input-table-toggle').addEventListener('click', () => {
+                document.getElementById('input-table-content').classList.toggle('hidden');
+                document.getElementById('input-table-icon').classList.toggle('rotate-180');
+            });
+            document.getElementById('summary-table-toggle').addEventListener('click', () => {
+                document.getElementById('summary-table-content').classList.toggle('hidden');
+                document.getElementById('summary-table-icon').classList.toggle('rotate-180');
+            });
+
+        }
+
+        function loadDashboardSettings() {
+            try {
+                const raw = localStorage.getItem('agffDashboardSettings');
+                if (!raw) return;
+                const s = JSON.parse(raw);
+
+                const setVal = (id, val) => {
+                    const el = document.getElementById(id);
+                    if (!el || val === undefined || val === null) return;
+                    if (el.type === 'checkbox') el.checked = Boolean(val);
+                    else el.value = val;
+                };
+
+                setVal('filter-metrik', s.filterMetrik);
+                setVal('filter-gruppe', s.filterGruppe);
+                setVal('filter-prefix', s.filterPrefix);
+                setVal('filter-probe-suffix', s.filterProbeSuffix);
+                setVal('filter-beurteiler', s.filterBeurteiler);
+                setVal('filter-chart-mode', s.filterChartMode);
+                setVal('filter-futterart', s.filterFutterart);
+                setVal('filter-aufwuchs', s.filterAufwuchs);
+                setVal('filter-konservierung', s.filterKonservierung);
+                setVal('filter-bestand', s.filterBestand);
+
+                if (typeof s.fitAllOnScreen === 'boolean') {
+                    fitAllOnScreen = s.fitAllOnScreen;
+                    const countEl = document.getElementById('chart-count');
+                    if (countEl) countEl.classList.toggle('font-semibold', fitAllOnScreen);
+                }
+
+            } catch (e) {
+                console.warn('Settings load failed', e);
+            }
+        }
+
+        function saveDashboardSettings() {
+            try {
+                const s = {
+                    filterMetrik: document.getElementById('filter-metrik')?.value,
+                    filterGruppe: document.getElementById('filter-gruppe')?.value,
+                    filterPrefix: document.getElementById('filter-prefix')?.value,
+                    filterProbeSuffix: document.getElementById('filter-probe-suffix')?.checked,
+                    filterBeurteiler: document.getElementById('filter-beurteiler')?.value,
+                    filterChartMode: document.getElementById('filter-chart-mode')?.value,
+                    filterFutterart: document.getElementById('filter-futterart')?.value,
+                    filterAufwuchs: document.getElementById('filter-aufwuchs')?.value,
+                    filterKonservierung: document.getElementById('filter-konservierung')?.value,
+                    filterBestand: document.getElementById('filter-bestand')?.value,
+                    fitAllOnScreen
+                };
+                localStorage.setItem('agffDashboardSettings', JSON.stringify(s));
+            } catch (e) {
+                console.warn('Settings save failed', e);
+            }
+        }
+
+        function updateChart() {
+            const container = document.getElementById('chart-container');
+            const countEl = document.getElementById('chart-count');
+            if(!alleProben.length) {
+                container.innerHTML = "Keine Daten.";
+                if (countEl) countEl.textContent = "0 Beurteilungen";
+                return;
+            }
+
+            const yKey = document.getElementById('filter-metrik').value;
+            const xKey = document.getElementById('filter-gruppe').value;
+            const filterPrefix = document.getElementById('filter-prefix').value.trim();
+            const showProbeSuffix = document.getElementById('filter-probe-suffix').checked;
+            const isAdmin = localStorage.getItem('agffAdminUnlocked') === '1';
+            const filterBeurteiler = document.getElementById('filter-beurteiler').value.trim();
+            const chartMode = document.getElementById('filter-chart-mode').value;
+            const filterFutterart = document.getElementById('filter-futterart').value;
+            
+            // Filtern
+            const filtered = alleProben.filter(p => {
+                // Präfix Filter
+                if (filterPrefix && !p.probeNr.startsWith(filterPrefix)) return false;
+
+                if (filterBeurteiler && (p.beurteiler || '') !== filterBeurteiler) return false;
+
+                if (filterFutterart !== 'alle' && (p.futterart || 'Unbekannt') !== filterFutterart) return false;
+
+                // Dropdown Filter (vereinfacht)
+                const fAuf = document.getElementById('filter-aufwuchs').value;
+                if(fAuf !== 'alle' && p.aufwuchs !== fAuf) return false;
+                
+                const fKons = document.getElementById('filter-konservierung').value;
+                if(fKons !== 'alle' && p.konservierung !== fKons) return false;
+
+                const fBest = document.getElementById('filter-bestand').value;
+                if(fBest !== 'alle' && p.bestand !== fBest) return false;
+
+                return true;
+            });
+
+            if(!filtered.length) {
+                container.innerHTML = "Keine Daten für Filter.";
+                if (countEl) countEl.textContent = "0 Beurteilungen";
+                Plotly.purge(container);
+                return;
+            }
+            container.innerHTML = "";
+            if (countEl) countEl.textContent = `${filtered.length} Beurteilungen`;
+
+            outlierReviewerSet = new Set();
+
+            // Gruppieren für Farben
+            const traces = [];
+            const types = [...new Set(filtered.map(p => p.futterartLabel || p.futterart || 'Unbekannt'))];
+
+            const getXValue = (p) => {
+                if (xKey === 'probeNr') {
+                    const v = showProbeSuffix ? getProbeNrSuffix(p.probeNr) : p.probeNr;
+                    return String(v ?? '');
+                }
+                if (xKey === 'futterartAufwuchs') {
+                    const futter = p.futterartLabel || p.futterart || 'Unbekannt';
+                    const auf = labelAufwuchs(p.aufwuchs);
+                    return `${futter} • ${auf}`;
+                }
+                return p[xKey];
+            };
+
+            const futterOrder = ['Wiesenfutter', 'Silomais', 'Ganzpflanzensilage (GPS)', 'Zuckerrüben-Schnitzel', 'Malztreber', 'Unbekannt'];
+            const aufwuchsOrder = ['1. Aufwuchs', 'Folgeaufwuchs', 'Unbekannt'];
+
+            const xCategoryArray = (xKey === 'probeNr' || xKey === 'futterartAufwuchs')
+                ? (xKey === 'probeNr'
+                    ? [...new Set(filtered.map(p => String(getXValue(p))))]
+                    : futterOrder.flatMap(f =>
+                        aufwuchsOrder.map(a => `${f} • ${a}`).filter(label =>
+                            filtered.some(p => String(getXValue(p)) === label)
+                        )
+                    )
+                  )
+                : undefined;
+
+            const catCount = xCategoryArray ? xCategoryArray.length : 0;
+            let plotWidth = catCount ? Math.max(900, catCount * 60) : undefined;
+            if (fitAllOnScreen) {
+                plotWidth = undefined;
+                container.style.minWidth = '';
+            } else if (plotWidth) {
+                container.style.minWidth = `${plotWidth}px`;
+            } else {
+                container.style.minWidth = '';
+            }
+
+
+            // --- Draw box/violin traces grouped by Aufwuchs symbol, so diamonds (N2+) are last ---
+            // Helper to get Aufwuchs order: N1 (circle), N2+ (diamond), Unbekannt (square)
+            const aufwuchsSymbolOrder = [
+                { value: 'erster', symbol: 'square', label: 'N1' },
+                { value: 'folge', symbol: 'diamond', label: 'N2+' },
+                { value: 'unbekannt', symbol: 'circle', label: 'Unbekannt' }
+            ];
+
+            types.forEach(typ => {
+                const groupData = filtered.filter(p => (p.futterartLabel || p.futterart || 'Unbekannt') === typ);
+                const color = FUTTERART_FARBEN[typ] || STANDARD_FARBE;
+                const customData = groupData.map(p => ({
+                    ...p,
+                    aufwuchsLabel: labelAufwuchs(p.aufwuchs)
+                }));
+                const hovertemplate = (
+                    '<b>%{customdata.probeNr}</b>'
+                    + (isAdmin ? '<br>Beurteiler: %{customdata.beurteiler}' : '')
+                    + '<br>Aufwuchs: %{customdata.aufwuchsLabel}'
+                    + '<br>Bestandestyp: %{customdata.bestand}'
+                    + '<br>Stadium: %{customdata.eingaben.stadium}'
+                    + '<br><b>NEL: %{customdata.effektiveWerte.nel:.2f} MJ/kg TS</b>'
+                    + '<br>NEV: %{customdata.effektiveWerte.nev:.2f} MJ/kg TS'
+                    + '<br>APDE: %{customdata.effektiveWerte.apde:.2f} g/kg TS'
+                    + '<br>APDN: %{customdata.effektiveWerte.apdn:.2f} g/kg TS'
+                    + '<br>MPP (limitierend): %{customdata.mpp:.2f} kg ECM (%{customdata.ergebnisse.limit})'
+                    + '<extra></extra>'
+                );
+
+                if (chartMode === 'mean-ci') {
+                    const xValues = xCategoryArray || [...new Set(groupData.map(p => getXValue(p)))];
+                    const yMeans = [];
+                    const yErrors = [];
+                    const xOut = [];
+
+                    xValues.forEach(xv => {
+                        const vals = groupData
+                            .filter(p => getXValue(p) === xv)
+                            .map(p => getValue(p, yKey));
+                        const { mean, ci, n } = meanAndCi(vals);
+                        if (n > 0) {
+                            xOut.push(xv);
+                            yMeans.push(mean);
+                            yErrors.push(ci);
+                        }
+                    });
+
+                    traces.push({
+                        x: xOut,
+                        y: yMeans,
+                        type: 'scatter',
+                        mode: 'markers',
+                        name: typ,
+                        marker: { color: color, size: 12, symbol: 'circle', line: { color: '#111', width: 2 } },
+                        error_y: { type: 'data', array: yErrors, visible: true, thickness: 2.5, width: 8, color },
+                        hovertemplate: '<b>%{x}</b><br>Mittelwert: %{y:.2f}<extra></extra>'
+                    });
+                } else {
+                    // Draw each Aufwuchs symbol group as a separate trace, in order: circle, diamond, square
+                    let legendAdded = {};
+                    aufwuchsSymbolOrder.forEach(({ value, symbol, label }) => {
+                        const dataForSymbol = groupData.filter(p => markerSymbolForAufwuchs(p.aufwuchs) === symbol);
+                        if (!dataForSymbol.length) return;
+                        const markerColors = dataForSymbol.map(p => (p.eingaben && p.eingaben.eigene_probe === true) ? '#111' : withAlpha(color, 0.9));
+                        // Only show legend for first occurrence of type/symbol
+                        const legendKey = typ + '_' + symbol;
+                        const showLegend = !legendAdded[legendKey];
+                        legendAdded[legendKey] = true;
+                        traces.push({
+                            y: dataForSymbol.map(p => getValue(p, yKey)),
+                            x: dataForSymbol.map(p => getXValue(p)),
+                            type: 'box',
+                            name: typ,
+                            boxpoints: 'all',
+                            whiskerwidth: 0,
+                            box: { visible: true, line: { width: 2 } },
+                            boxmean: true,
+                            meanline: { visible: true, width: 4, color: '#111' },
+                            marker: {
+                                color: markerColors,
+                                size: 9,
+                                opacity: 0.9,
+                                line: { color: '#2d2d2d', width: 1 },
+                                symbol: symbol
+                            },
+                            fillcolor: withAlpha(color, 0.2),
+                            line: { color: color, width: 2 },
+                            customdata: dataForSymbol.map(p => ({
+                                ...p,
+                                aufwuchsLabel: labelAufwuchs(p.aufwuchs)
+                            })),
+                            hovertemplate: hovertemplate,
+                            showlegend: showLegend
+                        });
+                    });
+
+                    // Mittelwert-Punkte wieder anzeigen: Standardmarker (circle)
+                    // Mittelwert-Punkte neben dem Boxplot anzeigen (leicht versetzt)
+                    const xValues = xCategoryArray || [...new Set(groupData.map(p => getXValue(p)))];
+                    const meanXs = [];
+                    const meanYs = [];
+                    xValues.forEach(xv => {
+                        const vals = groupData
+                            .filter(p => getXValue(p) === xv)
+                            .map(p => getValue(p, yKey));
+                        const { mean, n } = meanAndCi(vals);
+                        if (n > 1) {
+                            meanXs.push(xv); // Kein Offset mehr, direkt über Box
+                            meanYs.push(mean);
+                        }
+                    });
+                    if (meanXs.length > 0) {
+                        traces.push({
+                            x: meanXs,
+                            y: meanYs,
+                            type: 'scatter',
+                            mode: 'markers',
+                            name: `${typ} Mittelwert`,
+                            marker: { color: '#111', size: 4.5, symbol: 'circle', line: { color: '#111', width: 1 } },
+                            showlegend: false,
+                            hoverinfo: 'skip'
+                        });
+                    }
+                }
+            });
+
+            if (chartMode !== 'mean-ci') {
+                traces.push({
+                    x: [0],
+                    y: [0],
+                    type: 'scatter',
+                    mode: 'markers',
+                    name: 'N1',
+                    marker: { symbol: 'square', color: '#6b7280', size: 8 },
+                    legendgroup: 'aufwuchs',
+                    showlegend: true,
+                    visible: 'legendonly'
+                });
+                traces.push({
+                    x: [0],
+                    y: [0],
+                    type: 'scatter',
+                    mode: 'markers',
+                    name: 'N2+',
+                    marker: { symbol: 'diamond', color: '#6b7280', size: 8 },
+                    legendgroup: 'aufwuchs',
+                    showlegend: true,
+                    visible: 'legendonly'
+                });
+            }
+
+            if (container.removeAllListeners) {
+                container.removeAllListeners('plotly_click');
+            }
+            Plotly.newPlot(container, traces, {
+                title: 'Futter-Analyse',
+                yaxis: { title: formatYAxisTitle(yKey) },
+                boxmode: chartMode === 'mean-ci' ? undefined : 'group',
+                width: plotWidth,
+                xaxis: {
+                    title: formatXAxisTitle(xKey),
+                    automargin: true,
+                    tickangle: fitAllOnScreen ? -60 : -30,
+                    tickfont: fitAllOnScreen ? { size: 9 } : undefined,
+                    type: (xKey === 'probeNr' || xKey === 'futterartAufwuchs') ? 'category' : undefined,
+                    categoryorder: (xKey === 'probeNr' || xKey === 'futterartAufwuchs') ? 'array' : undefined,
+                    categoryarray: xCategoryArray
+                },
+                margin: { l: 60, r: 20, t: 120, b: 120 },
+                legend: {
+                    orientation: 'h',
+                    yanchor: 'top',
+                    y: 1.18,
+                    xanchor: 'center',
+                    x: 0.5,
+                    itemwidth: 60,
+                    title: {text: ''},
+                    font: {size: 13}
+                }
+            }, {responsive: true}).then(() => {
+                container.on('plotly_click', handlePointClick);
+            });
+
+            renderTable(filtered);
+            renderInputTable(filtered);
+        }
+
+        function getValue(obj, path) {
+            if(!path) return undefined;
+            return path.split('.').reduce((o, i) => (o ? o[i] : undefined), obj);
+        }
+
+
+        function getProbeNrSuffix(probeNr) {
+            const v = (probeNr || '').toString();
+            const idx = v.indexOf('_');
+            if (idx === -1 || idx === v.length - 1) return v;
+            return v.slice(idx + 1).trim();
+        }
+
+        function getProbePrefix(probeNr) {
+            const v = (probeNr || '').toString();
+            const idx = v.indexOf('_');
+            if (idx === -1) return v.trim();
+            return v.slice(0, idx).trim();
+        }
+
+        function updatePrefixOptions() {
+            const input = document.getElementById('filter-prefix');
+            if (!input) return;
+            const counts = new Map();
+            (alleProben || []).forEach(p => {
+                const prefix = getProbePrefix(p.probeNr);
+                if (!prefix) return;
+                counts.set(prefix, (counts.get(prefix) || 0) + 1);
+            });
+            const current = input.value || '';
+            const options = Array.from(counts.entries())
+                .filter(([, cnt]) => cnt >= 6)
+                .map(([prefix, cnt]) => ({ prefix, cnt }))
+                .sort((a, b) => a.prefix.localeCompare(b.prefix, 'de', { numeric: true }));
+
+            prefixOptions = options;
+            if (current) input.value = current;
+            renderPrefixMenu(current);
+        }
+
+        function updateReviewerOptions() {
+            const select = document.getElementById('filter-beurteiler');
+            if (!select) return;
+            const names = new Set();
+            (alleProben || []).forEach(p => {
+                const n = (p.beurteiler || '').toString().trim();
+                if (n) names.add(n);
+            });
+            reviewerOptions = [...names].sort((a, b) => a.localeCompare(b, 'de', { numeric: true }));
+            const current = select.value || '';
+            select.innerHTML = [
+                `<option value="">Alle Beurteilungen anzeigen</option>`,
+                ...reviewerOptions.map(n => `<option value="${n}">${n}</option>`)
+            ].join('');
+            if (current && reviewerOptions.includes(current)) {
+                select.value = current;
+            }
+        }
+
+        function renderPrefixMenu(filterText) {
+            const menu = document.getElementById('filter-prefix-menu');
+            if (!menu) return;
+            const q = (filterText || '').toLowerCase();
+            const items = prefixOptions.filter(o => !q || o.prefix.toLowerCase().includes(q));
+            menu.innerHTML = items.length
+                ? items.map(o => `
+                    <div class="px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer" data-prefix-value="${o.prefix}">
+                        ${o.prefix} <span class="text-xs text-gray-500">(${o.cnt})</span>
+                    </div>
+                `).join('')
+                : '<div class="px-3 py-2 text-xs text-gray-500">Keine Treffer</div>';
+        }
+
+        function showPrefixMenu(show) {
+            const menu = document.getElementById('filter-prefix-menu');
+            if (!menu) return;
+            menu.classList.toggle('hidden', !show);
+        }
+
+        function toggleChartFullscreen() {
+            const panel = document.getElementById('chart-panel');
+            if (!panel) return;
+            if (!document.fullscreenElement) {
+                panel.requestFullscreen?.();
+            } else {
+                document.exitFullscreen?.();
+            }
+        }
+
+        function toggleFitAllOnScreen() {
+            fitAllOnScreen = !fitAllOnScreen;
+            const countEl = document.getElementById('chart-count');
+            if (countEl) {
+                countEl.classList.toggle('font-semibold', fitAllOnScreen);
+                countEl.title = fitAllOnScreen ? 'Ansicht: Alles auf Bildschirm' : '';
+            }
+            saveDashboardSettings();
+            updateChart();
+        }
+
+        function labelAufwuchs(v) {
+            if (v === 'erster') return 'N1';
+            if (v === 'folge') return 'N2+';
+            return 'Unbekannt';
+        }
+
+        function markerSymbolForAufwuchs(v) {
+            const s = (v || '').toString().toLowerCase();
+            if (s.includes('erster') || s.includes('1')) return 'square'; // N1 as square
+            if (s.includes('folge') || s.includes('2')) return 'diamond';
+            return 'circle'; // fallback/Unbekannt
+        }
+
+        function meanAndCi(values) {
+            const nums = values.filter(v => typeof v === 'number' && !Number.isNaN(v));
+            const n = nums.length;
+            if (!n) return { mean: null, ci: null, n: 0 };
+            const mean = nums.reduce((a, b) => a + b, 0) / n;
+            if (n < 2) return { mean, ci: 0, n };
+            const variance = nums.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (n - 1);
+            const sd = Math.sqrt(variance);
+            const ci = 1.96 * (sd / Math.sqrt(n));
+            return { mean, ci, n };
+        }
+
+
+        function withAlpha(rgba, alpha) {
+            if (typeof rgba !== 'string') return rgba;
+            if (!rgba.startsWith('rgba')) return rgba;
+            const parts = rgba.replace('rgba(', '').replace(')', '').split(',').map(p => p.trim());
+            if (parts.length < 3) return rgba;
+            return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${alpha})`;
+        }
+
+        function formatYAxisTitle(key) {
+            const map = {
+                'mpp': 'MPP (kg ECM)',
+                'effektiveWerte.nel': 'NEL (MJ/kg TS)',
+                'effektiveWerte.apde': 'APDE (g/kg TS)',
+                'effektiveWerte.apdn': 'APDN (g/kg TS)',
+                'automatischTSV': 'TS-Verzehr (kg TS/Tag)'
+            };
+            return map[key] || key;
+        }
+
+        function formatXAxisTitle(key) {
+            const map = {
+                'probeNr': 'Proben-Nr.',
+                'bestandLabel': 'Bestandestyp',
+                'stadiumLabel': 'Stadium',
+                'futterartAufwuchs': 'Futterart × Aufwuchs'
+            };
+            return map[key] || key;
+        }
+
+        function showLoading(show, msg, error=false) {
+            const el = document.getElementById('loading-spinner');
+            if(show) {
+                el.classList.remove('hidden');
+                el.querySelector('p').textContent = msg;
+            } else {
+                if(error) alert(msg);
+                el.classList.add('hidden');
+            }
+        }
+
+        function handlePointClick(event) {
+            const point = event?.points?.[0];
+            const sample = point?.customdata;
+            if (!sample) return;
+            openEditModal(sample);
+        }
+
+        function openEditModal(sample) {
+            selectedSample = sample;
+            const isAdmin = localStorage.getItem('agffAdminUnlocked') === '1';
+            document.getElementById('edit-modal').classList.remove('hidden');
+            document.getElementById('edit-id').value = sample.id || '';
+            document.getElementById('edit-probeNr').value = sample.probeNr || '';
+            const beurteilerInput = document.getElementById('edit-beurteiler');
+            beurteilerInput.value = isAdmin ? (sample.beurteiler || '') : '***';
+            beurteilerInput.readOnly = !isAdmin;
+            document.getElementById('edit-datum').value = sample.erstelltAm || '';
+            document.getElementById('edit-status').textContent = '';
+
+            document.getElementById('edit-archive').disabled = !isAdmin;
+            document.getElementById('edit-delete').disabled = !isAdmin;
+
+            editMode = false;
+            setEditMode(false);
+            populateEditFormsFromSample(sample);
+            renderJsonSections();
+            toggleEditSection('probeinfos');
+        }
+
+        function closeEditModal() {
+            document.getElementById('edit-modal').classList.add('hidden');
+            selectedSample = null;
+            editMode = false;
+        }
+
+        function setEditMode(enabled) {
+            editMode = enabled;
+            const btn = document.getElementById('edit-toggle');
+            if (btn) btn.textContent = editMode ? 'Fertig' : '✏️ Bearbeiten';
+            renderJsonSections();
+        }
+
+        function setEditFieldValue(id, value) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            if (el.type === 'checkbox') {
+                const v = (value || '').toString().toLowerCase();
+                el.checked = ['ja', 'true', '1', 'yes'].includes(v);
+                return;
+            }
+            el.value = value ?? '';
+        }
+
+        function normalizeIntegerInputValue(id) {
+            const el = document.getElementById(id);
+            if (!el) return '';
+            const raw = (el.value || '').toString().trim();
+            if (!raw) {
+                el.value = '';
+                return '';
+            }
+            const parsed = parseInt(raw, 10);
+            if (!Number.isFinite(parsed)) {
+                el.value = '';
+                return '';
+            }
+            const max = id === 'edit-aufwuchs_nr' ? 9 : Number.POSITIVE_INFINITY;
+            const safe = Math.min(max, Math.max(0, parsed));
+            el.value = String(safe);
+            return el.value;
+        }
+
+        function adjustIntegerField(id, delta) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const currentRaw = normalizeIntegerInputValue(id);
+            const current = currentRaw === '' ? 0 : parseInt(currentRaw, 10);
+            const max = id === 'edit-aufwuchs_nr' ? 9 : Number.POSITIVE_INFINITY;
+            const next = Math.min(max, Math.max(0, current + delta));
+            el.value = String(next);
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        function populateEditFormsFromSample(sample) {
+            const eing = sample?.eingaben || {};
+
+            setEditFieldValue('edit-probe_lieferant', eing.probe_lieferant || '');
+            setEditFieldValue('edit-postleitzahl', eing.postleitzahl || '');
+            setEditFieldValue('edit-hoehe_ueber_meer', eing.hoehe_ueber_meer || '');
+            setEditFieldValue('edit-futterart', eing.futterart || '');
+            setEditFieldValue('edit-aufwuchs_nr', eing.aufwuchs_nr || '');
+            setEditFieldValue('edit-sorte', eing.sorte || '');
+            setEditFieldValue('edit-gps_kultur', eing.gps_kultur || '');
+            setEditFieldValue('edit-gps_leguminosenanteil', eing.gps_leguminosenanteil || '');
+            setEditFieldValue('edit-silomais_kolbenanteil', eing.silomais_kolbenanteil || '');
+            setEditFieldValue('edit-silomais_powermais', eing.silomais_powermais || '');
+            setEditFieldValue('edit-silomais_schnitthoehe_50', eing.silomais_schnitthoehe_50 || '');
+            setEditFieldValue('edit-schnittdatum', eing.schnittdatum || '');
+            setEditFieldValue('edit-chargenbeschreibung', eing.chargenbeschreibung || '');
+            setEditFieldValue('edit-geplante_verwertung', eing.geplante_verwertung || '');
+
+            setEditFieldValue('edit-aufwuchs', eing.aufwuchs || '');
+            setEditFieldValue('edit-bestand', eing.bestand || '');
+            setEditFieldValue('edit-stadium', eing.stadium || '');
+            setEditFieldValue('edit-stadiumLabel', eing.stadiumLabel || '');
+            setEditFieldValue('edit-konservierung', eing.konservierung || '');
+            setEditFieldValue('edit-kuhGewicht', eing.kuhGewicht || '');
+            setEditFieldValue('edit-tsvOverride', eing.tsvOverride || '');
+            setEditFieldValue('edit-freie_korrektur', eing.freie_korrektur || '');
+            setEditFieldValue('edit-kommentar_beurteilung', eing.kommentar_beurteilung || '');
+
+            updateEditFutterartVisibility();
+        }
+
+        function updateEditFutterartVisibility() {
+            const futterart = (document.getElementById('edit-futterart')?.value || '').trim();
+            const isWiesen = futterart === 'Wiesenfutter';
+            const isSilomais = futterart === 'Silomais';
+            const isGps = futterart === 'Ganzpflanzensilage (GPS)';
+            const showSchnittdatum = isWiesen || isSilomais;
+
+            document.getElementById('edit-row-aufwuchs-nr')?.classList.toggle('hidden', !isWiesen);
+            document.getElementById('edit-row-schnittdatum')?.classList.toggle('hidden', !showSchnittdatum);
+            document.getElementById('edit-row-aufwuchs-schnitt')?.classList.toggle('hidden', !(isWiesen || showSchnittdatum));
+            document.getElementById('edit-row-sorte')?.classList.toggle('hidden', !isSilomais);
+            document.getElementById('edit-row-gps-kultur')?.classList.toggle('hidden', !isGps);
+            document.getElementById('edit-row-gps-leguminosenanteil')?.classList.toggle('hidden', !isGps);
+            document.getElementById('edit-row-silomais-kolbenanteil')?.classList.toggle('hidden', !isSilomais);
+            document.getElementById('edit-row-silomais-powermais')?.classList.toggle('hidden', !isSilomais);
+            document.getElementById('edit-row-silomais-schnitthoehe')?.classList.toggle('hidden', !isSilomais);
+        }
+
+        function collectEditEingabenFromForms(existingEingaben) {
+            const merged = { ...(existingEingaben || {}) };
+            const val = (id) => (document.getElementById(id)?.value || '').toString().trim();
+            const boolJa = (id) => (document.getElementById(id)?.checked ? 'ja' : '');
+
+            merged.probe_lieferant = val('edit-probe_lieferant');
+            merged.postleitzahl = val('edit-postleitzahl');
+            merged.hoehe_ueber_meer = val('edit-hoehe_ueber_meer');
+            merged.futterart = val('edit-futterart');
+            merged.aufwuchs_nr = val('edit-aufwuchs_nr');
+            merged.sorte = val('edit-sorte');
+            merged.gps_kultur = val('edit-gps_kultur');
+            merged.gps_leguminosenanteil = val('edit-gps_leguminosenanteil');
+            merged.silomais_kolbenanteil = val('edit-silomais_kolbenanteil');
+            merged.silomais_powermais = boolJa('edit-silomais_powermais');
+            merged.silomais_schnitthoehe_50 = boolJa('edit-silomais_schnitthoehe_50');
+            merged.schnittdatum = val('edit-schnittdatum');
+            merged.chargenbeschreibung = val('edit-chargenbeschreibung');
+            merged.geplante_verwertung = val('edit-geplante_verwertung');
+
+            merged.aufwuchs = val('edit-aufwuchs');
+            merged.bestand = val('edit-bestand');
+            merged.stadium = val('edit-stadium');
+            merged.stadiumLabel = val('edit-stadiumLabel');
+            merged.konservierung = val('edit-konservierung');
+            merged.kuhGewicht = val('edit-kuhGewicht');
+            merged.tsvOverride = val('edit-tsvOverride');
+            merged.freie_korrektur = val('edit-freie_korrektur');
+            merged.kommentar_beurteilung = val('edit-kommentar_beurteilung');
+
+            const futterart = merged.futterart;
+            if (futterart !== 'Wiesenfutter') merged.aufwuchs_nr = '';
+            if (futterart !== 'Silomais') {
+                merged.sorte = '';
+                merged.silomais_kolbenanteil = '';
+                merged.silomais_powermais = '';
+                merged.silomais_schnitthoehe_50 = '';
+            }
+            if (futterart !== 'Ganzpflanzensilage (GPS)') {
+                merged.gps_kultur = '';
+                merged.gps_leguminosenanteil = '';
+            }
+
+            return merged;
+        }
+
+        function renderJsonSections() {
+            if (!selectedSample) return;
+            renderJsonTable('edit-ergebnisse-table', selectedSample.ergebnisse || {}, editMode);
+        }
+
+        function toggleEditSection(section) {
+            const probeinfos = document.getElementById('edit-section-probeinfos');
+            const beurteilung = document.getElementById('edit-section-beurteilung');
+            const btnP = document.getElementById('edit-section-probeinfos-btn');
+            const btnB = document.getElementById('edit-section-beurteilung-btn');
+            if (!probeinfos || !beurteilung || !btnP || !btnB) return;
+
+            const showProbeinfos = section === 'probeinfos';
+            probeinfos.classList.toggle('hidden', !showProbeinfos);
+            beurteilung.classList.toggle('hidden', showProbeinfos);
+            btnP.setAttribute('aria-expanded', showProbeinfos ? 'true' : 'false');
+            btnB.setAttribute('aria-expanded', showProbeinfos ? 'false' : 'true');
+        }
+
+        async function saveEditModal() {
+            const statusEl = document.getElementById('edit-status');
+            const id = document.getElementById('edit-id').value.trim();
+            const probeNr = document.getElementById('edit-probeNr').value.trim();
+            const beurteiler = document.getElementById('edit-beurteiler').value.trim();
+            const datum = document.getElementById('edit-datum').value.trim();
+
+            let eingaben;
+            let ergebnisse;
+            try {
+                eingaben = collectEditEingabenFromForms(selectedSample?.eingaben || {});
+                ergebnisse = collectJsonFromTable('edit-ergebnisse-table');
+            } catch (e) {
+                statusEl.textContent = "Fehler: Ungültige Eingabe";
+                statusEl.className = "text-xs text-red-600";
+                return;
+            }
+
+            statusEl.textContent = "Speichere...";
+            statusEl.className = "text-xs text-gray-600";
+
+            const res = await apiAdminRequest('api/admin/update', {
+                id,
+                probeNr,
+                beurteiler,
+                datum,
+                eingaben,
+                ergebnisse
+            });
+
+            if (res.error) {
+                statusEl.textContent = "Fehler: " + res.error;
+                statusEl.className = "text-xs text-red-600";
+            } else {
+                statusEl.textContent = "Gespeichert.";
+                statusEl.className = "text-xs text-green-600";
+                await loadData();
+                closeEditModal();
+            }
+        }
+
+        async function archiveEditModal() {
+            const statusEl = document.getElementById('edit-status');
+            const id = document.getElementById('edit-id').value.trim();
+            if (!id) return;
+            if (!confirm('Probe wirklich archivieren?')) return;
+            statusEl.textContent = "Archiviere...";
+            statusEl.className = "text-xs text-gray-600";
+            const res = await apiAdminRequest('api/admin/archive', { id });
+            if (res.error) {
+                statusEl.textContent = "Fehler: " + res.error;
+                statusEl.className = "text-xs text-red-600";
+            } else {
+                statusEl.textContent = "Archiviert.";
+                statusEl.className = "text-xs text-green-600";
+                await loadData();
+                closeEditModal();
+            }
+        }
+
+        async function deleteEditModal() {
+            const statusEl = document.getElementById('edit-status');
+            const id = document.getElementById('edit-id').value.trim();
+            if (!id) return;
+            if (!confirm('Probe wirklich löschen?')) return;
+            statusEl.textContent = "Lösche...";
+            statusEl.className = "text-xs text-gray-600";
+            const res = await apiAdminRequest('api/admin/delete_by_id', { id });
+            if (res.error) {
+                statusEl.textContent = "Fehler: " + res.error;
+                statusEl.className = "text-xs text-red-600";
+            } else {
+                statusEl.textContent = "Gelöscht.";
+                statusEl.className = "text-xs text-green-600";
+                await loadData();
+                closeEditModal();
+            }
+        }
+
+        function renderJsonTable(containerId, obj, editable=false) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            const rows = Object.entries(obj || {}).map(([k, v]) => {
+                const type = Array.isArray(v) ? 'array' : (v === null ? 'null' : typeof v);
+                if (!editable) {
+                    const val = (v !== null && typeof v === 'object') ? JSON.stringify(v) : String(v ?? '');
+                    return `<tr class="border-t">
+                        <td class="px-3 py-2 text-xs text-gray-600 font-semibold whitespace-nowrap">${k}</td>
+                        <td class="px-3 py-2 text-xs text-gray-800">${val}</td>
+                    </tr>`;
+                }
+
+                let inputHtml = '';
+                if (type === 'boolean') {
+                    inputHtml = `
+                        <select class="w-full border p-1 rounded text-xs" data-key="${k}" data-type="boolean">
+                            <option value="true" ${v === true ? 'selected' : ''}>true</option>
+                            <option value="false" ${v === false ? 'selected' : ''}>false</option>
+                        </select>
+                    `;
+                } else if (type === 'object' || type === 'array') {
+                    inputHtml = `<textarea class="w-full border p-1 rounded text-xs font-mono" rows="3" data-key="${k}" data-type="${type}">${JSON.stringify(v ?? {}, null, 2)}</textarea>`;
+                } else if (type === 'number') {
+                    inputHtml = `<input type="number" class="w-full border p-1 rounded text-xs" data-key="${k}" data-type="number" value="${v ?? ''}">`;
+                } else if (type === 'null') {
+                    inputHtml = `<input type="text" class="w-full border p-1 rounded text-xs" data-key="${k}" data-type="null" value="">`;
+                } else {
+                    inputHtml = `<input type="text" class="w-full border p-1 rounded text-xs" data-key="${k}" data-type="string" value="${v ?? ''}">`;
+                }
+
+                return `<tr class="border-t">
+                    <td class="px-3 py-2 text-xs text-gray-600 font-semibold whitespace-nowrap">${k}</td>
+                    <td class="px-3 py-2 text-xs text-gray-800">${inputHtml}</td>
+                </tr>`;
+            });
+            container.innerHTML = rows.length
+                ? `<table class="min-w-full text-left"><tbody>${rows.join('')}</tbody></table>`
+                : `<div class="text-xs text-gray-500">Keine Daten</div>`;
+        }
+
+        function collectJsonFromTable(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return {};
+            const result = {};
+            container.querySelectorAll('[data-key]').forEach(el => {
+                const key = el.getAttribute('data-key');
+                const type = el.getAttribute('data-type') || 'string';
+                const raw = (el.value ?? '').toString().trim();
+                if (!key) return;
+                if (type === 'number') {
+                    const n = parseFloat(raw);
+                    if (Number.isNaN(n)) throw new Error('number');
+                    result[key] = n;
+                } else if (type === 'boolean') {
+                    if (raw !== 'true' && raw !== 'false') throw new Error('boolean');
+                    result[key] = raw === 'true';
+                } else if (type === 'object' || type === 'array') {
+                    if (!raw) {
+                        result[key] = type === 'array' ? [] : {};
+                    } else {
+                        result[key] = JSON.parse(raw);
+                    }
+                } else if (type === 'null') {
+                    result[key] = raw ? raw : null;
+                } else {
+                    result[key] = raw;
+                }
+            });
+            return result;
+        }
+
+        function getTableColumns() {
+            return [
+                { key: 'probeNr', label: 'Probe' },
+                { key: 'beurteiler', label: 'Beurteiler' },
+                { key: 'erstelltAm', label: 'Datum' },
+                { key: 'aufwuchs', label: 'Aufwuchs' },
+                { key: 'bestand', label: 'Bestand' },
+                { key: 'stadiumLabel', label: 'Stadium' },
+                { key: 'futterartLabel', label: 'Futterart' },
+                { key: 'konservierungLabel', label: 'Konservierung' },
+                { key: 'mpp', label: 'MPP' },
+                { key: 'effektiveWerte.nel', label: 'NEL' },
+                { key: 'effektiveWerte.apde', label: 'APDE' },
+                { key: 'effektiveWerte.apdn', label: 'APDN' },
+                { key: 'automatischTSV', label: 'TSV' }
+            ];
+        }
+
+        function formatValue(val) {
+            if (val === null || val === undefined) return '';
+            if (typeof val === 'number' && !Number.isNaN(val)) return val.toFixed(2);
+            return String(val);
+        }
+
+        function applyTableFilters(rows) {
+            const filters = tableFilters || {};
+            return rows.filter(r => {
+                return Object.keys(filters).every(key => {
+                    const f = (filters[key] || '').toString().trim().toLowerCase();
+                    if (!f) return true;
+                    const v = getValue(r, key);
+                    return (v === null || v === undefined)
+                        ? false
+                        : String(v).toLowerCase().includes(f);
+                });
+            });
+        }
+
+        function sortRows(rows) {
+            const { key, dir } = tableSort;
+            const mul = dir === 'asc' ? 1 : -1;
+            return [...rows].sort((a, b) => {
+                const va = getValue(a, key);
+                const vb = getValue(b, key);
+                if (key === 'probeNr') {
+                    return String(va ?? '').localeCompare(String(vb ?? ''), 'de', { numeric: false }) * mul;
+                }
+                const na = typeof va === 'number' && !Number.isNaN(va);
+                const nb = typeof vb === 'number' && !Number.isNaN(vb);
+                if (na && nb) return (va - vb) * mul;
+                return String(va ?? '').localeCompare(String(vb ?? ''), 'de', { numeric: true }) * mul;
+            });
+        }
+
+        function renderTable(rows) {
+            const cols = getTableColumns();
+            const headRow = document.getElementById('data-table-head');
+            const filterRow = document.getElementById('data-table-filters');
+            const body = document.getElementById('data-table-body');
+            const info = document.getElementById('data-table-info');
+            const isAdmin = localStorage.getItem('agffAdminUnlocked') === '1';
+
+            if (!headRow || !filterRow || !body) return;
+
+            headRow.innerHTML = cols.map(c => {
+                const isActive = tableSort.key === c.key;
+                const dir = isActive ? (tableSort.dir === 'asc' ? '▲' : '▼') : '';
+                return `<th class="px-3 py-2 text-left text-xs font-semibold text-gray-700 cursor-pointer" data-key="${c.key}">
+                    ${c.label} <span class="text-gray-400">${dir}</span>
+                </th>`;
+            }).join('');
+
+            filterRow.innerHTML = cols.map(c => {
+                const val = tableFilters[c.key] || '';
+                return `<th class="px-2 py-2">
+                    <input data-key="${c.key}" value="${val}" placeholder="Filter" class="w-full border p-1 rounded text-xs" />
+                </th>`;
+            }).join('');
+
+            const filtered = applyTableFilters(rows);
+            const sorted = sortRows(filtered);
+
+            body.innerHTML = sorted.map((r, idx) => {
+                return `<tr class="border-t hover:bg-gray-50 cursor-pointer" data-row-idx="${idx}">
+                    ${cols.map(c => {
+                        let v = getValue(r, c.key);
+                        if (!isAdmin && c.key === 'beurteiler') v = '***';
+                        return `<td class="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">${formatValue(v)}</td>`;
+                    }).join('')}
+                </tr>`;
+            }).join('');
+
+            if (info) info.textContent = `${sorted.length} von ${rows.length} Einträgen`;
+
+            headRow.querySelectorAll('th[data-key]').forEach(th => {
+                th.addEventListener('click', () => {
+                    const k = th.getAttribute('data-key');
+                    if (tableSort.key === k) {
+                        tableSort.dir = tableSort.dir === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        tableSort.key = k;
+                        tableSort.dir = 'asc';
+                    }
+                    renderTable(rows);
+                });
+            });
+
+            filterRow.querySelectorAll('input[data-key]').forEach(inp => {
+                inp.addEventListener('input', (e) => {
+                    const k = e.target.getAttribute('data-key');
+                    tableFilters[k] = e.target.value;
+                    renderTable(rows);
+                });
+            });
+
+            body.querySelectorAll('tr[data-row-idx]').forEach(tr => {
+                tr.addEventListener('click', () => {
+                    const idx = Number(tr.getAttribute('data-row-idx'));
+                    const sample = sorted[idx];
+                    if (sample) openEditModal(sample);
+                });
+            });
+        }
+
+        function getInputTableColumns() {
+            return [
+                { key: 'probeNr', label: 'Probe' },
+                { key: 'beurteiler', label: 'Beurteiler' },
+                { key: 'erstelltAm', label: 'Datum' },
+                { key: 'eingaben.probe_lieferant', label: 'Probe-Lieferant' },
+                { key: 'eingaben.futterart', label: 'Futterart' },
+                { key: 'eingaben.aufwuchs_nr', label: 'Aufwuchs Nr.' },
+                { key: 'eingaben.sorte', label: 'Sorte' },
+                { key: 'eingaben.gps_kultur', label: 'GPS Kultur' },
+                { key: 'eingaben.gps_leguminosenanteil', label: 'GPS Leguminosenanteil' },
+                { key: 'eingaben.postleitzahl', label: 'PLZ' },
+                { key: 'eingaben.hoehe_ueber_meer', label: 'Höhe m' },
+                { key: 'eingaben.schnittdatum', label: 'Schnittdatum' },
+                { key: 'eingaben.chargenbeschreibung', label: 'Chargenbeschreibung' },
+                { key: 'eingaben.silomais_kolbenanteil', label: 'Kolbenanteil' },
+                { key: 'eingaben.silomais_powermais', label: 'Powermais' },
+                { key: 'eingaben.silomais_schnitthoehe_50', label: 'Schnitthöhe >50' },
+                { key: 'eingaben.laboranalyse_vorliegend', label: 'Laboranalyse' },
+                { key: 'eingaben.geplante_verwertung', label: 'Verwertung' }
+            ];
+        }
+
+        function applyInputTableFilters(rows) {
+            const filters = inputTableFilters || {};
+            return rows.filter(r => {
+                return Object.keys(filters).every(key => {
+                    const f = (filters[key] || '').toString().trim().toLowerCase();
+                    if (!f) return true;
+                    const v = getValue(r, key);
+                    return (v === null || v === undefined)
+                        ? false
+                        : String(v).toLowerCase().includes(f);
+                });
+            });
+        }
+
+        function sortInputRows(rows) {
+            const { key, dir } = inputTableSort;
+            const mul = dir === 'asc' ? 1 : -1;
+            return [...rows].sort((a, b) => {
+                const va = getValue(a, key);
+                const vb = getValue(b, key);
+                if (key === 'probeNr') {
+                    return String(va ?? '').localeCompare(String(vb ?? ''), 'de', { numeric: false }) * mul;
+                }
+                const na = typeof va === 'number' && !Number.isNaN(va);
+                const nb = typeof vb === 'number' && !Number.isNaN(vb);
+                if (na && nb) return (va - vb) * mul;
+                return String(va ?? '').localeCompare(String(vb ?? ''), 'de', { numeric: true }) * mul;
+            });
+        }
+
+        function renderInputTable(rows) {
+            const cols = getInputTableColumns();
+            const headRow = document.getElementById('input-table-head');
+            const filterRow = document.getElementById('input-table-filters');
+            const body = document.getElementById('input-table-body');
+            const info = document.getElementById('input-table-info');
+            const isAdmin = localStorage.getItem('agffAdminUnlocked') === '1';
+
+            if (!headRow || !filterRow || !body) return;
+
+            headRow.innerHTML = cols.map(c => {
+                const isActive = inputTableSort.key === c.key;
+                const dir = isActive ? (inputTableSort.dir === 'asc' ? '▲' : '▼') : '';
+                return `<th class="px-3 py-2 text-left text-xs font-semibold text-gray-700 cursor-pointer" data-key="${c.key}">
+                    ${c.label} <span class="text-gray-400">${dir}</span>
+                </th>`;
+            }).join('');
+
+            filterRow.innerHTML = cols.map(c => {
+                const val = inputTableFilters[c.key] || '';
+                return `<th class="px-2 py-2">
+                    <input data-key="${c.key}" value="${val}" placeholder="Filter" class="w-full border p-1 rounded text-xs" />
+                </th>`;
+            }).join('');
+
+            const filtered = applyInputTableFilters(rows);
+            const sorted = sortInputRows(filtered);
+
+            body.innerHTML = sorted.map((r, idx) => {
+                return `<tr class="border-t hover:bg-gray-50 cursor-pointer" data-row-idx="${idx}">
+                    ${cols.map(c => {
+                        let v = getValue(r, c.key);
+                        if (!isAdmin && c.key === 'beurteiler') v = '***';
+                        return `<td class="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">${formatValue(v)}</td>`;
+                    }).join('')}
+                </tr>`;
+            }).join('');
+
+            if (info) info.textContent = `${sorted.length} von ${rows.length} Einträgen`;
+
+            headRow.querySelectorAll('th[data-key]').forEach(th => {
+                th.addEventListener('click', () => {
+                    const k = th.getAttribute('data-key');
+                    if (inputTableSort.key === k) {
+                        inputTableSort.dir = inputTableSort.dir === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        inputTableSort.key = k;
+                        inputTableSort.dir = 'asc';
+                    }
+                    renderInputTable(rows);
+                });
+            });
+
+            filterRow.querySelectorAll('input[data-key]').forEach(inp => {
+                inp.addEventListener('input', (e) => {
+                    const k = e.target.getAttribute('data-key');
+                    inputTableFilters[k] = e.target.value;
+                    renderInputTable(rows);
+                });
+            });
+
+            body.querySelectorAll('tr[data-row-idx]').forEach(tr => {
+                tr.addEventListener('click', () => {
+                    const idx = Number(tr.getAttribute('data-row-idx'));
+                    const sample = sorted[idx];
+                    if (sample) openEditModal(sample);
+                });
+            });
+        }
+
+        function renderSummaryTable(rows) {
+            const headRow = document.getElementById('summary-table-head');
+            const filterRow = document.getElementById('summary-table-filters');
+            const body = document.getElementById('summary-table-body');
+            const info = document.getElementById('summary-table-info');
+            if (!headRow || !filterRow || !body) return;
+
+            const cols = [
+                { key: 'probeNr', label: 'Probe' },
+                { key: 'futterart', label: 'Futterart' },
+                { key: 'count', label: 'Anzahl' },
+                { key: 'avg.nel', label: 'Ø NEL' },
+                { key: 'avg.apde', label: 'Ø APDE' },
+                { key: 'avg.apdn', label: 'Ø APDN' },
+                { key: 'avg.mpp', label: 'Ø MPP' }
+            ];
+
+            const safeRows = Array.isArray(rows) ? rows : [];
+
+            headRow.innerHTML = cols.map(c => {
+                const isActive = summaryTableSort.key === c.key;
+                const dir = isActive ? (summaryTableSort.dir === 'asc' ? '▲' : '▼') : '';
+                return `<th class="px-3 py-2 text-left text-xs font-semibold text-gray-700 cursor-pointer" data-key="${c.key}">
+                    ${c.label} <span class="text-gray-400">${dir}</span>
+                </th>`;
+            }).join('');
+
+            filterRow.innerHTML = cols.map(c => {
+                const val = summaryTableFilters[c.key] || '';
+                return `<th class="px-2 py-2">
+                    <input data-key="${c.key}" value="${val}" placeholder="Filter" class="w-full border p-1 rounded text-xs" />
+                </th>`;
+            }).join('');
+
+            const filtered = safeRows.filter(r => {
+                return Object.keys(summaryTableFilters).every(key => {
+                    const f = (summaryTableFilters[key] || '').toString().trim().toLowerCase();
+                    if (!f) return true;
+                    const v = getValue(r, key);
+                    return (v === null || v === undefined)
+                        ? false
+                        : String(v).toLowerCase().includes(f);
+                });
+            });
+
+            const sorted = [...filtered].sort((a, b) => {
+                const { key, dir } = summaryTableSort;
+                const mul = dir === 'asc' ? 1 : -1;
+                const va = getValue(a, key);
+                const vb = getValue(b, key);
+                if (key === 'probeNr') {
+                    return String(va ?? '').localeCompare(String(vb ?? ''), 'de', { numeric: false }) * mul;
+                }
+                const na = typeof va === 'number' && !Number.isNaN(va);
+                const nb = typeof vb === 'number' && !Number.isNaN(vb);
+                if (na && nb) return (va - vb) * mul;
+                return String(va ?? '').localeCompare(String(vb ?? ''), 'de', { numeric: true }) * mul;
+            });
+
+            body.innerHTML = sorted.map(r => {
+                return `<tr class="border-t hover:bg-gray-50">
+                    <td class="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">${formatValue(r.probeNr)}</td>
+                    <td class="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">${formatValue(r.futterart)}</td>
+                    <td class="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">${formatValue(r.count)}</td>
+                    <td class="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">${formatValue(r.avg?.nel)}</td>
+                    <td class="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">${formatValue(r.avg?.apde)}</td>
+                    <td class="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">${formatValue(r.avg?.apdn)}</td>
+                    <td class="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">${formatValue(r.avg?.mpp)}</td>
+                </tr>`;
+            }).join('');
+
+            if (info) info.textContent = `${sorted.length} von ${safeRows.length} Einträgen`;
+
+            headRow.querySelectorAll('th[data-key]').forEach(th => {
+                th.addEventListener('click', () => {
+                    const k = th.getAttribute('data-key');
+                    if (summaryTableSort.key === k) {
+                        summaryTableSort.dir = summaryTableSort.dir === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        summaryTableSort.key = k;
+                        summaryTableSort.dir = 'asc';
+                    }
+                    renderSummaryTable(rows);
+                });
+            });
+
+            filterRow.querySelectorAll('input[data-key]').forEach(inp => {
+                inp.addEventListener('input', (e) => {
+                    const k = e.target.getAttribute('data-key');
+                    summaryTableFilters[k] = e.target.value;
+                    renderSummaryTable(rows);
+                });
+            });
+        }
+    </script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    
+    <div id="loading-spinner" class="fixed inset-0 flex items-center justify-center bg-white z-50">
+        <div class="text-center">
+            <div class="animate-spin h-10 w-10 border-4 border-green-600 rounded-full border-t-transparent mx-auto"></div>
+            <p class="mt-4 text-gray-600">Lade...</p>
+        </div>
+    </div>
+
+    <header class="bg-white shadow p-4 mb-6">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                <span>📊</span> Futter-Dashboard
+            </h1>
+            <a href="./" class="text-blue-600 hover:underline">Zurück zum Rechner</a>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <div class="lg:col-span-4 space-y-6">
+            <div class="bg-white p-5 rounded-xl shadow space-y-4">
+                <h2 class="font-bold border-b pb-2">Ansicht & Filter</h2>
+                
+                <div>
+                    <label class="text-sm text-gray-600">Y-Achse</label>
+                    <select id="filter-metrik" class="w-full border p-2 rounded">
+                        <option value="mpp">MPP (Milchleistung)</option>
+                        <option value="effektiveWerte.nel">NEL</option>
+                        <option value="effektiveWerte.apde">APDE</option>
+                        <option value="effektiveWerte.apdn">APDN</option>
+                        <option value="automatischTSV">TS-Verzehr</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="text-sm text-gray-600">X-Achse</label>
+                    <select id="filter-gruppe" class="w-full border p-2 rounded">
+                        <option value="probeNr">Proben-Nr.</option>
+                        <option value="futterartAufwuchs">Futterart × Aufwuchs</option>
+                        <option value="bestandLabel">Bestand</option>
+                        <option value="stadiumLabel">Stadium</option>
+                    </select>
+                </div>
+
+                <hr>
+
+                <div class="relative">
+                    <input type="search" id="filter-prefix" name="prefix-search" placeholder="Präfix wählen oder eingeben" class="w-full border p-2 rounded" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="search" role="combobox" aria-autocomplete="list" aria-expanded="false" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other">
+                    <div id="filter-prefix-menu" class="absolute z-10 mt-1 w-full bg-white border rounded shadow max-h-48 overflow-auto hidden"></div>
+                </div>
+
+                <label class="flex items-center gap-2 text-sm text-gray-600">
+                    <input type="checkbox" id="filter-probe-suffix" class="accent-green-600">
+                    Nur Nummer nach "_" anzeigen
+                </label>
+
+                <select id="filter-chart-mode" class="w-full border p-2 rounded">
+                    <option value="violin">Box/Violin + Punkte</option>
+                    <option value="mean-ci">Durchschnitt + 95% CI</option>
+                </select>
+
+                <select id="filter-beurteiler" class="w-full border p-2 rounded hidden">
+                    <option value="">Alle Beurteilungen anzeigen</option>
+                </select>
+
+                <select id="filter-futterart" class="w-full border p-2 rounded">
+                    <option value="alle">Alle Futterarten</option>
+                    <option value="Wiesenfutter">Wiesenfutter</option>
+                    <option value="Silomais">Silomais</option>
+                    <option value="Ganzpflanzensilage (GPS)">Ganzpflanzensilage (GPS)</option>
+                    <option value="Zuckerrüben-Schnitzel">Zuckerrüben-Schnitzel</option>
+                    <option value="Malztreber">Malztreber</option>
+                    <option value="Unbekannt">Unbekannt</option>
+                </select>
+                
+                <select id="filter-aufwuchs" class="w-full border p-2 rounded">
+                    <option value="alle">Alle Aufwüchse</option>
+                    <option value="erster">N1</option>
+                    <option value="folge">N2+</option>
+                </select>
+
+                <select id="filter-konservierung" class="w-full border p-2 rounded">
+                    <option value="alle">Alle Konservierungen</option>
+                    <option value="greenfeed">Grünfutter</option>
+                    <option value="silage">Silage</option>
+                    <option value="hay">Dürrfutter</option>
+                </select>
+                
+                <select id="filter-bestand" class="w-full border p-2 rounded">
+                    <option value="alle">Alle Bestände</option>
+                    <option value="G">G: Gräserreich</option>
+                    <option value="A">A: Ausgewogen</option>
+                    <option value="L">L: Leguminosen</option>
+                    </select>
+            </div>
+
+            <div id="admin-unlock-wrapper" class="bg-white p-5 rounded-xl shadow space-y-3">
+                <h3 class="font-bold text-gray-700">Admin Login</h3>
+                <input type="password" id="admin-passwort" placeholder="Passwort" class="w-full border p-2 rounded">
+                <button id="admin-unlock-btn" class="w-full bg-gray-600 text-white p-2 rounded hover:bg-gray-700">Freischalten</button>
+                <p id="admin-unlock-status" class="text-red-500 text-xs"></p>
+            </div>
+
+            <div id="admin-wrapper" class="hidden">
+                <div class="bg-white rounded-xl shadow">
+                    <button id="admin-accordion-toggle" class="w-full p-4 font-bold text-left flex justify-between">
+                        Datenverwaltung
+                        <span>▼</span>
+                    </button>
+                    <div id="admin-accordion-content" class="hidden p-4 border-t space-y-4">
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold">Löschen</label>
+                            <div class="flex gap-2">
+                                <input id="admin-delete-probe-nr" placeholder="Nr." class="border p-1 w-full rounded">
+                                <button id="btn-delete-probe" class="bg-red-600 text-white px-3 rounded">Löschen</button>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold">Umbenennen</label>
+                            <div class="flex gap-2">
+                                <input id="admin-rename-probe-old" placeholder="Alt" class="border p-1 w-full rounded text-xs">
+                                <input id="admin-rename-probe-new" placeholder="Neu" class="border p-1 w-full rounded text-xs">
+                                <button id="btn-rename-probe" class="bg-purple-600 text-white px-3 rounded text-xs">OK</button>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold">Swap Prefix</label>
+                            <div class="flex gap-1">
+                                <input id="admin-swap-prefix-old" placeholder="Alt" class="border p-1 w-1/2 rounded text-xs">
+                                <input id="admin-swap-prefix-new" placeholder="Neu" class="border p-1 w-1/2 rounded text-xs">
+                            </div>
+                            <button id="btn-swap-prefix" class="w-full bg-teal-600 text-white p-1 rounded text-xs">Tauschen</button>
+                        </div>
+                        <p id="admin-status" class="text-xs text-center"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="chart-panel" class="lg:col-span-8 bg-white p-5 rounded-xl shadow min-h-[600px]">
+            <div class="flex items-center justify-between mb-2">
+                <h2 class="font-bold text-gray-800">Grafik</h2>
+                <div class="flex items-center gap-3">
+                    <button id="chart-fullscreen-btn" class="px-2 py-1 border rounded text-xs">Vollbild</button>
+                    <span id="chart-count" class="text-xs text-gray-500">0 Beurteilungen</span>
+                </div>
+            </div>
+            <div class="w-full h-full overflow-x-auto">
+                <div id="chart-container" class="w-full h-full"></div>
+            </div>
+        </div>
+
+    </main>
+
+    <section class="max-w-7xl mx-auto px-4 pb-10">
+        <div class="bg-white rounded-xl shadow p-4">
+            <button id="data-table-toggle" class="w-full flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                    <h2 class="font-bold text-gray-800">Beurteilungen-Tabelle</h2>
+                    <span id="data-table-info" class="text-xs text-gray-500"></span>
+                </div>
+                <svg id="data-table-icon" class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </button>
+            <div id="data-table-content" class="overflow-x-auto hidden">
+                <table class="min-w-full text-left">
+                    <thead class="bg-gray-50">
+                        <tr id="data-table-head"></tr>
+                        <tr id="data-table-filters"></tr>
+                    </thead>
+                    <tbody id="data-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <section class="max-w-7xl mx-auto px-4 pb-16">
+        <div class="bg-white rounded-xl shadow p-4">
+            <button id="input-table-toggle" class="w-full flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                    <h2 class="font-bold text-gray-800">Probeinfos-Tabelle</h2>
+                    <span id="input-table-info" class="text-xs text-gray-500"></span>
+                </div>
+                <svg id="input-table-icon" class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </button>
+            <div id="input-table-content" class="overflow-x-auto hidden">
+                <table class="min-w-full text-left">
+                    <thead class="bg-gray-50">
+                        <tr id="input-table-head"></tr>
+                        <tr id="input-table-filters"></tr>
+                    </thead>
+                    <tbody id="input-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <section class="max-w-7xl mx-auto px-4 pb-20">
+        <div class="bg-white rounded-xl shadow p-4">
+            <button id="summary-table-toggle" class="w-full flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                    <h2 class="font-bold text-gray-800">Durchschnittsergebnisse pro Probe</h2>
+                    <span id="summary-table-info" class="text-xs text-gray-500"></span>
+                </div>
+                <svg id="summary-table-icon" class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </button>
+            <div id="summary-table-content" class="overflow-x-auto hidden">
+                <table class="min-w-full text-left">
+                    <thead class="bg-gray-50">
+                        <tr id="summary-table-head"></tr>
+                        <tr id="summary-table-filters"></tr>
+                    </thead>
+                    <tbody id="summary-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <div id="edit-modal" class="hidden fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
+        <div class="bg-white w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-xl shadow-lg p-6 space-y-4">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-bold">Probe bearbeiten</h3>
+                <div class="flex items-center gap-2">
+                    <button id="edit-toggle" class="px-3 py-1 rounded border text-sm">✏️ Bearbeiten</button>
+                    <button id="edit-close" class="text-gray-500 hover:text-gray-700">✕</button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                    <label class="text-xs text-gray-600">ID</label>
+                    <input id="edit-id" class="w-full border p-2 rounded bg-gray-50" readonly>
+                </div>
+                <div>
+                    <label class="text-xs text-gray-600">Datum (ISO)</label>
+                    <input id="edit-datum" class="w-full border p-2 rounded" placeholder="2026-01-20T12:34:56">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-600">Proben-Nr.</label>
+                    <input id="edit-probeNr" class="w-full border p-2 rounded">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-600">Beurteiler</label>
+                    <input id="edit-beurteiler" class="w-full border p-2 rounded">
+                </div>
+            </div>
+
+            <div class="border rounded">
+                <button id="edit-section-probeinfos-btn" class="w-full flex items-center justify-between px-3 py-2 text-sm font-semibold" aria-expanded="true" type="button">
+                    Probeinfos
+                    <span>▼</span>
+                </button>
+                <div id="edit-section-probeinfos" class="px-3 pb-3">
+                    <div class="mt-2 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                        <div><label class="text-gray-600">Probe-Lieferant</label><input id="edit-probe_lieferant" class="w-full border p-2 rounded"></div>
+                        <div>
+                            <label class="text-gray-600">Futterart</label>
+                            <select id="edit-futterart" class="w-full border p-2 rounded bg-white">
+                                <option value="">-- Bitte wählen --</option>
+                                <option value="Wiesenfutter">Wiesenfutter</option>
+                                <option value="Silomais">Silomais</option>
+                                <option value="Ganzpflanzensilage (GPS)">Ganzpflanzensilage (GPS)</option>
+                                <option value="Zuckerrüben-Schnitzel">Zuckerrüben-Schnitzel</option>
+                                <option value="Malztreber">Malztreber</option>
+                            </select>
+                        </div>
+
+                        <div class="md:col-span-2 grid grid-cols-[96px_minmax(0,1fr)] gap-2 items-end">
+                            <div><label class="text-gray-600">Postleitzahl</label><input id="edit-postleitzahl" maxlength="5" inputmode="numeric" class="w-full border p-2 rounded"></div>
+                            <div><label class="text-gray-600">Höhe über Meer</label><input id="edit-hoehe_ueber_meer" class="w-full border p-2 rounded"></div>
+                        </div>
+
+                        <div id="edit-row-aufwuchs-schnitt" class="md:col-span-2 grid grid-cols-2 gap-2 items-end">
+                            <div id="edit-row-aufwuchs-nr">
+                                <label class="text-gray-600">Aufwuchs Nr.</label>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" id="edit-aufwuchs-nr-minus" class="px-2 py-1 bg-gray-200 text-gray-800 rounded font-bold leading-none hover:bg-gray-300" aria-label="Aufwuchs Nr. verringern">-</button>
+                                    <input id="edit-aufwuchs_nr" type="number" min="0" max="9" step="1" inputmode="numeric" class="w-full border p-2 rounded text-center">
+                                    <button type="button" id="edit-aufwuchs-nr-plus" class="px-2 py-1 bg-gray-200 text-gray-800 rounded font-bold leading-none hover:bg-gray-300" aria-label="Aufwuchs Nr. erhöhen">+</button>
+                                </div>
+                            </div>
+                            <div id="edit-row-schnittdatum"><label class="text-gray-600">Schnittdatum</label><input id="edit-schnittdatum" type="date" class="w-full border p-2 rounded"></div>
+                        </div>
+
+                        <div id="edit-row-sorte"><label class="text-gray-600">Sorte</label><input id="edit-sorte" class="w-full border p-2 rounded"></div>
+                        <div id="edit-row-gps-kultur"><label class="text-gray-600">GPS Kultur</label><input id="edit-gps_kultur" class="w-full border p-2 rounded"></div>
+                        <div id="edit-row-gps-leguminosenanteil"><label class="text-gray-600">GPS Leguminosenanteil</label><input id="edit-gps_leguminosenanteil" class="w-full border p-2 rounded"></div>
+                        <div id="edit-row-silomais-kolbenanteil"><label class="text-gray-600">Silomais Kolbenanteil</label><input id="edit-silomais_kolbenanteil" class="w-full border p-2 rounded"></div>
+                        <label id="edit-row-silomais-powermais" class="flex items-center gap-2 mt-5"><input type="checkbox" id="edit-silomais_powermais" class="accent-green-600"><span>Powermais</span></label>
+                        <label id="edit-row-silomais-schnitthoehe" class="flex items-center gap-2 mt-5"><input type="checkbox" id="edit-silomais_schnitthoehe_50" class="accent-green-600"><span>Schnitthöhe &gt; 50 cm</span></label>
+                        <div><label class="text-gray-600">Chargenbeschreibung</label><input id="edit-chargenbeschreibung" class="w-full border p-2 rounded"></div>
+                        <div>
+                            <label class="text-gray-600">Geplante Verwertung</label>
+                            <select id="edit-geplante_verwertung" class="w-full border p-2 rounded bg-white">
+                                <option value="">-- Bitte wählen --</option>
+                                <option value="Milchkühe">Milchkühe</option>
+                                <option value="Mutterkühe">Mutterkühe</option>
+                                <option value="Kälber">Kälber</option>
+                                <option value="Rinder">Rinder</option>
+                                <option value="Pferde">Pferde</option>
+                                <option value="Schafe">Schafe</option>
+                                <option value="Ziege">Ziege</option>
+                                <option value="anderes">Anderes</option>
+                                <option value="nicht verwenden">Nicht verwenden</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border rounded">
+                <button id="edit-section-beurteilung-btn" class="w-full flex items-center justify-between px-3 py-2 text-sm font-semibold" aria-expanded="false" type="button">
+                    Beurteilung
+                    <span>▼</span>
+                </button>
+                <div id="edit-section-beurteilung" class="px-3 pb-3 hidden">
+                    <div class="mt-2 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                        <div>
+                            <label class="text-gray-600">Aufwuchs</label>
+                            <select id="edit-aufwuchs" class="w-full border p-2 rounded bg-white">
+                                <option value="">--</option>
+                                <option value="erster">1. Aufwuchs</option>
+                                <option value="folge">Folgeaufwuchs</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-gray-600">Bestand</label>
+                            <select id="edit-bestand" class="w-full border p-2 rounded bg-white">
+                                <option value="">--</option>
+                                <option value="G">G</option>
+                                <option value="GR">GR</option>
+                                <option value="A">A</option>
+                                <option value="AR">AR</option>
+                                <option value="L">L</option>
+                                <option value="KF">KF</option>
+                                <option value="KG">KG</option>
+                            </select>
+                        </div>
+                        <div><label class="text-gray-600">Stadium (Code)</label><input id="edit-stadium" class="w-full border p-2 rounded"></div>
+                        <div><label class="text-gray-600">Stadium (Label)</label><input id="edit-stadiumLabel" class="w-full border p-2 rounded"></div>
+                        <div>
+                            <label class="text-gray-600">Konservierung</label>
+                            <select id="edit-konservierung" class="w-full border p-2 rounded bg-white">
+                                <option value="">--</option>
+                                <option value="greenfeed">Grünfutter</option>
+                                <option value="silage">Silage</option>
+                                <option value="hay">Dürrfutter</option>
+                            </select>
+                        </div>
+                        <div><label class="text-gray-600">Kuhgewicht</label><input id="edit-kuhGewicht" class="w-full border p-2 rounded"></div>
+                        <div><label class="text-gray-600">TSV Override</label><input id="edit-tsvOverride" class="w-full border p-2 rounded"></div>
+                        <div><label class="text-gray-600">Freie Korrektur</label><input id="edit-freie_korrektur" class="w-full border p-2 rounded"></div>
+                        <div class="md:col-span-2"><label class="text-gray-600">Kommentar</label><textarea id="edit-kommentar_beurteilung" rows="3" class="w-full border p-2 rounded"></textarea></div>
+                    </div>
+                    <div class="mt-3 border rounded bg-gray-50 p-2">
+                        <div class="text-xs font-semibold text-gray-700 mb-1">Ergebnisse (JSON)</div>
+                        <div id="edit-ergebnisse-table"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between">
+                <p id="edit-status" class="text-xs"></p>
+                <div class="flex gap-2">
+                    <button id="edit-archive" class="px-3 py-2 rounded border border-yellow-400 text-yellow-700">Archivieren</button>
+                    <button id="edit-delete" class="px-3 py-2 rounded border border-red-500 text-red-600">Löschen</button>
+                    <button id="edit-cancel" class="px-3 py-2 rounded border">Abbrechen</button>
+                    <button id="edit-save" class="px-3 py-2 rounded bg-green-600 text-white">Speichern</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
