@@ -34,6 +34,17 @@ ARCHIVE_PHOTO_DIR = os.path.join(ARCHIVE_ROOT_DIR, 'probe_photos')
 ARCHIVE_LAB_DIR = os.path.join(ARCHIVE_ROOT_DIR, 'labor_files')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
 
+# Mount-Pfad hinter dem Reverse-Proxy (Traefik stripprefix "/futter" in Produktion,
+# siehe docker-compose.yml). Lokal ohne Proxy einfach APP_BASE_PATH=/ setzen.
+APP_BASE_PATH = os.environ.get('APP_BASE_PATH', '/futter/')
+if not APP_BASE_PATH.endswith('/'):
+    APP_BASE_PATH += '/'
+
+
+@app.context_processor
+def inject_app_base_path():
+    return {'app_base_path': APP_BASE_PATH}
+
 # Nährwerte einzelner "Problempflanzen" für den Bestandestyp "Benutzerdefiniert".
 # Alle Werte je kg TS, gleiche Einheiten wie data/futterwerte.csv (g bzw. MJ).
 # Felder, die für eine Art fehlen, bleiben beim Blend unverändert vom Basisbestand
