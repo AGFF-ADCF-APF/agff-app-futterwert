@@ -424,16 +424,113 @@
             }, 7200);
         }
 
+        // Dominante Einzelarten (z.B. Löwenzahn) für den Bestandestyp "Benutzerdefiniert".
+        // Die Nährwert-Zahlen selbst leben serverseitig in app.py (SPECIES_NUTRIENTS) -
+        // hier nur Anzeige-Metadaten fürs UI.
+        let customSpeciesAdditions = [];
+        const CUSTOM_SPECIES_OPTIONS = {
+            loewenzahn: {
+                label: 'Löwenzahn',
+                warn: null
+            },
+            ampfer: {
+                label: 'Ampfer',
+                warn: 'Datenlage unvollständig: Nur Rohprotein und eine grobe Energie-Schätzung sind hinterlegt. Übrige Werte (APDN/APDE, Mineralstoffe, ...) bleiben unverändert vom Basisbestand.'
+            }
+        };
+
         function getSelectedBestandLabel() {
             const select = document.getElementById('bestandestyp');
             if (!select) return 'Bitte wählen...';
-            return select.options[select.selectedIndex]?.text || 'Bitte wählen...';
+            let label = select.options[select.selectedIndex]?.text || 'Bitte wählen...';
+            if (customSpeciesAdditions.length && select.value) {
+                const zusatz = customSpeciesAdditions
+                    .map(e => `${CUSTOM_SPECIES_OPTIONS[e.art]?.label || e.art} ${e.anteil}%`)
+                    .join(', ');
+                label += ` + Benutzerdefiniert (${zusatz})`;
+            }
+            return label;
         }
 
         function syncBestandSelectionButton() {
             const button = document.getElementById('openBestandModal');
             if (!button) return;
             button.textContent = getSelectedBestandLabel();
+        }
+
+        function createCustomSpeciesRow(art, anteil) {
+            const row = document.createElement('div');
+            row.className = 'flex items-center gap-2 custom-species-row';
+            const options = Object.entries(CUSTOM_SPECIES_OPTIONS)
+                .map(([key, opt]) => `<option value="${key}" ${key === art ? 'selected' : ''}>${opt.label}</option>`)
+                .join('');
+            row.innerHTML = `
+                <select class="species-art flex-1 p-2 border rounded text-sm">${options}</select>
+                <input type="number" min="1" max="80" step="1" value="${anteil || ''}" placeholder="Anteil %" class="species-anteil w-24 p-2 border rounded text-sm">
+                <button type="button" class="species-remove text-gray-400 hover:text-red-600 text-xl leading-none px-1" aria-label="Art entfernen">&times;</button>
+                <p class="species-warn hidden text-xs text-amber-700 basis-full"></p>
+            `;
+            const updateWarn = () => {
+                const selected = row.querySelector('.species-art').value;
+                const warnEl = row.querySelector('.species-warn');
+                const warn = CUSTOM_SPECIES_OPTIONS[selected]?.warn;
+                if (warn) { warnEl.textContent = '⚠ ' + warn; warnEl.classList.remove('hidden'); }
+                else { warnEl.classList.add('hidden'); }
+            };
+            row.querySelector('.species-art').addEventListener('change', updateWarn);
+            row.querySelector('.species-remove').addEventListener('click', () => row.remove());
+            updateWarn();
+            return row;
+        }
+
+        function setupCustomSpeciesPanel() {
+            const customBtn = document.getElementById('bestandCustomOption');
+            const panel = document.getElementById('customSpeciesPanel');
+            const rowsContainer = document.getElementById('customSpeciesRows');
+            const baseSelect = document.getElementById('customSpeciesBase');
+            if (!customBtn || !panel || !rowsContainer || !baseSelect) return;
+
+            customBtn.addEventListener('click', () => {
+                panel.classList.remove('hidden');
+                const currentBase = document.getElementById('bestandestyp').value;
+                if (currentBase && ['G', 'GR', 'A', 'AR', 'L', 'KF', 'KG'].includes(currentBase)) {
+                    baseSelect.value = currentBase;
+                }
+                if (!rowsContainer.children.length) {
+                    if (customSpeciesAdditions.length) {
+                        customSpeciesAdditions.forEach(e => rowsContainer.appendChild(createCustomSpeciesRow(e.art, e.anteil)));
+                    } else {
+                        rowsContainer.appendChild(createCustomSpeciesRow('loewenzahn', ''));
+                    }
+                }
+            });
+
+            document.getElementById('customSpeciesAddRow')?.addEventListener('click', () => {
+                rowsContainer.appendChild(createCustomSpeciesRow('loewenzahn', ''));
+            });
+
+            document.getElementById('customSpeciesCancel')?.addEventListener('click', () => {
+                panel.classList.add('hidden');
+            });
+
+            document.getElementById('customSpeciesApply')?.addEventListener('click', () => {
+                const base = baseSelect.value;
+                if (!base) { alert('Bitte zuerst einen Basis-Bestandestyp wählen.'); return; }
+                const additions = [];
+                rowsContainer.querySelectorAll('.custom-species-row').forEach(row => {
+                    const art = row.querySelector('.species-art').value;
+                    const anteil = parseFloat(row.querySelector('.species-anteil').value);
+                    if (art && anteil > 0) additions.push({ art, anteil });
+                });
+                if (!additions.length) { alert('Bitte mindestens eine Art mit Anteil > 0% angeben.'); return; }
+
+                customSpeciesAdditions = additions;
+                const select = document.getElementById('bestandestyp');
+                select.value = base;
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+                panel.classList.add('hidden');
+                closeBestandModal();
+            });
         }
 
         function openBestandModal() {
@@ -975,11 +1072,15 @@
                     const value = (button.dataset.bestandOption || '').trim();
                     const select = document.getElementById('bestandestyp');
                     if (!value || !select) return;
+                    customSpeciesAdditions = [];
+                    document.getElementById('customSpeciesPanel')?.classList.add('hidden');
                     select.value = value;
                     select.dispatchEvent(new Event('change', { bubbles: true }));
                     closeBestandModal();
                 });
             });
+
+            setupCustomSpeciesPanel();
 
             // Modal Logic
             const stadiumModalEl = document.getElementById('stadiumModal');
@@ -3658,6 +3759,17 @@
                     }
                 }
 
+                if (eingaben.custom_species) {
+                    try {
+                        const parsed = JSON.parse(eingaben.custom_species);
+                        customSpeciesAdditions = Array.isArray(parsed) ? parsed : [];
+                    } catch (e) {
+                        customSpeciesAdditions = [];
+                    }
+                } else {
+                    customSpeciesAdditions = [];
+                }
+
                 if (eingaben.bestand) {
                     const bestand = document.getElementById('bestandestyp');
                     if (bestand) {
@@ -4619,7 +4731,8 @@
                 konservierung: konservierung,
                 kuhGewicht: document.getElementById('kuhgewicht').value,
                 tsvOverride: getPersistedTsvOverride(),
-                korrekturen: []
+                korrekturen: [],
+                custom_species: customSpeciesAdditions
             };
 
             document.querySelectorAll('#correction-inputs input[type="checkbox"]:checked').forEach(cb => payload.korrekturen.push(cb.id));
@@ -5697,6 +5810,22 @@
             });
         }
 
+        function renderCustomSpeciesBanner(data) {
+            const angewendet = data.custom_species_angewendet;
+            if (!Array.isArray(angewendet) || !angewendet.length) return '';
+            const zeilen = angewendet.map(e => {
+                const anteil = Number(e.anteil).toFixed(0);
+                const warnZeile = e.vollstaendig === false
+                    ? `<div class="text-xs text-amber-800 mt-0.5">⚠ Datenlage unvollständig: nur Rohprotein/NEL-Schätzung hinterlegt, übrige Werte für diesen Anteil unverändert vom Basisbestand.</div>`
+                    : '';
+                return `<div><strong>${e.label} (${anteil}%)</strong> — Quelle: ${e.quelle}${warnZeile}</div>`;
+            }).join('');
+            return `<div class="mb-4 p-3 rounded-lg bg-rose-50 border border-rose-200 text-sm text-rose-900">
+                <p class="font-semibold mb-1">Benutzerdefiniert: dominante Arten eingerechnet</p>
+                ${zeilen}
+            </div>`;
+        }
+
         function displayResults(data) {
             updateTsvOverrideReference(data);
             setResultWrapperTheme('wiesenfutter');
@@ -5786,6 +5915,7 @@
             ].join('');
 
             document.getElementById('result-content').innerHTML = `
+                ${renderCustomSpeciesBanner(data)}
                 ${renderKonservierungQualityCard(konservierung)}
                 <div class="overflow-x-auto"><table class="w-full min-w-[340px] text-sm">
                 <thead><tr class="border-b"><th class="text-left py-2">Parameter</th><th class="text-right py-2">Basis</th><th class="text-right py-2">Korr.</th><th class="text-right py-2">Effektiv</th><th class="text-left py-2">Einh.</th></tr></thead>
@@ -5884,6 +6014,7 @@
             const eingaben = {
                 aufwuchs: document.querySelector('input[name="aufwuchs"]:checked')?.value,
                 bestand: document.getElementById('bestandestyp').value,
+                custom_species: JSON.stringify(customSpeciesAdditions),
                 stadium: document.getElementById('openStadiumModal').dataset.selectedStadium,
                 stadiumLabel: aktuellesStadiumLabel,
                 konservierung: document.querySelector('input[name="konservierung"]:checked')?.value,
@@ -8146,6 +8277,30 @@
                 <button type="button" data-bestand-option="L" class="w-full rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-left text-sm font-semibold text-sky-900 hover:bg-sky-100">L: Leguminosenreich</button>
                 <button type="button" data-bestand-option="KF" class="w-full rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-left text-sm font-semibold text-amber-900 hover:bg-amber-100">KF: Kräuterreich (fein)</button>
                 <button type="button" data-bestand-option="KG" class="w-full rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-left text-sm font-semibold text-amber-900 hover:bg-amber-100">KG: Kräuterreich (grob)</button>
+                <button type="button" id="bestandCustomOption" class="w-full rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-left text-sm font-semibold text-rose-900 hover:bg-rose-100">Benutzerdefiniert: dominante Problempflanzen (z.B. Löwenzahn)</button>
+            </div>
+
+            <div id="customSpeciesPanel" class="hidden mt-4 p-3 border border-rose-200 rounded-lg bg-rose-50/50 space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Basis-Bestandestyp (Grundlage der Berechnung)</label>
+                    <select id="customSpeciesBase" class="w-full p-2 border rounded text-sm">
+                        <option value="">Bitte wählen...</option>
+                        <option value="G">G: Gräserreich</option>
+                        <option value="GR">GR: Gräserreich (Raigras)</option>
+                        <option value="A">A: Ausgewogen</option>
+                        <option value="AR">AR: Ausgewogen (Raigras)</option>
+                        <option value="L">L: Leguminosenreich</option>
+                        <option value="KF">KF: Kräuterreich (fein)</option>
+                        <option value="KG">KG: Kräuterreich (grob)</option>
+                    </select>
+                </div>
+                <div id="customSpeciesRows" class="space-y-2"></div>
+                <button type="button" id="customSpeciesAddRow" class="text-sm text-rose-700 font-medium hover:underline">+ Art hinzufügen</button>
+                <p class="text-xs text-gray-500">Die Nährwerte der gewählten Art(en) werden anteilig mit dem Basisbestand verrechnet. Der Basisbestand-Anteil bleibt mindestens 20%.</p>
+                <div class="flex justify-end gap-2 pt-1">
+                    <button type="button" id="customSpeciesCancel" class="px-3 py-2 text-sm rounded border">Abbrechen</button>
+                    <button type="button" id="customSpeciesApply" class="px-3 py-2 text-sm rounded bg-rose-600 text-white font-semibold hover:bg-rose-700">Übernehmen</button>
+                </div>
             </div>
         </div>
     </div>

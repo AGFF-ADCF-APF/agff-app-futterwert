@@ -33,6 +33,88 @@ ARCHIVE_ROOT_DIR = 'data/archive'
 ARCHIVE_PHOTO_DIR = os.path.join(ARCHIVE_ROOT_DIR, 'probe_photos')
 ARCHIVE_LAB_DIR = os.path.join(ARCHIVE_ROOT_DIR, 'labor_files')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
+
+# Nährwerte einzelner "Problempflanzen" für den Bestandestyp "Benutzerdefiniert".
+# Alle Werte je kg TS, gleiche Einheiten wie data/futterwerte.csv (g bzw. MJ).
+# Felder, die für eine Art fehlen, bleiben beim Blend unverändert vom Basisbestand
+# (siehe blend_basis_mit_arten) statt geraten zu werden.
+SPECIES_NUTRIENTS = {
+    'loewenzahn': {
+        'label': 'Löwenzahn',
+        'quelle': 'Nehring 1989 / DLG 1997, zit. n. Hoffmann (LKV Sachsen), Mittelwerte zur Blütezeit',
+        'vollstaendig': True,
+        'werte': {
+            'nel': 6.2, 'rp': 137.5, 'rf': 165.0, 'zucker': 119.5,
+            'ca': 15.0, 'p': 3.5, 'mg': 2.0, 'k': 30.0, 'na': 2.25,
+        },
+    },
+    'ampfer': {
+        'label': 'Ampfer (Stumpfblättriger)',
+        'quelle': 'Rumex obtusifolius, versch. Quellen (u.a. Diss. HU Berlin) — lückenhafte Datenlage',
+        'vollstaendig': False,
+        'werte': {
+            'rp': 244.0,
+            # kein Absolutwert verfügbar, nur eine relative Differenz zu "normalem" Gras
+            'nel_delta_zu_basis': -1.68,
+        },
+    },
+}
+
+
+def blend_basis_mit_arten(basis, custom_species):
+    """Mischt Nährwerte dominanter Einzelarten (z.B. Löwenzahn) in einen Basisbestand.
+
+    Für Felder ohne Artdaten bleibt der Basiswert für den jeweiligen Artanteil
+    unverändert, statt mit 0 zu verdünnen oder einen Wert zu erfinden.
+    """
+    if not custom_species:
+        return basis, []
+
+    angewendet = []
+    total_anteil = 0.0
+    for eintrag in custom_species:
+        if not isinstance(eintrag, dict):
+            continue
+        art = str(eintrag.get('art', '')).strip().lower()
+        try:
+            anteil = float(eintrag.get('anteil', 0))
+        except (TypeError, ValueError):
+            continue
+        if art not in SPECIES_NUTRIENTS or anteil <= 0:
+            continue
+        angewendet.append({'art': art, 'anteil': min(anteil, 100.0)})
+        total_anteil += min(anteil, 100.0)
+
+    if not angewendet:
+        return basis, []
+
+    # Der Basisbestand darf nicht auf unter 20% verdünnt werden.
+    if total_anteil > 80.0:
+        skala = 80.0 / total_anteil
+        for e in angewendet:
+            e['anteil'] *= skala
+        total_anteil = 80.0
+
+    ergebnis = dict(basis)
+    for feld, basis_wert in basis.items():
+        summe = basis_wert * (1.0 - total_anteil / 100.0)
+        for e in angewendet:
+            art_werte = SPECIES_NUTRIENTS[e['art']]['werte']
+            anteil_frac = e['anteil'] / 100.0
+            if feld == 'nel' and 'nel_delta_zu_basis' in art_werte:
+                art_wert = max(0.0, basis_wert + art_werte['nel_delta_zu_basis'])
+            else:
+                art_wert = art_werte.get(feld, basis_wert)
+            summe += anteil_frac * art_wert
+        ergebnis[feld] = summe
+
+    for e in angewendet:
+        info = SPECIES_NUTRIENTS[e['art']]
+        e['label'] = info['label']
+        e['quelle'] = info['quelle']
+        e['vollstaendig'] = info['vollstaendig']
+
+    return ergebnis, angewendet
 MAX_UPLOAD_SIZE = 5 * 1024 * 1024
 FIRST_CAPTURE_FIELDS = [
     'probe_lieferant', 'postleitzahl', 'hoehe_ueber_meer',
@@ -724,6 +806,8 @@ def calculate():
             'zn': g('zn'), 'co': g('co'), 'se': g('se')
         }
 
+        basis, custom_species_angewendet = blend_basis_mit_arten(basis, data.get('custom_species'))
+
         # KORREKTUREN
         k = data.get('korrekturen', [])
         f = {'nel': 1.0, 'apde': 1.0, 'apdn': 1.0}
@@ -798,7 +882,8 @@ def calculate():
             "mpp_nel": mpp_nel,
             "mpp_apde": mpp_apde,
             "mpp_apdn": mpp_apdn,
-            "limit": limit
+            "limit": limit,
+            "custom_species_angewendet": custom_species_angewendet
         })
 
     except Exception as e:
