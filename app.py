@@ -817,7 +817,11 @@ def calculate():
             'zn': g('zn'), 'co': g('co'), 'se': g('se')
         }
 
-        basis, custom_species_angewendet = blend_basis_mit_arten(basis, data.get('custom_species'))
+        # "basis" bleibt der reine CSV-Wert (Vergleichbarkeit zwischen Proben).
+        # Dominante Einzelarten (Löwenzahn, Ampfer, ...) fliessen als eigene
+        # Korrektur ein statt die Basis zu verändern.
+        basis_mit_arten, custom_species_angewendet = blend_basis_mit_arten(basis, data.get('custom_species'))
+        custom_species_korrektur = {feld: basis_mit_arten[feld] - basis[feld] for feld in basis}
 
         # KORREKTUREN
         k = data.get('korrekturen', [])
@@ -840,10 +844,10 @@ def calculate():
         if 'check_ration_hay' in k: tsv_delta += 0.5
 
         eff = {
-            'nel': basis['nel'] * f['nel'],
-            'apde': basis['apde'] * f['apde'],
-            'apdn': basis['apdn'] * f['apdn'],
-            'nev': basis['nev'] * f['nel']
+            'nel': basis_mit_arten['nel'] * f['nel'],
+            'apde': basis_mit_arten['apde'] * f['apde'],
+            'apdn': basis_mit_arten['apdn'] * f['apdn'],
+            'nev': basis_mit_arten['nev'] * f['nel']
         }
 
         freie_korrektur = data.get('freieKorrektur')
@@ -894,7 +898,8 @@ def calculate():
             "mpp_apde": mpp_apde,
             "mpp_apdn": mpp_apdn,
             "limit": limit,
-            "custom_species_angewendet": custom_species_angewendet
+            "custom_species_angewendet": custom_species_angewendet,
+            "custom_species_korrektur": custom_species_korrektur
         })
 
     except Exception as e:
