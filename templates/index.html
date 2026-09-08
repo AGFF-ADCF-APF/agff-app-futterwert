@@ -431,7 +431,7 @@
         const CUSTOM_SPECIES_OPTIONS = {
             loewenzahn: {
                 label: 'Löwenzahn',
-                warn: null
+                warn: 'NEL-Wert stammt aus deutscher Quelle (Nehring 1989/DLG) und ist nicht am Schweizer Agroscope-System (Grünes Buch) kalibriert – als Näherung zu verstehen. Rohprotein, Rohfaser, Zucker und Mineralstoffe sind direkte Laborwerte und unstrittig.'
             },
             ampfer: {
                 label: 'Ampfer',
@@ -5815,8 +5815,8 @@
             if (!Array.isArray(angewendet) || !angewendet.length) return '';
             const zeilen = angewendet.map(e => {
                 const anteil = Number(e.anteil).toFixed(0);
-                const warnZeile = e.vollstaendig === false
-                    ? `<div class="text-xs text-amber-800 mt-0.5">⚠ Datenlage unvollständig: nur Rohprotein/NEL-Schätzung hinterlegt, übrige Werte für diesen Anteil unverändert vom Basisbestand.</div>`
+                const warnZeile = e.hinweis
+                    ? `<div class="text-xs text-amber-800 mt-0.5">⚠ ${e.hinweis}</div>`
                     : '';
                 return `<div><strong>${e.label} (${anteil}%)</strong> — Quelle: ${e.quelle}${warnZeile}</div>`;
             }).join('');

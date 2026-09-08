@@ -54,6 +54,11 @@ SPECIES_NUTRIENTS = {
         'label': 'Löwenzahn',
         'quelle': 'Nehring 1989 / DLG 1997, zit. n. Hoffmann (LKV Sachsen), Mittelwerte zur Blütezeit',
         'vollstaendig': True,
+        # RP/RF/Zucker/Mineralstoffe sind direkte Laborwerte (Chemie) und
+        # systemunabhängig gültig. Der NEL-Wert ist dagegen eine deutsche
+        # (GfE/DLG-)Berechnungsgrösse und NICHT am Schweizer Agroscope-System
+        # (Grünes Buch) kalibriert oder verifiziert - als Näherung zu verstehen.
+        'hinweis': 'NEL-Wert (6,2 MJ/kg TS) stammt aus deutscher Quelle (Nehring 1989/DLG 1997) und ist nicht am Schweizer Agroscope-NEL-System (Grünes Buch) kalibriert – als Näherung zu verstehen. Rohprotein, Rohfaser, Zucker und Mineralstoffe sind direkte Laborwerte und systemunabhängig gültig.',
         'werte': {
             'nel': 6.2, 'rp': 137.5, 'rf': 165.0, 'zucker': 119.5,
             'ca': 15.0, 'p': 3.5, 'mg': 2.0, 'k': 30.0, 'na': 2.25,
@@ -63,6 +68,7 @@ SPECIES_NUTRIENTS = {
         'label': 'Ampfer (Stumpfblättriger)',
         'quelle': 'Rumex obtusifolius, versch. Quellen (u.a. Diss. HU Berlin) — lückenhafte Datenlage',
         'vollstaendig': False,
+        'hinweis': 'Datenlage unvollständig: nur Rohprotein und eine relative NEL-Schätzung (ggü. Gras, nicht Agroscope-kalibriert) hinterlegt. Übrige Werte (APDN/APDE, Mineralstoffe, ...) bleiben unverändert vom Basisbestand.',
         'werte': {
             'rp': 244.0,
             # kein Absolutwert verfügbar, nur eine relative Differenz zu "normalem" Gras
@@ -124,6 +130,7 @@ def blend_basis_mit_arten(basis, custom_species):
         e['label'] = info['label']
         e['quelle'] = info['quelle']
         e['vollstaendig'] = info['vollstaendig']
+        e['hinweis'] = info.get('hinweis')
 
     return ergebnis, angewendet
 MAX_UPLOAD_SIZE = 5 * 1024 * 1024
