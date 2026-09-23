@@ -16,8 +16,13 @@ services:
       
       # REGEL 1: Routing
       # Wenn jemand die IP aufruft UND der Pfad mit /futter beginnt...
-      - "traefik.http.routers.futter.rule=PathPrefix(`/futter`)"
-      - "traefik.http.routers.futter.entrypoints=web"
+      # Host() ist Absicht: Ohne ihn antwortete der Router unter JEDEM
+      # Hostnamen, der auf diesen Traefik zeigt.
+      - "traefik.http.routers.futter.rule=Host(`apps.graswachstum.ch`) && PathPrefix(`/futter`)"
+      # graswachstum.ch liegt in einem fremden DNS-Konto, daher HTTP-01
+      # statt des Wildcard-Resolvers. Name ist serverspezifisch.
+      - "traefik.http.routers.futter.tls.certresolver=${TRAEFIK_CERTRESOLVER:-le-http}"
+      - "traefik.http.routers.futter.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}"
       
       # REGEL 2: Pfad bereinigen (Middleware)
       # Wichtig: Die Python-App erwartet "/", nicht "/futter".
