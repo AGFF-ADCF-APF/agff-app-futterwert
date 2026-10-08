@@ -76,6 +76,8 @@
       kopf: compact({ bez: str(k.bez, 120), herkunft: str(k.herkunft, 200), beurteiler: str(k.beurteiler, 120), schnitt: date(k.schnitt), notiz: str(k.notiz, 4000), v1ProbeNr: str(k.v1ProbeNr, 120) }),
       antworten: cleanAntworten(p.antworten, p.typ),
       rad: cleanRad(p.rad, p.typ),
+      kursProbeId: typeof p.kursProbeId === 'string' && ID_RE.test(p.kursProbeId) ? p.kursProbeId : undefined,
+      abgegebenAt: iso(p.abgegebenAt),
       // nur lokal geführte Sync-Felder
       syncedAt: iso(p.syncedAt), dirty: bool(p.dirty),
     });
@@ -86,6 +88,13 @@
     return compact({ id: s.id, mode: s.mode, secret: s.secret, consentAt: iso(s.consentAt) || str(s.consentAt, 40), consentVersion: str(s.consentVersion, 40), lastSync: iso(s.lastSync), metaDirty: bool(s.metaDirty) });
   }
 
+  function cleanKurs(k) {
+    if (!isObj(k) || !ID_RE.test(k.id || '') || !SECRET_RE.test(k.secret || '')) return undefined;
+    return compact({ id: k.id, secret: k.secret, session: SECRET_RE.test(k.session || '') ? k.session : undefined,
+      rolle: oneOf(k.rolle, ['leitung', 'teilnahme']), ichId: typeof k.ichId === 'string' && ID_RE.test(k.ichId) ? k.ichId : undefined,
+      email: typeof k.email === 'string' && /^[^@\s]{1,64}@[^@\s]{1,190}$/.test(k.email) ? k.email : undefined });
+  }
+
   function cleanAnlass(a, opts) {
     if (!isObj(a) || !ID_RE.test(a.id || '')) return null;
     const now = new Date().toISOString();
@@ -94,6 +103,7 @@
       createdAt: iso(a.createdAt) || now, updatedAt: iso(a.updatedAt), quelle: oneOf(a.quelle, ['v1']),
       // Server-Zugang nur aus eigener Sicherung/eigenem Speicher übernehmen, nie aus fremden Exporten
       space: opts && opts.mitSpace ? cleanSpace(a.space) : undefined,
+      kurs: opts && opts.mitSpace ? cleanKurs(a.kurs) : undefined,
     });
   }
 
@@ -128,7 +138,8 @@
     const analyse = JSON.parse(JSON.stringify(obj));
     const privat = {};
     PRIVAT[art].forEach((path) => { const v = getPath(obj, path); if (v !== undefined && v !== '') setPath(privat, path, v); delPath(analyse, path); });
-    delete analyse.syncedAt; delete analyse.dirty; delete analyse.space;
+    delete analyse.syncedAt; delete analyse.dirty; delete analyse.space; delete analyse.kurs;
+    delete analyse.kursProbeId; delete analyse.abgegebenAt;
     return { analyse, privat };
   }
   /** Gegenstück zu split. */

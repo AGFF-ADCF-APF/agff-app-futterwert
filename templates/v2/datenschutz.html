@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Datenschutz – Futterbeurteilung v2</title>
   <meta name="robots" content="noindex">
-  <link rel="stylesheet" href="assets/app.css?v=b1-8">
+  <link rel="stylesheet" href="assets/app.css?v=b1-9">
 </head>
 <body>
 <div class="doc">
@@ -35,6 +35,16 @@
     <li><b>Schutz vor Missbrauch:</b> Anfragen werden pro Absender begrenzt; dafür wird ein gekürzter Hashwert der IP-Adresse kurzzeitig im Arbeitsspeicher gehalten, nicht gespeichert.</li>
   </ul>
   <p>Erfassen Sie Angaben zu anderen Personen (z. B. Betriebsname) nur, wenn diese damit einverstanden sind.</p>
+
+  <h2>4a. Kursmodus (Schulklassen, Gruppen)</h2>
+  <p>Wer einem Kurs beitritt oder einen Kurs anlegt, willigt in folgende Bearbeitung ein:</p>
+  <ul>
+    <li><b>E-Mail-Adresse:</b> zur Anmeldung mit einem Einmal-Code (gültig 15 Minuten). Sie wird mit einem Serverschlüssel verschlüsselt gespeichert und nur für den Versand der Codes verwendet. Die Kursleitung sieht die Adressen der Teilnehmenden vollständig, alle anderen nur gekürzt.</li>
+    <li><b>Anzeigename</b> (Vorname und Initiale, änderbar), Kurstitel, Probenbezeichnungen und Notizen sind Ende-zu-Ende verschlüsselt (Schlüssel im Kurs-Link) und für alle Kursmitglieder sichtbar.</li>
+    <li><b>Beurteilungen:</b> Abgegebene Beurteilungen sind für alle Kursmitglieder sichtbar, für Teilnehmende jedoch erst nach der eigenen Abgabe derselben Probe. Die Beurteilungsdaten ohne Personenbezug sind auf dem Server lesbar.</li>
+    <li><b>Mailversand:</b> über den Mailserver des Hosters [Hoster ergänzen].</li>
+    <li><b>Löschung:</b> Teilnehmende können jederzeit austreten; ihre Daten werden dabei gelöscht. Die Kursleitung kann Personen entfernen oder den Kurs löschen. Kurse werden {{ (retention_days / 30.4)|round|int }} Monate nach der letzten Änderung automatisch gelöscht.</li>
+  </ul>
 
   <h2>5. Ihre Rechte</h2>
   <p>Sie haben das Recht auf Auskunft, Berichtigung und Löschung Ihrer Daten sowie auf Widerruf einer Einwilligung mit Wirkung für die Zukunft (nach dem Schweizer Datenschutzgesetz, DSG). Kontakt: [E-Mail ergänzen]</p>

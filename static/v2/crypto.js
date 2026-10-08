@@ -53,6 +53,19 @@
     const key = await subtle().importKey('raw', await hkdf(readSecret, 'enc-aes-gcm'), 'AES-GCM', false, ['encrypt', 'decrypt']);
     return { mode, readSecret, readToken, writeToken, key };
   }
+  /** Kurs-Link «#k=<id>.<K>»: Beitritts-Token (Server kennt nur dessen Hash) und Kursschlüssel. */
+  async function kursKeys(secret) {
+    if (!SECRET_RE.test(secret || '')) throw new Error('Ungültiger Kurs-Link');
+    const joinToken = b64u(await hkdf(secret, 'kurs-join'));
+    const key = await subtle().importKey('raw', await hkdf(secret, 'kurs-enc-aes-gcm'), 'AES-GCM', false, ['encrypt', 'decrypt']);
+    return { joinToken, joinHash: await sha256hex(joinToken), key };
+  }
+  const kursAad = (kursId, teil) => 'agff-kurs-v2|' + kursId + '|' + teil;
+  function parseKursLink(token) {
+    const m = /^([A-Za-z0-9_-]{6,64})\.([A-Za-z0-9_-]{43})$/.exec(String(token || ''));
+    return m ? { id: m[1], secret: m[2] } : null;
+  }
+
   /** Hashes für den Server (Anlegen / Erneuern). */
   async function hashes(k) { return { readHash: await sha256hex(k.readToken), writeHash: await sha256hex(k.writeToken) }; }
 
@@ -75,5 +88,5 @@
     return m ? { id: m[1], mode: m[2], secret: m[3] } : null;
   }
 
-  global.FutterCrypto = { newSecret, keys, hashes, encryptJSON, decryptJSON, aadFor, parseLink, SECRET_RE };
+  global.FutterCrypto = { newSecret, keys, kursKeys, kursAad, parseKursLink, hashes, encryptJSON, decryptJSON, aadFor, parseLink, SECRET_RE };
 })(typeof window !== 'undefined' ? window : globalThis);

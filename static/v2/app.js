@@ -59,9 +59,9 @@
   const probenOf = (aid) => db.proben.filter((p) => (aid ? p.anlassId === aid : !p.anlassId)).sort((x, y) => (x.createdAt < y.createdAt ? -1 : 1));
 
   /** Proben aus einem über Nur-Ansehen-Link geöffneten Anlass sind schreibgeschützt. */
-  const readOnly = (p) => { const a = p && p.anlassId && anlassById(p.anlassId); return !!(a && a.space && a.space.mode === 'r'); };
+  const readOnly = (p) => { if (p && p.abgegebenAt) return true; const a = p && p.anlassId && anlassById(p.anlassId); return !!(a && a.space && a.space.mode === 'r'); };
   const anlassReadOnly = (aid) => { const a = aid && anlassById(aid); return !!(a && a.space && a.space.mode === 'r'); };
-  function guardRO(p) { if (readOnly(p)) { toast('Nur-Ansehen-Link: Änderungen sind nicht möglich.'); return true; } return false; }
+  function guardRO(p) { if (readOnly(p)) { toast(p.abgegebenAt ? 'Abgegeben – die Beurteilung ist gesperrt.' : 'Nur-Ansehen-Link: Änderungen sind nicht möglich.'); return true; } return false; }
 
   function touchProbe(p) {
     p.updatedAt = now();
@@ -179,6 +179,7 @@
     const h = location.hash.replace(/^#/, '');
     if (h.startsWith('import=')) return { name: 'import', payload: h.slice(7) };
     if (h.startsWith('s=')) return { name: 'join', token: h.slice(2) };
+    if (h.startsWith('k=')) return { name: 'kurs', token: h.slice(2) };
     if (h.startsWith('space=')) return { name: 'join', token: '' }; // Format aus Beta-Test, nicht mehr gültig
     const seg = h.replace(/^\//, '').split('/').filter(Boolean);
     if (seg[0] === 'a' && seg[1]) return { name: 'anlass', id: seg[1], ov: seg[2] === 'uebersicht' };
@@ -193,6 +194,7 @@
     const r = parseHash();
     if (r.name === 'import') { history.replaceState(null, '', location.pathname + '#/'); handleImportPayload(r.payload); ui.route = { name: 'home' }; }
     else if (r.name === 'join') { history.replaceState(null, '', location.pathname + '#/'); joinSpace(r.token); ui.route = { name: 'home' }; }
+    else if (r.name === 'kurs') { history.replaceState(null, '', location.pathname + '#/'); ui.route = { name: 'home' }; render(); window.Kurs.beitreten(r.token); return; }
     else ui.route = r;
     render();
   }
@@ -239,13 +241,13 @@
       '<button class="icon-btn" data-act="outdoor" title="Modus «Draussen»: hoher Kontrast" aria-label="Modus Draussen umschalten">' + I.sun + '</button></div>' +
       '<div class="pad stack">' +
       '<button class="btn primary block" data-act="new-probe" style="min-height:56px">' + I.plus + ' Neue Probe beurteilen</button>' +
-      '<div class="row"><button class="btn sm grow" data-act="new-anlass">' + I.plus + ' Anlass</button><button class="btn sm grow" data-act="import">' + I.upload + ' Importieren</button></div>' +
+      '<div class="row"><button class="btn sm grow" data-act="new-anlass">' + I.plus + ' Anlass</button><button class="btn sm grow" data-act="kurs-anlegen">' + I.plus + ' Kurs</button><button class="btn sm grow" data-act="import">' + I.upload + ' Import</button></div>' +
       '</div>' +
       '<div class="section-title" style="margin-top:4px;padding:0 12px">Anlässe</div><ul class="list" style="padding:0 8px">' +
       (anl.length ? anl.map((a) => {
         const n = probenOf(a.id).length; const s = syncState(a);
         return '<li><a class="item" href="#/a/' + a.id + '" aria-current="' + (cur === a.id) + '"><span class="avatar">' + esc((a.titel || '?').slice(0, 2).toUpperCase()) + '</span><span style="min-width:0"><span class="t">' + esc(a.titel || 'Ohne Titel') + '</span><span class="s">' +
-          esc([dateCH(a.datum), a.ort].filter(Boolean).join(' · ') || 'Anlass') + '</span></span><span class="meta"><span class="num">' + n + '</span><br>' + (s.ico ? '<span title="' + esc(s.t) + '" class="muted">' + s.ico.replace('<svg', '<svg class="sync-ico"') + '</span>' : '') + '</span></a></li>';
+          esc((a.kurs ? 'Kurs · ' + (a.kurs.rolle === 'leitung' ? 'Leitung' : 'Teilnahme') + ' · ' : '') + ([dateCH(a.datum), a.ort].filter(Boolean).join(' · ') || (a.kurs ? '' : 'Anlass'))) + '</span></span><span class="meta"><span class="num">' + n + '</span><br>' + (s.ico ? '<span title="' + esc(s.t) + '" class="muted">' + s.ico.replace('<svg', '<svg class="sync-ico"') + '</span>' : '') + '</span></a></li>';
       }).join('') : '<li class="muted small" style="padding:6px 12px 10px">Noch keine Anlässe. Ein Anlass bündelt Proben z. B. eines Kurses, Betriebsbesuchs oder einer Silage-Schau.</li>') +
       '<li><a class="item" href="#/e" aria-current="' + (cur === null) + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.wheel.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Einzelproben</span><span class="s">ohne Anlass</span></span><span class="meta num">' + einzel + '</span></a></li>' +
       '</ul>' +
@@ -273,6 +275,7 @@
     }
     const a = aid ? anlassById(aid) : null;
     if (aid && !a) return '<div class="pad">Anlass nicht gefunden.</div>';
+    if (a && a.kurs) return window.Kurs.renderList(a, r);
     const list = probenOf(aid);
     const activeId = r.name === 'probe' ? r.id : null;
     const s = a ? syncState(a) : null;
@@ -336,7 +339,7 @@
     return '<div class="bar"><a class="icon-btn" href="' + back + '" aria-label="Zurück zur Liste">' + I.back + '</a><h2>' + esc(titelOf(p)) + '<span class="sub">' + esc(typ.titel + ' · AGFF ' + typ.merkblatt) + '</span></h2>' +
       '<button class="icon-btn" data-act="probe-menu" data-id="' + p.id + '" aria-label="Probe-Aktionen">' + I.more + '</button></div>' +
       '<nav class="steps" aria-label="Schritte">' + steps.map((s, i) => '<button class="step-chip' + (stepDone(p, s.id) ? ' done' : '') + '" data-go="#/p/' + p.id + '/' + s.id + '"' + (s === step ? ' aria-current="step"' : '') + '><span class="n">' + (stepDone(p, s.id) ? '✓' : i + 1) + '</span>' + s.t + '</button>').join('') + '</nav>' +
-      '<div class="wizard" data-probe="' + p.id + '">' + (readOnly(p) ? '<div class="alert info" style="margin-bottom:14px">' + I.lock + '<div>Geteilt über einen <b>Nur-Ansehen-Link</b> – Sie können alles einsehen, aber nichts ändern.</div></div>' : '') + body + '</div>' +
+      '<div class="wizard" data-probe="' + p.id + '">' + (readOnly(p) ? '<div class="alert info" style="margin-bottom:14px">' + I.lock + '<div>' + (p.abgegebenAt ? 'Im Kurs <b>abgegeben</b> am ' + dateCH(p.abgegebenAt) + ' – gesperrt. Den Vergleich finden Sie unter «Ergebnis».' : 'Geteilt über einen <b>Nur-Ansehen-Link</b> – Sie können alles einsehen, aber nichts ändern.') + '</div></div>' : '') + body + '</div>' +
       '<div class="actionbar">' + (prev ? '<button class="btn" data-go="#/p/' + p.id + '/' + prev.id + '">' + I.back + ' ' + prev.t + '</button>' : '<a class="btn" href="' + back + '">Liste</a>') +
       (next ? '<button class="btn primary" data-go="#/p/' + p.id + '/' + next.id + '">' + next.t + ' →</button>' : '<button class="btn primary" data-act="pdf-probe" data-id="' + p.id + '">' + I.pdf + ' PDF</button>') + '</div>';
   }
@@ -530,6 +533,7 @@
         L.tabelle.map((r) => '<tr><td>' + (r.key ? '<strong>' + esc(r.label) + '</strong>' : esc(r.label)) + '</td><td class="muted">' + esc(r.unit) + '</td><td class="muted">' + r.basis + '</td><td class="' + (String(r.korr).startsWith('-') || String(r.korr).startsWith('−') ? 'd neg' : r.korr !== '–' ? 'd pos' : 'muted') + '">' + r.korr + '</td><td><strong>' + r.wert + '</strong></td></tr>').join('') + '</tbody></table></div>' +
         '<p class="hint">Nährwerte: Agroscope; Schlüssel AGFF ' + K3.TYPEN[p.typ].merkblatt + '. Sensorische Schätzung – ersetzt keine Laboranalyse.</p>';
     }
+    h += window.Kurs.ergebnisExtra(p);
     h += '<div class="row" style="margin-top:18px"><button class="btn primary" data-act="pdf-probe" data-id="' + p.id + '">' + I.pdf + ' PDF mit QR-Code</button><button class="btn" data-act="qr-probe" data-id="' + p.id + '">' + I.share + ' QR / Link</button><button class="btn ghost" data-act="dup-probe" data-id="' + p.id + '">Kopie als neue Probe</button></div>';
     return h;
   }
@@ -537,6 +541,7 @@
   // ---------- Übersicht Anlass ----------
   function renderUebersicht(aid) {
     const a = aid ? anlassById(aid) : null;
+    if (a && a.kurs) return window.Kurs.renderUebersicht(a);
     const list = probenOf(aid);
     const items = list.map((p) => ({ p, res: auswertung(p) }));
     const back = '<a class="icon-btn back-btn hide-tablet" href="#/' + (a ? 'a/' + a.id : 'e') + '" aria-label="Zurück">' + I.back + '</a>';
@@ -627,7 +632,7 @@
       '</div><button class="btn ghost block" data-close style="margin-top:10px">Abbrechen</button>');
   }
 
-  function sheetAnlass(a) {
+  function sheetAnlass(a, nachSpeichern) {
     const isNew = !a;
     a = a || { titel: '', datum: new Date().toISOString().slice(0, 10), ort: '', notiz: '' };
     sheet('<h2>' + (isNew ? 'Neuer Anlass' : 'Anlass bearbeiten') + '</h2><form id="anlassForm" class="stack">' +
@@ -642,6 +647,7 @@
         Object.assign(target, { titel: String(fd.get('titel')).trim(), datum: fd.get('datum'), ort: String(fd.get('ort')).trim(), notiz: String(fd.get('notiz')).trim(), updatedAt: now() });
         if (isNew) db.anlaesse.push(target); else if (target.space) { target.space.metaDirty = true; scheduleSync(target); }
         save(); closeSheet(); go('#/a/' + target.id);
+        if (nachSpeichern) nachSpeichern();
       });
     });
   }
@@ -1025,6 +1031,7 @@
   document.addEventListener('click', async (e) => {
     const t = e.target.closest('[data-close],[data-act],[data-set],[data-go],[data-fokus],[data-step],[data-sort],[data-o],[data-f]');
     if (!t) return;
+    if (t.tagName === 'A' && t.dataset.act) e.preventDefault();
     if (t.hasAttribute('data-close') && (e.target === t || t.tagName === 'BUTTON')) { closeSheet(); return; }
     if (t.dataset.go) { go(t.dataset.go); return; }
     const p = currentProbe();
@@ -1045,6 +1052,7 @@
     switch (act) {
       case 'new-probe': {
         const aid = t.dataset.anlass !== undefined ? (t.dataset.anlass || null) : (ui.route.name === 'anlass' ? ui.route.id : (currentProbe() ? currentProbe().anlassId : null));
+        if (aid && anlassById(aid) && anlassById(aid).kurs) { toast('Im Kurs bitte eine Kursprobe aus der Liste wählen.'); break; }
         if (anlassReadOnly(aid)) { toast('Nur-Ansehen-Link: neue Proben bitte ohne Anlass oder in einem eigenen Anlass erfassen.'); sheetNewProbe(null); break; }
         sheetNewProbe(aid || null); break;
       }
@@ -1126,7 +1134,7 @@
       case 'v1-local': { let arr = []; try { arr = JSON.parse(localStorage.getItem('agffLocalSavedProbes') || '[]'); } catch (er) { /* leer */ } importV1(arr.map((x) => Object.assign({ probeNr: x.meta && x.meta.probeNr, beurteiler: x.meta && x.meta.beurteiler }, x))); break; }
       case 'v1-server': sheetV1Server(); break;
       case 'wipe': if (confirm('Wirklich alle lokalen v2-Daten löschen? Das kann nicht rückgängig gemacht werden.')) { db = emptyDb(); flush(); go('#/'); } break;
-      default: break;
+      default: if (act && act.startsWith('kurs-')) await window.Kurs.handle(act, t); break;
     }
   });
 
@@ -1182,6 +1190,11 @@
     }
     auswertungCache.clear();
   }
+  // Schnittstelle für Zusatzmodule (Kurs)
+  window.__app = {
+    get db() { return db; }, save, render, refreshChrome, rerenderDetail, sheet, closeSheet, toast, go, esc, I, uid, now, fmt,
+    probeById, anlassById, auswertung, wheelSvg, tonOf, bestandStadium, sheetAnlass, route: () => ui.route,
+  };
   load();
   try { basis = JSON.parse(localStorage.getItem('agffV2Basis')); } catch (e) { basis = null; }
   route();

@@ -9,6 +9,12 @@ services:
       - ./static:/app/static
     environment:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      # v2 Kursmodus: Versand der Anmeldecodes, Schlüssel für E-Mail-Adressen (Werte nur in .env)
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - SMTP_FROM=${SMTP_FROM}
+      - V2_SERVER_KEY=${V2_SERVER_KEY}
     networks:
       - web-netzwerk
     labels:
