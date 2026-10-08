@@ -62,8 +62,9 @@
   }
   const kursAad = (kursId, teil) => 'agff-kurs-v2|' + kursId + '|' + teil;
   function parseKursLink(token) {
-    const m = /^([A-Za-z0-9_-]{6,64})\.([A-Za-z0-9_-]{43})$/.exec(String(token || ''));
-    return m ? { id: m[1], secret: m[2] } : null;
+    // «<kurs>.<geheimnis>» oder vom Etikett «<kurs>.<geheimnis>.<probe>»
+    const m = /^([A-Za-z0-9_-]{6,64})\.([A-Za-z0-9_-]{43})(?:\.([A-Za-z0-9_-]{6,64}))?$/.exec(String(token || ''));
+    return m ? { id: m[1], secret: m[2], probe: m[3] || null } : null;
   }
 
   /** Hashes für den Server (Anlegen / Erneuern). */

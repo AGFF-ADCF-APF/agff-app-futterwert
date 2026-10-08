@@ -15,6 +15,10 @@ services:
       - SMTP_PASS=${SMTP_PASS}
       - SMTP_FROM=${SMTP_FROM}
       - V2_SERVER_KEY=${V2_SERVER_KEY}
+      # Kursleitung: freigeschaltete Adressen/Domains (kommagetrennt), Empfänger für Anträge
+      - V2_KURSLEITUNG_EMAILS=${V2_KURSLEITUNG_EMAILS:-}
+      - V2_KURSLEITUNG_DOMAINS=${V2_KURSLEITUNG_DOMAINS:-}
+      - V2_ADMIN_MAIL=${V2_ADMIN_MAIL:-}
     networks:
       - web-netzwerk
     labels:

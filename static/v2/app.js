@@ -241,11 +241,11 @@
       '<button class="icon-btn" data-act="outdoor" title="Modus «Draussen»: hoher Kontrast" aria-label="Modus Draussen umschalten">' + I.sun + '</button></div>' +
       '<div class="pad stack">' +
       '<button class="btn primary block" data-act="new-probe" style="min-height:56px">' + I.plus + ' Neue Probe beurteilen</button>' +
-      '<div class="row"><button class="btn sm grow" data-act="new-anlass">' + I.plus + ' Anlass</button><button class="btn sm grow" data-act="kurs-anlegen">' + I.plus + ' Kurs</button><button class="btn sm grow" data-act="import">' + I.upload + ' Import</button></div>' +
+      '<div class="row"><button class="btn sm grow" data-act="new-anlass">' + I.plus + ' Neuer Anlass</button><button class="btn sm grow" data-act="import">' + I.upload + ' Importieren</button></div>' +
       '</div>' +
       '<div class="section-title" style="margin-top:4px;padding:0 12px">Anlässe</div><ul class="list" style="padding:0 8px">' +
       (anl.length ? anl.map((a) => {
-        const n = probenOf(a.id).length; const s = syncState(a);
+        const n = a.kurs ? '' : probenOf(a.id).length; const s = syncState(a);
         return '<li><a class="item" href="#/a/' + a.id + '" aria-current="' + (cur === a.id) + '"><span class="avatar">' + esc((a.titel || '?').slice(0, 2).toUpperCase()) + '</span><span style="min-width:0"><span class="t">' + esc(a.titel || 'Ohne Titel') + '</span><span class="s">' +
           esc((a.kurs ? 'Kurs · ' + (a.kurs.rolle === 'leitung' ? 'Leitung' : 'Teilnahme') + ' · ' : '') + ([dateCH(a.datum), a.ort].filter(Boolean).join(' · ') || (a.kurs ? '' : 'Anlass'))) + '</span></span><span class="meta"><span class="num">' + n + '</span><br>' + (s.ico ? '<span title="' + esc(s.t) + '" class="muted">' + s.ico.replace('<svg', '<svg class="sync-ico"') + '</span>' : '') + '</span></a></li>';
       }).join('') : '<li class="muted small" style="padding:6px 12px 10px">Noch keine Anlässe. Ein Anlass bündelt Proben z. B. eines Kurses, Betriebsbesuchs oder einer Silage-Schau.</li>') +
@@ -339,7 +339,7 @@
     return '<div class="bar"><a class="icon-btn" href="' + back + '" aria-label="Zurück zur Liste">' + I.back + '</a><h2>' + esc(titelOf(p)) + '<span class="sub">' + esc(typ.titel + ' · AGFF ' + typ.merkblatt) + '</span></h2>' +
       '<button class="icon-btn" data-act="probe-menu" data-id="' + p.id + '" aria-label="Probe-Aktionen">' + I.more + '</button></div>' +
       '<nav class="steps" aria-label="Schritte">' + steps.map((s, i) => '<button class="step-chip' + (stepDone(p, s.id) ? ' done' : '') + '" data-go="#/p/' + p.id + '/' + s.id + '"' + (s === step ? ' aria-current="step"' : '') + '><span class="n">' + (stepDone(p, s.id) ? '✓' : i + 1) + '</span>' + s.t + '</button>').join('') + '</nav>' +
-      '<div class="wizard" data-probe="' + p.id + '">' + (readOnly(p) ? '<div class="alert info" style="margin-bottom:14px">' + I.lock + '<div>' + (p.abgegebenAt ? 'Im Kurs <b>abgegeben</b> am ' + dateCH(p.abgegebenAt) + ' – gesperrt. Den Vergleich finden Sie unter «Ergebnis».' : 'Geteilt über einen <b>Nur-Ansehen-Link</b> – Sie können alles einsehen, aber nichts ändern.') + '</div></div>' : '') + body + '</div>' +
+      '<div class="wizard" data-probe="' + p.id + '">' + window.Kurs.hinweisKarte(p) + (readOnly(p) ? '<div class="alert info" style="margin-bottom:14px">' + I.lock + '<div>' + (p.abgegebenAt ? 'Im Kurs <b>abgegeben</b> am ' + dateCH(p.abgegebenAt) + ' – gesperrt. Den Vergleich finden Sie unter «Ergebnis».' : 'Geteilt über einen <b>Nur-Ansehen-Link</b> – Sie können alles einsehen, aber nichts ändern.') + '</div></div>' : '') + body + '</div>' +
       '<div class="actionbar">' + (prev ? '<button class="btn" data-go="#/p/' + p.id + '/' + prev.id + '">' + I.back + ' ' + prev.t + '</button>' : '<a class="btn" href="' + back + '">Liste</a>') +
       (next ? '<button class="btn primary" data-go="#/p/' + p.id + '/' + next.id + '">' + next.t + ' →</button>' : '<button class="btn primary" data-act="pdf-probe" data-id="' + p.id + '">' + I.pdf + ' PDF</button>') + '</div>';
   }
@@ -395,6 +395,7 @@
       }
       if (url) img.src = url; else img.closest('.foto-thumb').classList.add('fehlt');
     }
+    if (window.Kurs) window.Kurs.nachRender();
   }
 
   function fotoNeu(p, art) {
@@ -840,20 +841,41 @@
     });
   }
 
-  async function createSpace(a) {
+  async function createSpace(a, email, code) {
     if (!navigator.onLine) { toast('Keine Verbindung – bitte später erneut versuchen.'); return; }
     try {
       const secret = C.newSecret();
       const k = await C.keys('w', secret);
-      const r = await IO.api('spaces', { method: 'POST', body: Object.assign({ consent: { accepted: true, version: CFG.consentVersion } }, await C.hashes(k)) });
+      const r = await IO.api('spaces', { method: 'POST', body: Object.assign({ consent: { accepted: true, version: CFG.consentVersion }, email, code }, await C.hashes(k)) });
       a.space = { id: r.id, mode: 'w', secret, consentAt: r.consentAt, consentVersion: CFG.consentVersion, metaDirty: true };
       probenOf(a.id).forEach((p) => { p.dirty = true; });
       save(); closeSheet();
       await syncAnlass(a);
       render(); sheetShare(a);
     } catch (e) {
+      if (e.message === 'CODE_INVALID') throw e;
       toast(e.message === 'CONSENT_OUTDATED' ? 'Die Hinweise wurden aktualisiert – bitte Seite neu laden.' : e.message === 'RATE_LIMITED' ? 'Zu viele Anfragen – bitte später erneut versuchen.' : 'Speichern fehlgeschlagen: ' + e.message);
     }
+  }
+  /** Vor dem ersten Speichern: E-Mail bestätigen (Schutz vor Missbrauch des Speicherplatzes). */
+  function spaceEmail(a) {
+    sheet('<h2>E-Mail bestätigen</h2><p class="small" style="margin-top:0">Zum Schutz vor Missbrauch braucht das Speichern auf dem Server eine bestätigte E-Mail-Adresse. Sie wird verschlüsselt gespeichert und nicht weitergegeben.</p>' +
+      '<form id="spMail" class="stack"><label class="field"><span>E-Mail-Adresse</span><input class="input" type="email" name="email" required autocomplete="email" value="' + esc(db.prefs.email || '') + '"></label>' +
+      '<div class="row"><button type="button" class="btn ghost grow" data-close>Abbrechen</button><button class="btn primary grow">Code anfordern</button></div></form>', (el) => {
+      el.querySelector('#spMail').addEventListener('submit', async (e) => {
+        e.preventDefault(); const email = String(new FormData(e.target).get('email')).trim().toLowerCase();
+        const anfordern = () => IO.api('spaces/code', { method: 'POST', body: { email } });
+        try { await anfordern(); } catch (er) { toast(er.message === 'RATE_LIMITED' ? 'Zu viele Anfragen – bitte später erneut versuchen.' : 'Fehler: ' + er.message); return; }
+        sheet('<h2>Code eingeben</h2><p class="small" style="margin-top:0">Code an <b>' + esc(email) + '</b> gesendet (15 Minuten gültig).</p><form id="spCode" class="stack"><input class="input" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required style="font-size:1.6rem;letter-spacing:.3em;text-align:center"><p class="hint" id="spMsg"></p>' +
+          '<div class="row"><button type="button" class="btn ghost grow" id="spNeu">Neuer Code</button><button class="btn primary grow">Bestätigen & speichern</button></div></form>', (el2) => {
+          el2.querySelector('#spNeu').onclick = () => anfordern().then(() => { el2.querySelector('#spMsg').textContent = 'Neuer Code gesendet.'; }).catch(() => {});
+          el2.querySelector('#spCode').addEventListener('submit', async (ev) => {
+            ev.preventDefault(); const b = ev.target.querySelector('.primary'); b.disabled = true;
+            try { db.prefs.email = email; await createSpace(a, email, String(new FormData(ev.target).get('code')).trim()); } catch (er) { el2.querySelector('#spMsg').textContent = 'Code falsch oder abgelaufen.'; b.disabled = false; }
+          });
+        });
+      });
+    });
   }
 
   const syncTimers = {};
@@ -1200,7 +1222,13 @@
         db.proben.push(pr); touchProbe(pr); closeSheet();
         go('#/p/' + pr.id + '/' + (pr.typ === 'mais' ? 'haecksel' : 'bestand')); break;
       }
-      case 'new-anlass': sheetAnlass(null); break;
+      case 'new-anlass':
+        sheet('<h2>Neuer Anlass</h2><div class="typ-cards">' +
+          '<button class="typ-card" data-act="new-anlass-eigen"><span class="ico" style="background:var(--brand-soft);color:var(--brand-ink)">' + I.wheel.replace('<svg', '<svg width="26" height="26"') + '</span><span><b>Für mich / mein Team</b><span class="small muted">Eigene Proben sammeln, z. B. Betriebsbesuch oder Silo-Kontrolle. Bleibt im Browser; bei Bedarf verschlüsselt teilen.</span></span></button>' +
+          '<button class="typ-card" data-act="kurs-anlegen"><span class="ico" style="background:#f6c35b;color:#1d2925">' + I.table.replace('<svg', '<svg width="26" height="26"') + '</span><span><b>Kurs</b><span class="small muted">Mehrere Personen erfassen Proben per QR-Etikett und beurteilen sie gegenseitig – mit Vergleich. Für freigeschaltete Kursleitende.</span></span></button>' +
+          '</div><button class="btn ghost block" data-close style="margin-top:10px">Abbrechen</button>');
+        break;
+      case 'new-anlass-eigen': closeSheet(); sheetAnlass(null); break;
       case 'edit-anlass': if (anlassReadOnly(id)) { toast('Nur-Ansehen-Link: Änderungen sind nicht möglich.'); break; } sheetAnlass(anlassById(id)); break;
       case 'anlass-menu': sheetAnlassMenu(anlassById(id)); break;
       case 'probe-menu': sheetProbeMenu(probeById(id)); break;
@@ -1262,7 +1290,7 @@
         save(); closeSheet(); go('#/'); break;
       }
       case 'consent': closeSheet(); sheetConsent(anlassById(id)); break;
-      case 'consent-ok': t.disabled = true; await createSpace(anlassById(id)); if (t.isConnected) t.disabled = false; break;
+      case 'consent-ok': closeSheet(); spaceEmail(anlassById(id)); break;
       case 'share-space': closeSheet(); sheetShare(anlassById(id)); break;
       case 'share-tab': sheetShare(anlassById(id), t.dataset.tab); break;
       case 'space-rotate': closeSheet(); await rotateSpace(anlassById(id)); break;
@@ -1288,7 +1316,7 @@
         if (neu) { pr.fotos[i] = neu; fotoUrls.delete(neu.id); touchProbe(pr); rerenderDetail(true); toast('Geschwärzte Fassung gespeichert.'); }
         break;
       }
-      default: if (act && act.startsWith('kurs-')) await window.Kurs.handle(act, t); break;
+      default: if (act && (act.startsWith('kurs-') || act.startsWith('pool-'))) await window.Kurs.handle(act, t); break;
     }
   });
 
@@ -1347,7 +1375,7 @@
   // Schnittstelle für Zusatzmodule (Kurs)
   window.__app = {
     get db() { return db; }, save, render, refreshChrome, rerenderDetail, sheet, closeSheet, toast, go, esc, I, uid, now, fmt,
-    probeById, anlassById, auswertung, wheelSvg, tonOf, bestandStadium, sheetAnlass, route: () => ui.route,
+    probeById, anlassById, auswertung, wheelSvg, tonOf, bestandStadium, sheetAnlass, label, dateCH, route: () => ui.route,
   };
   load();
   try { basis = JSON.parse(localStorage.getItem('agffV2Basis')); } catch (e) { basis = null; }

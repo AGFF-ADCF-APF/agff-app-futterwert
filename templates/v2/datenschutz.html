@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Datenschutz – Futterbeurteilung v2</title>
   <meta name="robots" content="noindex">
-  <link rel="stylesheet" href="assets/app.css?v=b1-10">
+  <link rel="stylesheet" href="assets/app.css?v=b1-11">
 </head>
 <body>
 <div class="doc">
@@ -37,14 +37,24 @@
   <p>Erfassen Sie Angaben zu anderen Personen (z. B. Betriebsname) nur, wenn diese damit einverstanden sind.</p>
 
   <h2>4a. Kursmodus (Schulklassen, Gruppen)</h2>
-  <p>Wer einem Kurs beitritt oder einen Kurs anlegt, willigt in folgende Bearbeitung ein:</p>
   <ul>
-    <li><b>E-Mail-Adresse:</b> zur Anmeldung mit einem Einmal-Code (gültig 15 Minuten). Sie wird mit einem Serverschlüssel verschlüsselt gespeichert und nur für den Versand der Codes verwendet. Die Kursleitung sieht die Adressen der Teilnehmenden vollständig, alle anderen nur gekürzt.</li>
-    <li><b>Anzeigename</b> (Vorname und Initiale, änderbar), Kurstitel, Probenbezeichnungen und Notizen sind Ende-zu-Ende verschlüsselt (Schlüssel im Kurs-Link) und für alle Kursmitglieder sichtbar.</li>
-    <li><b>Beurteilungen:</b> Abgegebene Beurteilungen sind für alle Kursmitglieder sichtbar, für Teilnehmende jedoch erst nach der eigenen Abgabe derselben Probe. Die Beurteilungsdaten ohne Personenbezug sind auf dem Server lesbar.</li>
-    <li><b>Mailversand:</b> über den Mailserver des Hosters [Hoster ergänzen].</li>
-    <li><b>Löschung:</b> Teilnehmende können jederzeit austreten; ihre Daten werden dabei gelöscht. Die Kursleitung kann Personen entfernen oder den Kurs löschen. Kurse werden {{ (retention_days / 30.4)|round|int }} Monate nach der letzten Änderung automatisch gelöscht.</li>
+    <li><b>Teilnahme:</b> Es genügt ein frei gewählter Anzeigename. Die Teilnahme ist dann an das verwendete Gerät gebunden (Sitzungsschlüssel im Browser). Freiwillig kann eine E-Mail-Adresse bestätigt werden, um sich auf anderen Geräten anzumelden.</li>
+    <li><b>E-Mail-Adressen</b> (Kursleitung immer, Teilnehmende freiwillig) werden mit einem Serverschlüssel verschlüsselt gespeichert und nur für den Versand von Einmal-Codes verwendet. Die Kursleitung sieht die Adressen der Teilnehmenden vollständig, andere nur gekürzt.</li>
+    <li><b>Ende-zu-Ende verschlüsselt</b> (Schlüssel im Kurs-Link bzw. auf dem QR-Etikett): Kurstitel, Anzeigenamen, Probenbezeichnungen, Standortangaben (PLZ, Ort, Höhe, auf ca. 1 km gerundete Position), Notizen und Fotos. Wer ein Etikett oder den Kurs-Link besitzt, kann dem Kurs beitreten.</li>
+    <li><b>Laborwerte</b> einer Probe gibt der Server erst frei, wenn die Kursleitung dies als Hilfestellung erlaubt oder die betreffende Person ihre eigene Beurteilung abgegeben hat.</li>
+    <li><b>Beurteilungen:</b> Abgegebene Beurteilungen sind für Kursmitglieder sichtbar, für Teilnehmende erst nach der eigenen Abgabe. Die Beurteilungsdaten ohne Personenbezug sind auf dem Server lesbar.</li>
+    <li><b>Fotos:</b> höchstens 20 MB je Person und Kurs; Neu-Codierung im Browser entfernt Standort- und Kameradaten.</li>
+    <li><b>Löschung:</b> Teilnehmende können jederzeit austreten (Name, Fotos und Abgaben werden gelöscht). Die Kursleitung kann Personen entfernen oder den Kurs löschen. Automatische Löschung {{ (retention_days / 30.4)|round|int }} Monate nach der letzten Änderung.</li>
   </ul>
+
+  <h2>4b. Probenpool für Kursleitende</h2>
+  <p>Kursleitende können ausgewählte Proben bewusst für andere freigeschaltete Kursleitende veröffentlichen (Bezeichnung, Beschreibung, Region ohne PLZ und Position, Laborwerte, Fotos, ausgewählte Beurteilungen als anonyme «Referenz»). Diese Einträge sind für alle Kursleitenden lesbar und daher nicht Ende-zu-Ende verschlüsselt, sondern mit Serverschlüssel gespeichert. Sie enthalten keine Personennamen; die veröffentlichende Person bestätigt dies. Einträge können von ihr oder vom Betreiber gelöscht werden.</p>
+
+  <h2>4c. Antrag Kursleitung</h2>
+  <p>Wer Kurse anlegen möchte, kann einen Antrag stellen (Name, Organisation, kurze Begründung, bestätigte E-Mail-Adresse). Diese Angaben werden verschlüsselt gespeichert und nur vom Betreiber zur Prüfung gelesen.</p>
+
+  <h2>4d. Speichern eigener Anlässe auf dem Server</h2>
+  <p>Erfordert eine bestätigte E-Mail-Adresse (Schutz vor Missbrauch des Speicherplatzes). Sie wird verschlüsselt gespeichert und nicht weitergegeben. Fotos: höchstens 20 MB je Anlass.</p>
 
   <h2>5. Ihre Rechte</h2>
   <p>Sie haben das Recht auf Auskunft, Berichtigung und Löschung Ihrer Daten sowie auf Widerruf einer Einwilligung mit Wirkung für die Zukunft (nach dem Schweizer Datenschutzgesetz, DSG). Kontakt: [E-Mail ergänzen]</p>

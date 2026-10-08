@@ -71,6 +71,7 @@ def init_v2_db():
                 epoch INTEGER NOT NULL DEFAULT 1,
                 consent_version TEXT NOT NULL,
                 consent_at TEXT NOT NULL,
+                owner_email_hmac TEXT, owner_email_enc TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
@@ -91,6 +92,14 @@ def init_v2_db():
                 PRIMARY KEY (space_id, id)
             );
         ''')
+        _migrate_spaces(conn)
+
+
+def _migrate_spaces(conn):
+    cols = {r[1] for r in conn.execute('PRAGMA table_info(e2e_spaces)')}
+    for c in ('owner_email_hmac', 'owner_email_enc'):
+        if c not in cols:
+            conn.execute(f'ALTER TABLE e2e_spaces ADD COLUMN {c} TEXT')
 
 
 def _now():
@@ -105,7 +114,8 @@ FOTO_DIR = os.environ.get('V2_FOTO_DIR', 'data/v2_fotos')
 FOTO_ID_RE = re.compile(r'^[A-Za-z0-9_-]{16}$')
 MAX_FOTO_BYTES = 5 * 1024 * 1024          # verschlüsselt, inkl. Kopf
 MAX_FOTOS_PER_SPACE = 400
-MAX_FOTO_TOTAL = 400 * 1024 * 1024
+# Fotos: 20 MB je Person und Anlass (eine Freigabe = ein Anlass einer Person), Gesamtobergrenze in v2_admin
+MAX_FOTO_TOTAL = int(os.environ.get('V2_FOTO_MB_PRO_PERSON', '20')) * 1024 * 1024
 
 
 def _foto_path(space_id, foto_id):
@@ -253,7 +263,7 @@ def v2_security_headers(resp):
     resp.headers['X-Frame-Options'] = 'DENY'
     resp.headers['Cross-Origin-Opener-Policy'] = 'same-origin'
     resp.headers['Cross-Origin-Resource-Policy'] = 'same-origin'
-    resp.headers['Permissions-Policy'] = 'camera=(self), geolocation=(), microphone=(), payment=(), usb=()'
+    resp.headers['Permissions-Policy'] = 'camera=(self), geolocation=(self), microphone=(), payment=(), usb=()'
     resp.headers['Strict-Transport-Security'] = 'max-age=31536000'
     if request.path.startswith('/v2/api/') and request.path != '/v2/api/basis':
         resp.headers['Cache-Control'] = 'no-store'
@@ -372,6 +382,18 @@ def _json_body():
         return None
 
 
+@v2.route('/v2/api/spaces/code', methods=['POST'])
+def v2_space_code():
+    """Bestätigungscode vor dem ersten Speichern auf dem Server."""
+    _rate_hit('space_code', limit=20, window=3600)
+    import v2_mail as M
+    email = (_json_body() or {}).get('email')
+    if not M.email_ok(email):
+        return jsonify({'error': 'BAD_REQUEST'}), 400
+    M.code_senden('space', email, 'Speichern auf dem Server')
+    return jsonify({'status': 'sent'})
+
+
 @v2.route('/v2/api/spaces', methods=['POST'])
 def v2_create_space():
     _rate_hit('create', limit=30, window=3600)
@@ -384,12 +406,18 @@ def v2_create_space():
     rh, wh = body.get('readHash', ''), body.get('writeHash', '')
     if not (HASH_RE.match(rh) and HASH_RE.match(wh)) or rh == wh:
         return jsonify({'error': 'BAD_KEYS'}), 400
+    import v2_mail as M  # spät importiert (v2_mail importiert dieses Modul)
+    email = M.email_norm(body.get('email'))
+    if not M.email_ok(email):
+        return jsonify({'error': 'EMAIL_REQUIRED'}), 400
+    if not M.code_pruefen('space', email, body.get('code')):
+        return jsonify({'error': 'CODE_INVALID'}), 400
     space_id = secrets.token_urlsafe(9)
     now = _now()
     with _db() as conn:
         _purge_expired(conn)
-        conn.execute('INSERT INTO e2e_spaces (id, read_hash, write_hash, consent_version, consent_at, created_at, updated_at) '
-                     'VALUES (?, ?, ?, ?, ?, ?, ?)', (space_id, rh, wh, CONSENT_VERSION, now, now, now))
+        conn.execute('INSERT INTO e2e_spaces (id, read_hash, write_hash, consent_version, consent_at, owner_email_hmac, owner_email_enc, created_at, updated_at) '
+                     'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', (space_id, rh, wh, CONSENT_VERSION, now, M.email_hmac(email), M.email_enc(email), now, now))
     return jsonify({'id': space_id, 'consentAt': now, 'retentionDays': RETENTION_DAYS}), 201
 
 
@@ -508,6 +536,9 @@ def v2_foto_put(space_id, foto_id):
                                 (space_id, foto_id)).fetchone()
         if n >= MAX_FOTOS_PER_SPACE or total + len(data) > MAX_FOTO_TOTAL:
             return jsonify({'error': 'QUOTA'}), 409
+        import v2_admin as ADM
+        if not ADM.foto_platz_frei(len(data)):
+            return jsonify({'error': 'SERVER_VOLL'}), 507
         os.makedirs(os.path.join(FOTO_DIR, space_id), exist_ok=True)
         tmp = _foto_path(space_id, foto_id) + '.tmp'
         with open(tmp, 'wb') as fh:

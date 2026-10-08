@@ -119,7 +119,7 @@
 
   function cleanPrefs(p) {
     p = isObj(p) ? p : {};
-    return { beurteiler: str(p.beurteiler, 120) || '', kuhGewicht: num(p.kuhGewicht, 300, 1200) || 630, mastGewicht: num(p.mastGewicht, K3.MAST.LG_MIN, K3.MAST.LG_MAX) || 400 };
+    return { email: typeof p.email === 'string' && /^[^@\s]{1,64}@[^@\s]{1,190}$/.test(p.email) ? p.email : undefined, beurteiler: str(p.beurteiler, 120) || '', kuhGewicht: num(p.kuhGewicht, 300, 1200) || 630, mastGewicht: num(p.mastGewicht, K3.MAST.LG_MIN, K3.MAST.LG_MAX) || 400 };
   }
 
   /** Bereinigt eine komplette lokale Datenbank (beim Laden und beim Wiederherstellen einer Sicherung). */

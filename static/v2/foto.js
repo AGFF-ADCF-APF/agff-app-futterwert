@@ -186,5 +186,5 @@
     for (const id of await alleIds()) if (!set.has(id)) await del(id);
   }
 
-  global.Fotos = { vorbereiten, speichern, schwaerzen, nachSchwaerzen, thumbUrl, bildUrl, blob, ablegen, jpegDataUrl, del, get, aufraeumen, verschluesseln, entschluesseln, MAX_KANTE };
+  global.Fotos = { neueId, neuerSchluessel, vorbereiten, speichern, schwaerzen, nachSchwaerzen, thumbUrl, bildUrl, blob, ablegen, jpegDataUrl, del, get, aufraeumen, verschluesseln, entschluesseln, MAX_KANTE };
 })(window);
