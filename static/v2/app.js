@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const CFG = window.AGFF_V2 || {};
-  const { K3, Rad, FutterIO: IO } = window;
+  const { K3, Rad, FutterIO: IO, Model } = window;
   const STORE_KEY = 'agffV2';
   const $ = (sel, root) => (root || document).querySelector(sel);
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -40,7 +40,7 @@
   function load() {
     try {
       const raw = localStorage.getItem(STORE_KEY);
-      if (raw) db = Object.assign(emptyDb(), JSON.parse(raw));
+      if (raw) db = Model.cleanDb(JSON.parse(raw));
     } catch (e) { storageOk = false; }
   }
   let saveTimer = null;
@@ -701,13 +701,14 @@
       const remoteIds = new Set();
       remote.records.forEach((r) => {
         if (r.id === 'anlassmeta') {
-          if (!a.space.metaDirty && r.data && r.clientUpdatedAt > (a.updatedAt || '')) Object.assign(a, { titel: r.data.titel, datum: r.data.datum, ort: r.data.ort, notiz: r.data.notiz });
+          const m = Model.cleanAnlass(Object.assign({ id: a.id }, r.data));
+          if (!a.space.metaDirty && m && r.clientUpdatedAt > (a.updatedAt || '')) Object.assign(a, { titel: m.titel, datum: m.datum, ort: m.ort, notiz: m.notiz });
           return;
         }
         remoteIds.add(r.id);
         const local = probeById(r.id);
-        const d = r.data;
-        if (!d || !d.typ) return;
+        const d = Model.cleanProbe(Object.assign({}, r.data, { id: r.id }));
+        if (!d) return;
         if (!local) {
           if ((db.tombstones || []).includes(r.id)) return;
           db.proben.push(Object.assign(d, { anlassId: a.id, syncedAt: r.clientUpdatedAt, dirty: false }));
@@ -769,7 +770,7 @@
     if (!a) {
       try {
         const r = await IO.api('spaces/' + sid, { key });
-        a = { id: uid(), titel: r.space.titel || 'Geteilter Anlass', createdAt: now(), updatedAt: '', space: { id: sid, key, consentAt: r.space.consentAt, consentVersion: r.space.consentVersion } };
+        a = { id: uid(), titel: String(r.space.titel || 'Geteilter Anlass').slice(0, 200), createdAt: now(), updatedAt: '', space: { id: sid, key, consentAt: r.space.consentAt, consentVersion: r.space.consentVersion } };
         db.anlaesse.push(a);
       } catch (e) { return toast(e.status === 404 ? 'Anlass nicht gefunden oder bereits gelöscht.' : 'Laden fehlgeschlagen (offline?).'); }
     }
@@ -785,6 +786,7 @@
     if (obj.f === 'agff-futter-backup') {
       sheet('<h2>Sicherung wiederherstellen?</h2><p>' + obj.db.anlaesse.length + ' Anlässe und ' + obj.db.proben.length + ' Proben. Vorhandene Einträge mit gleicher Kennung werden durch die neuere Fassung ersetzt.</p><div class="row"><button class="btn ghost grow" data-close>Abbrechen</button><button class="btn primary grow" id="doRestore">Wiederherstellen</button></div>', (el) => {
         el.querySelector('#doRestore').onclick = () => {
+          obj.db = Model.cleanDb(obj.db);
           obj.db.anlaesse.forEach((a) => { const l = anlassById(a.id); if (!l) db.anlaesse.push(a); else if ((a.updatedAt || '') > (l.updatedAt || '')) Object.assign(l, a); });
           obj.db.proben.forEach((p) => { const l = probeById(p.id); if (!l) db.proben.push(p); else if ((p.updatedAt || '') > (l.updatedAt || '')) Object.assign(l, p); });
           save(); closeSheet(); render(); toast('Sicherung wiederhergestellt.');
@@ -793,6 +795,9 @@
       return;
     }
     if (obj.f === 'v1') return importV1(obj.eintraege);
+    obj.proben = (Array.isArray(obj.proben) ? obj.proben : []).map(Model.cleanProbe).filter(Boolean);
+    obj.anlass = obj.anlass ? Model.cleanAnlass(obj.anlass) : null;
+    if (!obj.proben.length) { toast('Keine gültigen Proben in den Daten gefunden.'); return; }
     const n = obj.proben.length;
     const exists = obj.proben.filter((p) => probeById(p.id));
     const an = obj.anlass;
@@ -840,7 +845,8 @@
     let ok = 0, skip = 0; const anl = {};
     eintraege.forEach((e) => {
       const r = IO.fromV1(e, uid);
-      if (!r) { skip++; return; }
+      if (r) r.probe = Model.cleanProbe(r.probe);
+      if (!r || !r.probe) { skip++; return; }
       if (db.proben.some((p) => p.kopf && p.kopf.v1ProbeNr && p.kopf.v1ProbeNr === r.probe.kopf.v1ProbeNr && p.kopf.beurteiler === r.probe.kopf.beurteiler)) { skip++; return; }
       const t = anlassTitel || r.anlassTitel;
       if (t) {

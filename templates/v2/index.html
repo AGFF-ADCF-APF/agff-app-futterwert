@@ -11,17 +11,9 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/icon-192.png">
-  <link rel="stylesheet" href="assets/app.css?v=b1-6">
-  <script>
-    window.AGFF_V2 = {
-      version: '2.0.0-beta.1',
-      consentVersion: {{ consent_version|tojson }},
-      retentionDays: {{ retention_days|tojson }},
-      privacyUrl: {{ (privacy_url or 'datenschutz')|tojson }}
-    };
-    try { var t = localStorage.getItem('agffV2Theme'); if (t) document.documentElement.dataset.theme = t;
-      if (localStorage.getItem('agffV2Outdoor') === '1') document.documentElement.dataset.outdoor = '1'; } catch (e) {}
-  </script>
+  <link rel="stylesheet" href="assets/app.css?v=b1-7">
+  <script type="application/json" id="agff-config">{{ {'version': '2.0.0-beta.1', 'consentVersion': consent_version, 'retentionDays': retention_days, 'privacyUrl': privacy_url or 'datenschutz'}|tojson }}</script>
+  <script src="assets/boot.js?v=b1-7"></script>
 </head>
 <body>
   <a class="skip" href="#main">Zum Inhalt</a>
@@ -33,9 +25,10 @@
   <div id="sheet-root"></div>
   <div id="toast" role="status" aria-live="polite"></div>
   <noscript><p style="padding:2rem">Diese Anwendung benötigt JavaScript.</p></noscript>
-  <script src="assets/k3.js?v=b1-6"></script>
-  <script src="assets/wheel.js?v=b1-6"></script>
-  <script src="assets/io.js?v=b1-6"></script>
-  <script src="assets/app.js?v=b1-6"></script>
+  <script src="assets/k3.js?v=b1-7"></script>
+  <script src="assets/model.js?v=b1-7"></script>
+  <script src="assets/wheel.js?v=b1-7"></script>
+  <script src="assets/io.js?v=b1-7"></script>
+  <script src="assets/app.js?v=b1-7"></script>
 </body>
 </html>

@@ -275,3 +275,9 @@ table.tbl { width: 100%; border-collapse: collapse; font-variant-numeric: tabula
 .drop { border: 2px dashed var(--line-strong); border-radius: 16px; padding: 22px; text-align: center; cursor: pointer; }
 .drop.over { border-color: var(--brand); background: var(--brand-soft); }
 @media print { .bar, .actionbar, .steps, .region-nav, .region-list, .fab-wrap { display: none !important; } .region { height: auto; overflow: visible; } }
+
+/* Datenschutzseite */
+.doc{max-width:760px;margin:0 auto;padding:24px 18px 64px}
+.doc h1{font-size:1.6rem}
+.doc h2{font-size:1.15rem;margin-top:28px}
+.draft{background:#fbf1d6;color:#7a5300;border-radius:12px;padding:10px 14px;font-weight:600}

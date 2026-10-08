@@ -97,6 +97,42 @@ def _touch(conn, space_id):
     conn.execute('UPDATE spaces SET updated_at = ? WHERE id = ?', (_now(), space_id))
 
 
+# --- Sicherheits-Header ------------------------------------------------
+# Strikte CSP: nur eigene Skripte, keine Inline-Skripte, keine Fremd-Ressourcen.
+# style-src-attr erlaubt style="..."-Attribute (Layout), aber keine fremden Stylesheets.
+CSP = '; '.join([
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "style-src-elem 'self'",
+    "style-src-attr 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "font-src 'self'",
+    "connect-src 'self'",
+    "worker-src 'self' blob:",
+    "manifest-src 'self'",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "form-action 'none'",
+    "frame-ancestors 'none'",
+])
+
+
+@v2.after_request
+def v2_security_headers(resp):
+    resp.headers['Content-Security-Policy'] = CSP
+    resp.headers['X-Content-Type-Options'] = 'nosniff'
+    resp.headers['Referrer-Policy'] = 'no-referrer'
+    resp.headers['X-Frame-Options'] = 'DENY'
+    resp.headers['Cross-Origin-Opener-Policy'] = 'same-origin'
+    resp.headers['Cross-Origin-Resource-Policy'] = 'same-origin'
+    resp.headers['Permissions-Policy'] = 'camera=(self), geolocation=(), microphone=(), payment=(), usb=()'
+    resp.headers['Strict-Transport-Security'] = 'max-age=31536000'
+    if request.path.startswith('/v2/api/') and request.path != '/v2/api/basis':
+        resp.headers['Cache-Control'] = 'no-store'
+    return resp
+
+
 # --- Seiten -------------------------------------------------------------
 @v2.route('/v2')
 def v2_redirect():
