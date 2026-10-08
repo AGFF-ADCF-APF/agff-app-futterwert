@@ -13,7 +13,7 @@
   const ID_RE = /^[A-Za-z0-9_-]{6,64}$/;
   const ISO_RE = /^\d{4}-\d{2}-\d{2}T[\d:.]+Z?$/;
   const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-  const KEY_RE = /^[A-Za-z0-9_-]{16,128}$/;
+  const SECRET_RE = /^[A-Za-z0-9_-]{43}$/;  // 32 Byte base64url (Link-Geheimnis)
 
   const str = (v, max) => (typeof v === 'string' ? v.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').slice(0, max) : undefined);
   const iso = (v) => (typeof v === 'string' && ISO_RE.test(v) ? v : undefined);
@@ -82,8 +82,8 @@
   }
 
   function cleanSpace(s) {
-    if (!isObj(s) || !ID_RE.test(s.id || '') || !KEY_RE.test(s.key || '')) return undefined;
-    return compact({ id: s.id, key: s.key, consentAt: iso(s.consentAt) || str(s.consentAt, 40), consentVersion: str(s.consentVersion, 40), lastSync: iso(s.lastSync), metaDirty: bool(s.metaDirty) });
+    if (!isObj(s) || !ID_RE.test(s.id || '') || !SECRET_RE.test(s.secret || '') || (s.mode !== 'w' && s.mode !== 'r')) return undefined;
+    return compact({ id: s.id, mode: s.mode, secret: s.secret, consentAt: iso(s.consentAt) || str(s.consentAt, 40), consentVersion: str(s.consentVersion, 40), lastSync: iso(s.lastSync), metaDirty: bool(s.metaDirty) });
   }
 
   function cleanAnlass(a, opts) {
@@ -143,5 +143,5 @@
     return o;
   }
 
-  global.Model = { ID_RE, KEY_RE, PRIVAT, cleanProbe, cleanAnlass, cleanDb, cleanPrefs, split, merge };
+  global.Model = { ID_RE, SECRET_RE, PRIVAT, cleanProbe, cleanAnlass, cleanDb, cleanPrefs, split, merge };
 })(typeof window !== 'undefined' ? window : globalThis);

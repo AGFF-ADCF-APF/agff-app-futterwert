@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Datenschutz – Futterbeurteilung v2</title>
   <meta name="robots" content="noindex">
-  <link rel="stylesheet" href="assets/app.css?v=b1-7">
+  <link rel="stylesheet" href="assets/app.css?v=b1-8">
 </head>
 <body>
 <div class="doc">
@@ -25,13 +25,14 @@
   <p>PDF-Berichte werden direkt in Ihrem Browser erzeugt. Sie enthalten neben der Darstellung die Eingaben in kodierter Form, damit die Beurteilung später wieder importiert werden kann. Der QR-Code enthält die Eingaben im Teil der Adresse nach dem «#»; dieser Teil wird vom Browser nicht an den Server übermittelt. Beachten Sie: Wer den PDF-Bericht oder QR-Code erhält, kann die enthaltenen Angaben lesen.</p>
 
   <h2>4. Speicherung auf dem Server (nur mit Einwilligung)</h2>
-  <p>Nur wenn Sie für einen Anlass ausdrücklich «Auf Server speichern» wählen und der Speicherung zustimmen, werden die Daten dieses Anlasses (Bezeichnungen, Angaben zu Herkunft/Betrieb, Namen der Beurteilenden, Eingaben und Notizen) verschlüsselt übertragen und in einer Datenbank auf dem Server von apps.graswachstum.ch gespeichert. [Serverstandort / Hoster ergänzen]</p>
+  <p>Nur wenn Sie für einen Anlass ausdrücklich «Auf Server speichern» wählen und zustimmen, wird er auf dem Server von apps.graswachstum.ch gespeichert. [Serverstandort / Hoster ergänzen]</p>
   <ul>
-    <li><b>Zweck:</b> Zugriff auf denselben Anlass von mehreren Geräten und gemeinsames Erfassen im Team.</li>
-    <li><b>Rechtsgrundlage:</b> Ihre Einwilligung. Version und Zeitpunkt der Einwilligung werden mit dem Anlass gespeichert.</li>
-    <li><b>Zugriff:</b> Nur Personen mit dem geheimen Freigabe-Link sowie der technische Betrieb für Wartung und Sicherheit. Der Schlüssel des Links wird auf dem Server nur als Hashwert gespeichert.</li>
-    <li><b>Keine Weitergabe</b> an Dritte, keine Auswertung über Personen.</li>
-    <li><b>Löschung:</b> Automatisch {{ (retention_days / 30.4)|round|int }} Monate nach der letzten Änderung. Sie können die Daten jederzeit selbst über «Vom Server löschen» entfernen.</li>
+    <li><b>Ende-zu-Ende-Verschlüsselung personenbezogener Angaben:</b> Titel und Ort des Anlasses, Probenbezeichnungen, Herkunft/Betrieb, Namen der Beurteilenden und Notizen werden in Ihrem Browser mit AES-256-GCM verschlüsselt. Der Schlüssel ist nur im Freigabe-Link (Teil nach «#») enthalten, der vom Browser nicht an den Server übermittelt wird. Weder der Betreiber noch Dritte mit Zugriff auf den Server oder dessen Sicherungen können diese Angaben lesen.</li>
+    <li><b>Lesbar gespeichert</b> werden die Beurteilungsdaten ohne Personenbezug (Futterart, Bestand, Stadium, Antworten der Beurteilungsräder, Messwerte, Schnittdatum). Sie können für anonyme, zusammenfassende Auswertungen verwendet werden. Der Server weist Daten zurück, die in diesen Feldern Freitext enthalten.</li>
+    <li><b>Zugriff:</b> Es gibt einen Bearbeiten- und einen Nur-Ansehen-Link. Wer einen Link besitzt, sieht alle Angaben des Anlasses. Der Server speichert nur Prüfwerte (Hashes) der Zugriffsschlüssel. Links können jederzeit erneuert werden; alte Links sind danach ungültig.</li>
+    <li><b>Zweck und Rechtsgrundlage:</b> Zugriff von mehreren Geräten und gemeinsames Erfassen; Ihre Einwilligung (Version und Zeitpunkt werden gespeichert).</li>
+    <li><b>Löschung:</b> Automatisch {{ (retention_days / 30.4)|round|int }} Monate nach der letzten Änderung, jederzeit selbst über «Vom Server löschen».</li>
+    <li><b>Schutz vor Missbrauch:</b> Anfragen werden pro Absender begrenzt; dafür wird ein gekürzter Hashwert der IP-Adresse kurzzeitig im Arbeitsspeicher gehalten, nicht gespeichert.</li>
   </ul>
   <p>Erfassen Sie Angaben zu anderen Personen (z. B. Betriebsname) nur, wenn diese damit einverstanden sind.</p>
 

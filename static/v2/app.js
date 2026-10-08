@@ -58,6 +58,11 @@
   const probeById = (id) => db.proben.find((p) => p.id === id);
   const probenOf = (aid) => db.proben.filter((p) => (aid ? p.anlassId === aid : !p.anlassId)).sort((x, y) => (x.createdAt < y.createdAt ? -1 : 1));
 
+  /** Proben aus einem über Nur-Ansehen-Link geöffneten Anlass sind schreibgeschützt. */
+  const readOnly = (p) => { const a = p && p.anlassId && anlassById(p.anlassId); return !!(a && a.space && a.space.mode === 'r'); };
+  const anlassReadOnly = (aid) => { const a = aid && anlassById(aid); return !!(a && a.space && a.space.mode === 'r'); };
+  function guardRO(p) { if (readOnly(p)) { toast('Nur-Ansehen-Link: Änderungen sind nicht möglich.'); return true; } return false; }
+
   function touchProbe(p) {
     p.updatedAt = now();
     const a = p.anlassId && anlassById(p.anlassId);
@@ -173,7 +178,8 @@
   function parseHash() {
     const h = location.hash.replace(/^#/, '');
     if (h.startsWith('import=')) return { name: 'import', payload: h.slice(7) };
-    if (h.startsWith('space=')) return { name: 'join', token: h.slice(6) };
+    if (h.startsWith('s=')) return { name: 'join', token: h.slice(2) };
+    if (h.startsWith('space=')) return { name: 'join', token: '' }; // Format aus Beta-Test, nicht mehr gültig
     const seg = h.replace(/^\//, '').split('/').filter(Boolean);
     if (seg[0] === 'a' && seg[1]) return { name: 'anlass', id: seg[1], ov: seg[2] === 'uebersicht' };
     if (seg[0] === 'e') return { name: 'anlass', id: null, ov: seg[1] === 'uebersicht' };
@@ -218,10 +224,11 @@
 
   function syncState(a) {
     if (!a.space) return { ico: '', t: 'Nur auf diesem Gerät' };
+    if (a.space.mode === 'r' && !a.space.error && ui.online) return { ico: I.lock, t: 'Nur ansehen · verschlüsselt geteilt' };
     if (!ui.online) return { ico: I.cloud, t: 'Offline – wird später synchronisiert' };
     if (a.space.error) return { ico: I.cloud, t: 'Synchronisation fehlgeschlagen' };
     const dirty = probenOf(a.id).some((p) => p.dirty);
-    return dirty ? { ico: I.cloud, t: 'Änderungen werden übertragen …' } : { ico: I.cloudOk, t: 'Auf Server gespeichert' + (a.space.lastSync ? ' · ' + new Date(a.space.lastSync).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) : '') };
+    return dirty ? { ico: I.cloud, t: 'Änderungen werden übertragen …' } : { ico: I.cloudOk, t: 'Verschlüsselt auf Server' + (a.space.lastSync ? ' · ' + new Date(a.space.lastSync).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) : '') };
   }
 
   function renderNav(r) {
@@ -329,7 +336,7 @@
     return '<div class="bar"><a class="icon-btn" href="' + back + '" aria-label="Zurück zur Liste">' + I.back + '</a><h2>' + esc(titelOf(p)) + '<span class="sub">' + esc(typ.titel + ' · AGFF ' + typ.merkblatt) + '</span></h2>' +
       '<button class="icon-btn" data-act="probe-menu" data-id="' + p.id + '" aria-label="Probe-Aktionen">' + I.more + '</button></div>' +
       '<nav class="steps" aria-label="Schritte">' + steps.map((s, i) => '<button class="step-chip' + (stepDone(p, s.id) ? ' done' : '') + '" data-go="#/p/' + p.id + '/' + s.id + '"' + (s === step ? ' aria-current="step"' : '') + '><span class="n">' + (stepDone(p, s.id) ? '✓' : i + 1) + '</span>' + s.t + '</button>').join('') + '</nav>' +
-      '<div class="wizard" data-probe="' + p.id + '">' + body + '</div>' +
+      '<div class="wizard" data-probe="' + p.id + '">' + (readOnly(p) ? '<div class="alert info" style="margin-bottom:14px">' + I.lock + '<div>Geteilt über einen <b>Nur-Ansehen-Link</b> – Sie können alles einsehen, aber nichts ändern.</div></div>' : '') + body + '</div>' +
       '<div class="actionbar">' + (prev ? '<button class="btn" data-go="#/p/' + p.id + '/' + prev.id + '">' + I.back + ' ' + prev.t + '</button>' : '<a class="btn" href="' + back + '">Liste</a>') +
       (next ? '<button class="btn primary" data-go="#/p/' + p.id + '/' + next.id + '">' + next.t + ' →</button>' : '<button class="btn primary" data-act="pdf-probe" data-id="' + p.id + '">' + I.pdf + ' PDF</button>') + '</div>';
   }
@@ -347,7 +354,7 @@
       '<div class="grid2"><label class="field"><span>Herkunft / Betrieb</span><input class="input" data-k="kopf.herkunft" value="' + esc(k.herkunft) + '" placeholder="optional"></label>' +
       '<label class="field"><span>Beurteilt von</span><input class="input" data-k="kopf.beurteiler" value="' + esc(k.beurteiler) + '" placeholder="Name" autocomplete="name"></label></div>' +
       '<div class="grid2"><label class="field"><span>Schnittdatum</span><input class="input" type="date" data-k="kopf.schnitt" value="' + esc(k.schnitt) + '"></label>' +
-      '<label class="field"><span>Anlass</span><select class="input" data-k="anlassId"><option value="">– ohne Anlass –</option>' + an.map((a) => '<option value="' + a.id + '"' + (a.id === p.anlassId ? ' selected' : '') + '>' + esc(a.titel) + '</option>').join('') + '</select></label></div>' +
+      '<label class="field"><span>Anlass</span><select class="input" data-k="anlassId"><option value="">– ohne Anlass –</option>' + an.filter((a) => !(a.space && a.space.mode === 'r') || a.id === p.anlassId).map((a) => '<option value="' + a.id + '"' + (a.id === p.anlassId ? ' selected' : '') + '>' + esc(a.titel) + '</option>').join('') + '</select></label></div>' +
       '<label class="field"><span>Notiz</span><textarea class="input" data-k="kopf.notiz" placeholder="Beobachtungen, Lagerung, Fütterung …">' + esc(k.notiz) + '</textarea></label>' +
       '<p class="hint">Personenbezogene Angaben (Betrieb, Name) nur erfassen, wenn die betroffene Person einverstanden ist.</p></div>') +
       q('Futterart', '', '<div class="opts cols3">' + Object.values(K3.TYPEN).map((t) => opt({ set: 'typ', val: t.id, on: p.typ === t.id, t: t.titel, s: 'AGFF ' + t.merkblatt })).join('') + '</div>');
@@ -640,36 +647,66 @@
   }
 
   function sheetAnlassMenu(a) {
+    const ro = a.space && a.space.mode === 'r';
     sheet('<h2>' + esc(a.titel) + '</h2><div class="stack">' +
-      '<button class="btn block" data-act="edit-anlass" data-id="' + a.id + '">Bearbeiten</button>' +
+      (ro ? '<div class="alert info">' + I.lock + '<div>Geöffnet über einen <b>Nur-Ansehen-Link</b>. Ändern ist nicht möglich.</div></div>' : '<button class="btn block" data-act="edit-anlass" data-id="' + a.id + '">Bearbeiten</button>') +
       '<button class="btn block" data-act="pdf-anlass" data-id="' + a.id + '">' + I.pdf + ' PDF aller Proben (mit QR-Codes)</button>' +
       '<button class="btn block" data-act="export-anlass" data-id="' + a.id + '">Als JSON-Datei exportieren</button>' +
-      (a.space ? '<button class="btn block" data-act="share-space" data-id="' + a.id + '">' + I.share + ' Freigabe-Link fürs Büro / Team</button><button class="btn block" data-act="sync-now" data-id="' + a.id + '">Jetzt synchronisieren</button><button class="btn danger block" data-act="space-delete" data-id="' + a.id + '">Vom Server löschen (lokal behalten)</button>'
+      (a.space ? '<button class="btn block" data-act="share-space" data-id="' + a.id + '">' + I.share + ' Freigabe-Links fürs Büro / Team</button><button class="btn block" data-act="sync-now" data-id="' + a.id + '">Jetzt synchronisieren</button>' +
+        (ro ? '' : '<button class="btn block" data-act="space-rotate" data-id="' + a.id + '">' + I.lock + ' Links erneuern (alte Links sperren)</button><button class="btn danger block" data-act="space-delete" data-id="' + a.id + '">Vom Server löschen (lokal behalten)</button>')
         : '<button class="btn block" data-act="consent" data-id="' + a.id + '">' + I.cloud + ' Auf Server speichern & teilen …</button>') +
-      '<button class="btn danger block" data-act="delete-anlass" data-id="' + a.id + '">Anlass löschen</button>' +
+      '<button class="btn danger block" data-act="delete-anlass" data-id="' + a.id + '">' + (a.space ? 'Von diesem Gerät entfernen' : 'Anlass löschen') + '</button>' +
       '<button class="btn ghost block" data-close>Schliessen</button></div>');
   }
 
   function sheetProbeMenu(p) {
+    const ro = readOnly(p);
     sheet('<h2>' + esc(titelOf(p)) + '</h2><div class="stack">' +
       '<button class="btn block" data-act="pdf-probe" data-id="' + p.id + '">' + I.pdf + ' PDF mit QR-Code</button>' +
       '<button class="btn block" data-act="qr-probe" data-id="' + p.id + '">' + I.share + ' QR-Code / Link zum Weitergeben</button>' +
-      '<button class="btn block" data-act="dup-probe" data-id="' + p.id + '">Kopie als neue Probe</button>' +
-      '<button class="btn danger block" data-act="delete-probe" data-id="' + p.id + '">Probe löschen</button>' +
+      '<button class="btn block" data-act="dup-probe" data-id="' + p.id + '">Kopie als neue Probe' + (ro ? ' (ohne Anlass)' : '') + '</button>' +
+      (ro ? '' : '<button class="btn danger block" data-act="delete-probe" data-id="' + p.id + '">Probe löschen</button>') +
       '<button class="btn ghost block" data-close>Schliessen</button></div>');
   }
 
-  // ---------- Zustimmung / Server ----------
+  // ---------- Zustimmung / Server (Ende-zu-Ende verschlüsselt) ----------
+  const C = window.FutterCrypto;
+  const spaceKeys = new Map(); // anlassId → abgeleitete Schlüssel (nur im Speicher)
+  async function keysFor(a) {
+    const cached = spaceKeys.get(a.id);
+    if (cached && cached.secret === a.space.secret) return cached.k;
+    const k = await C.keys(a.space.mode, a.space.secret);
+    spaceKeys.set(a.id, { secret: a.space.secret, k });
+    return k;
+  }
+  const readH = (k) => ({ 'X-Read-Token': k.readToken });
+  const writeH = (k) => ({ 'X-Write-Token': k.writeToken });
+
+  /** Verpackt eine Probe bzw. die Anlass-Angaben: Analyse lesbar, Persönliches verschlüsselt. */
+  async function sealProbe(k, sid, p) {
+    const { analyse, privat } = Model.split(p, 'probe');
+    delete analyse.anlassId;
+    return { analyse, privat: Object.keys(privat).length ? await C.encryptJSON(k.key, privat, C.aadFor(sid, p.id)) : null };
+  }
+  async function sealMeta(k, sid, a) {
+    const { analyse, privat } = Model.split({ id: 'anlassmeta', titel: a.titel, datum: a.datum, ort: a.ort, notiz: a.notiz }, 'anlass');
+    return { analyse, privat: await C.encryptJSON(k.key, privat, C.aadFor(sid, 'anlassmeta')) };
+  }
+  async function openRecord(k, sid, r) {
+    const privat = await C.decryptJSON(k.key, r.data && r.data.privat, C.aadFor(sid, r.id));
+    return Model.merge((r.data && r.data.analyse) || {}, privat);
+  }
+
   function sheetConsent(a) {
     const months = Math.round((CFG.retentionDays || 730) / 30.4);
     sheet('<h2>' + I.cloud.replace('<svg', '<svg width="24" height="24" style="vertical-align:-5px"') + ' Auf dem Server speichern?</h2><div class="consent">' +
-      '<p style="margin-top:0">Damit können Sie den Anlass <b>«' + esc(a.titel) + '»</b> auf weiteren Geräten öffnen und im Team gemeinsam erfassen. Bitte lesen Sie kurz, was dabei passiert:</p><ul>' +
-      '<li>Die Angaben dieses Anlasses – Bezeichnungen, Herkunft/Betrieb, Namen der Beurteilenden, alle Eingaben und Notizen – werden verschlüsselt (HTTPS) übertragen und auf dem Server von <b>' + esc(location.hostname) + '</b> gespeichert.</li>' +
-      '<li>Zugriff hat nur, wer den geheimen <b>Freigabe-Link</b> kennt, sowie der technische Betrieb für Wartung und Sicherheit. Keine Weitergabe an Dritte, keine Werbung, keine Auswertung über Personen.</li>' +
-      '<li>Die Daten werden <b>' + months + ' Monate nach der letzten Änderung automatisch gelöscht</b>. Sie können sie jederzeit selbst vom Server löschen.</li>' +
-      '<li>Ohne Zustimmung bleibt alles wie bisher ausschliesslich in diesem Browser.</li></ul>' +
+      '<p style="margin-top:0">Damit können Sie <b>«' + esc(a.titel) + '»</b> auf weiteren Geräten öffnen und im Team gemeinsam erfassen. Was dabei passiert:</p><ul>' +
+      '<li><b>Persönliches wird auf Ihrem Gerät verschlüsselt:</b> Titel, Ort, Probenbezeichnungen, Herkunft/Betrieb, Namen und Notizen. Der Schlüssel steckt nur im Freigabe-Link und erreicht den Server nie – auch der Betreiber kann diese Angaben nicht lesen.</li>' +
+      '<li><b>Lesbar gespeichert</b> werden nur die Beurteilungsdaten (Futterart, Bestand, Stadium, Rad-Antworten, Messwerte) ohne Bezug zu Personen. Sie können für anonyme, zusammenfassende Auswertungen genutzt werden.</li>' +
+      '<li><b>Wer einen Link hat, sieht alles.</b> Den Bearbeiten-Link nur an Vertrauenspersonen geben, sonst den Nur-Ansehen-Link. Links lassen sich jederzeit erneuern – die alten werden dann ungültig.</li>' +
+      '<li>Automatische Löschung <b>' + months + ' Monate nach der letzten Änderung</b>; Sie können jederzeit selbst löschen. Ohne Zustimmung bleibt alles nur in diesem Browser.</li></ul>' +
       '<p class="small"><a href="' + esc(CFG.privacyUrl) + '" target="_blank" rel="noopener">Datenschutzerklärung lesen</a></p>' +
-      '<label class="toggle" style="margin:12px 0"><input type="checkbox" id="consentCheck"> <span>Ich habe die Hinweise gelesen und bin mit der Speicherung einverstanden. Personenangaben Dritter erfasse ich nur mit deren Einverständnis.</span></label>' +
+      '<label class="toggle" style="margin:12px 0"><input type="checkbox" id="consentCheck"> <span>Ich habe die Hinweise gelesen und bin einverstanden. Personenangaben Dritter erfasse ich nur mit deren Einverständnis.</span></label>' +
       '<div class="row"><button class="btn ghost grow" data-close>Nein, nur lokal</button><button class="btn primary grow" id="consentOk" disabled data-act="consent-ok" data-id="' + a.id + '">Zustimmen & speichern</button></div></div>', (el) => {
       el.querySelector('#consentCheck').addEventListener('change', (e) => { el.querySelector('#consentOk').disabled = !e.target.checked; });
     });
@@ -678,14 +715,16 @@
   async function createSpace(a) {
     if (!navigator.onLine) { toast('Keine Verbindung – bitte später erneut versuchen.'); return; }
     try {
-      const r = await IO.api('spaces', { method: 'POST', body: { titel: a.titel, consent: { accepted: true, version: CFG.consentVersion } } });
-      a.space = { id: r.id, key: r.key, consentAt: r.consentAt, consentVersion: CFG.consentVersion, metaDirty: true };
+      const secret = C.newSecret();
+      const k = await C.keys('w', secret);
+      const r = await IO.api('spaces', { method: 'POST', body: Object.assign({ consent: { accepted: true, version: CFG.consentVersion } }, await C.hashes(k)) });
+      a.space = { id: r.id, mode: 'w', secret, consentAt: r.consentAt, consentVersion: CFG.consentVersion, metaDirty: true };
       probenOf(a.id).forEach((p) => { p.dirty = true; });
       save(); closeSheet();
       await syncAnlass(a);
       render(); sheetShare(a);
     } catch (e) {
-      toast(e.message === 'CONSENT_OUTDATED' ? 'Die Hinweise wurden aktualisiert – bitte Seite neu laden.' : 'Speichern fehlgeschlagen: ' + e.message);
+      toast(e.message === 'CONSENT_OUTDATED' ? 'Die Hinweise wurden aktualisiert – bitte Seite neu laden.' : e.message === 'RATE_LIMITED' ? 'Zu viele Anfragen – bitte später erneut versuchen.' : 'Speichern fehlgeschlagen: ' + e.message);
     }
   }
 
@@ -695,51 +734,51 @@
   async function syncAnlass(a) {
     if (!a.space || syncing[a.id] || !navigator.onLine) return;
     syncing[a.id] = true;
-    const key = a.space.key; const sid = a.space.id;
+    const sid = a.space.id; const ro = a.space.mode === 'r';
     try {
-      const remote = await IO.api('spaces/' + sid, { key });
+      const k = await keysFor(a);
+      const remote = await IO.api('spaces/' + sid, { headers: readH(k) });
       const remoteIds = new Set();
-      remote.records.forEach((r) => {
+      for (const r of remote.records) {
+        let d;
+        try { d = await openRecord(k, sid, r); } catch (e) { throw new Error('Schlüssel passt nicht – Link wurde evtl. erneuert'); }
         if (r.id === 'anlassmeta') {
-          const m = Model.cleanAnlass(Object.assign({ id: a.id }, r.data));
-          if (!a.space.metaDirty && m && r.clientUpdatedAt > (a.updatedAt || '')) Object.assign(a, { titel: m.titel, datum: m.datum, ort: m.ort, notiz: m.notiz });
-          return;
+          const m = Model.cleanAnlass(Object.assign(d, { id: a.id }));
+          if (!a.space.metaDirty && m && r.clientUpdatedAt > (a.updatedAt || '')) Object.assign(a, { titel: m.titel, datum: m.datum, ort: m.ort, notiz: m.notiz, updatedAt: r.clientUpdatedAt });
+          continue;
         }
         remoteIds.add(r.id);
         const local = probeById(r.id);
-        const d = Model.cleanProbe(Object.assign({}, r.data, { id: r.id }));
-        if (!d) return;
+        d = Model.cleanProbe(Object.assign(d, { id: r.id }));
+        if (!d) continue;
         if (!local) {
-          if ((db.tombstones || []).includes(r.id)) return;
+          if ((db.tombstones || []).includes(r.id)) continue;
           db.proben.push(Object.assign(d, { anlassId: a.id, syncedAt: r.clientUpdatedAt, dirty: false }));
-        } else if (!local.dirty && r.clientUpdatedAt > (local.updatedAt || '')) {
+        } else if (ro || (!local.dirty && r.clientUpdatedAt > (local.updatedAt || ''))) {
           Object.assign(local, d, { anlassId: a.id, syncedAt: r.clientUpdatedAt, dirty: false });
         }
-      });
-      // Remote gelöscht?
-      db.proben = db.proben.filter((p) => !(p.anlassId === a.id && p.syncedAt && !p.dirty && !remoteIds.has(p.id)));
-      // Lokale Löschungen übertragen
-      for (const id of (db.tombstones || []).slice()) {
-        if (remoteIds.has(id)) await IO.api('spaces/' + sid + '/records/' + id, { method: 'DELETE', key }).catch(() => {});
       }
-      db.tombstones = [];
-      // Lokale Änderungen hochladen
-      for (const p of probenOf(a.id).filter((x) => x.dirty || !remoteIds.has(x.id))) {
-        const data = JSON.parse(JSON.stringify(p)); delete data.dirty; delete data.syncedAt;
-        try {
-          await IO.api('spaces/' + sid + '/records/' + p.id, { method: 'PUT', key, body: { data, updatedAt: p.updatedAt } });
-          p.dirty = false; p.syncedAt = p.updatedAt;
-        } catch (e) { if (e.status === 409) { p.dirty = false; } else throw e; }
-      }
-      if (a.space.metaDirty) {
-        await IO.api('spaces/' + sid + '/records/anlassmeta', { method: 'PUT', key, body: { data: { titel: a.titel, datum: a.datum, ort: a.ort, notiz: a.notiz }, updatedAt: a.updatedAt || now() } });
-        await IO.api('spaces/' + sid, { method: 'PATCH', key, body: { titel: a.titel } });
-        a.space.metaDirty = false;
+      // Auf dem Server gelöscht → lokal entfernen (bei Nur-Ansehen immer exakt spiegeln)
+      db.proben = db.proben.filter((p) => !(p.anlassId === a.id && !remoteIds.has(p.id) && (ro || (p.syncedAt && !p.dirty))));
+      if (!ro) {
+        for (const id of (db.tombstones || []).slice()) {
+          if (remoteIds.has(id)) await IO.api('spaces/' + sid + '/records/' + id, { method: 'DELETE', headers: writeH(k) }).catch(() => {});
+        }
+        db.tombstones = [];
+        for (const p of probenOf(a.id).filter((x) => x.dirty || !remoteIds.has(x.id))) {
+          try {
+            await IO.api('spaces/' + sid + '/records/' + p.id, { method: 'PUT', headers: writeH(k), body: { data: await sealProbe(k, sid, p), updatedAt: p.updatedAt } });
+            p.dirty = false; p.syncedAt = p.updatedAt;
+          } catch (e) { if (e.status === 409) { p.dirty = false; } else throw e; }
+        }
+        if (a.space.metaDirty) {
+          await IO.api('spaces/' + sid + '/records/anlassmeta', { method: 'PUT', headers: writeH(k), body: { data: await sealMeta(k, sid, a), updatedAt: a.updatedAt || now() } });
+          a.space.metaDirty = false;
+        }
       }
       a.space.lastSync = now(); a.space.error = null;
     } catch (e) {
-      a.space.error = e.message;
-      if (e.status === 404) { a.space.error = 'Auf dem Server nicht (mehr) vorhanden'; }
+      a.space.error = e.status === 404 ? 'Auf dem Server nicht (mehr) vorhanden oder Link ungültig' : e.message;
     } finally {
       syncing[a.id] = false; auswertungCache.clear(); save();
     }
@@ -753,29 +792,64 @@
     if (r.name === 'anlass') $('#main').innerHTML = renderUebersicht(r.id);
   }
 
-  async function sheetShare(a) {
-    const link = IO.appUrl() + '#space=' + a.space.id + '.' + a.space.key;
-    const el = sheet('<h2>' + I.share.replace('<svg', '<svg width="24" height="24" style="vertical-align:-5px"') + ' Freigabe-Link</h2>' +
-      '<p class="small" style="margin-top:0">Mit diesem Link öffnen Sie <b>«' + esc(a.titel) + '»</b> auf einem anderen Gerät – z. B. im Büro für die Übersicht – oder erfassen im Team gemeinsam. <b>Wer den Link hat, kann die Daten sehen und ändern.</b></p>' +
+  async function shareLinks(a) {
+    const k = await keysFor(a);
+    const base = IO.appUrl() + '#s=' + a.space.id + '.';
+    return { w: a.space.mode === 'w' ? base + 'w.' + a.space.secret : null, r: base + 'r.' + k.readSecret };
+  }
+  async function sheetShare(a, tab) {
+    const links = await shareLinks(a);
+    tab = links.w ? (tab || 'r') : 'r';
+    const link = links[tab];
+    const el = sheet('<h2>' + I.share.replace('<svg', '<svg width="24" height="24" style="vertical-align:-5px"') + ' Freigabe-Links</h2>' +
+      (links.w ? '<div class="seg" style="margin-bottom:12px"><button data-act="share-tab" data-tab="r" data-id="' + a.id + '" aria-pressed="' + (tab === 'r') + '">Nur ansehen</button><button data-act="share-tab" data-tab="w" data-id="' + a.id + '" aria-pressed="' + (tab === 'w') + '">Bearbeiten</button></div>' : '') +
+      '<p class="small" style="margin-top:0">' + (tab === 'w'
+        ? '<b>Bearbeiten-Link:</b> Wer ihn hat, kann alle Angaben von «' + esc(a.titel) + '» sehen, ändern und löschen. Nur an Vertrauenspersonen weitergeben.'
+        : '<b>Nur-Ansehen-Link:</b> Zeigt «' + esc(a.titel) + '» inklusive aller Namen und Notizen, erlaubt aber keine Änderungen – z. B. für die Übersicht im Büro.') +
+      ' Der Schlüssel steckt im Link selbst; der Server kann die persönlichen Angaben nicht lesen.</p>' +
       '<div class="qr-box" id="shareQr"></div><div class="copy-field" style="margin-top:12px"><input class="input" readonly value="' + esc(link) + '" id="shareLink"><button class="btn" data-act="copy" data-target="#shareLink">Kopieren</button></div>' +
       (navigator.share ? '<button class="btn block" style="margin-top:10px" data-act="native-share" data-url="' + esc(link) + '" data-title="' + esc(a.titel) + '">Teilen …</button>' : '') +
-      '<p class="hint">' + esc(syncState(a).t) + '. Gespeichert seit ' + dateCH(a.space.consentAt) + '.</p><button class="btn ghost block" data-close>Schliessen</button>');
+      '<p class="hint">' + esc(syncState(a).t) + '. Gespeichert seit ' + dateCH(a.space.consentAt) + '.' + (links.w ? ' Link gelangt in falsche Hände? → Menü › «Links erneuern».' : '') + '</p><button class="btn ghost block" data-close>Schliessen</button>');
     const svg = await IO.qrSvg(link); if (svg) el.querySelector('#shareQr').innerHTML = svg;
   }
 
+  async function rotateSpace(a) {
+    if (!confirm('Neue Links erzeugen? Alle bisherigen Links (Bearbeiten und Ansehen) werden sofort ungültig. Personen, die weiter Zugriff haben sollen, brauchen danach den neuen Link.')) return;
+    try {
+      await syncAnlass(a);
+      if (a.space.error) throw new Error(a.space.error);
+      const oldK = await keysFor(a);
+      const secret = C.newSecret();
+      const k = await C.keys('w', secret);
+      const sid = a.space.id;
+      const records = [{ id: 'anlassmeta', data: await sealMeta(k, sid, a), updatedAt: a.updatedAt || now() }];
+      for (const p of probenOf(a.id)) records.push({ id: p.id, data: await sealProbe(k, sid, p), updatedAt: p.updatedAt });
+      await IO.api('spaces/' + sid + '/rotate', { method: 'POST', headers: writeH(oldK), body: Object.assign({ records }, await C.hashes(k)) });
+      a.space.secret = secret; spaceKeys.delete(a.id);
+      probenOf(a.id).forEach((p) => { p.dirty = false; p.syncedAt = p.updatedAt; });
+      save(); closeSheet(); toast('Neue Links erstellt – alte Links sind gesperrt.'); sheetShare(a, 'r');
+    } catch (e) { toast('Erneuern fehlgeschlagen: ' + e.message); }
+  }
+
   async function joinSpace(token) {
-    const [sid, key] = String(token).split('.');
-    if (!sid || !key) return toast('Ungültiger Freigabe-Link.');
-    let a = db.anlaesse.find((x) => x.space && x.space.id === sid);
-    if (!a) {
+    const L = C.parseLink(token);
+    if (!L) return toast('Ungültiger oder veralteter Freigabe-Link.');
+    let a = db.anlaesse.find((x) => x.space && x.space.id === L.id);
+    if (a) {
+      // Bearbeiten-Link schlägt Nur-Ansehen; neuer Schlüssel ersetzt alten
+      if (L.mode === 'w' || a.space.mode === 'r') { a.space.mode = L.mode; a.space.secret = L.secret; spaceKeys.delete(a.id); }
+    } else {
+      a = { id: uid(), titel: 'Geteilter Anlass', createdAt: now(), updatedAt: '', space: { id: L.id, mode: L.mode, secret: L.secret } };
       try {
-        const r = await IO.api('spaces/' + sid, { key });
-        a = { id: uid(), titel: String(r.space.titel || 'Geteilter Anlass').slice(0, 200), createdAt: now(), updatedAt: '', space: { id: sid, key, consentAt: r.space.consentAt, consentVersion: r.space.consentVersion } };
-        db.anlaesse.push(a);
-      } catch (e) { return toast(e.status === 404 ? 'Anlass nicht gefunden oder bereits gelöscht.' : 'Laden fehlgeschlagen (offline?).'); }
+        const k = await keysFor(a);
+        const r = await IO.api('spaces/' + L.id, { headers: readH(k) });
+        Object.assign(a.space, { consentAt: r.space.consentAt, consentVersion: r.space.consentVersion });
+      } catch (e) { return toast(e.status === 404 ? 'Anlass nicht gefunden, gelöscht oder Link nicht mehr gültig.' : 'Laden fehlgeschlagen (offline?).'); }
+      db.anlaesse.push(a);
     }
     await syncAnlass(a);
-    save(); toast('Anlass «' + a.titel + '» geladen.'); go('#/a/' + a.id);
+    if (a.space.error) toast(a.space.error); else toast('«' + a.titel + '» geladen' + (a.space.mode === 'r' ? ' (nur ansehen).' : '.'));
+    save(); go('#/a/' + a.id);
   }
 
   // ---------- Import ----------
@@ -923,6 +997,7 @@
   }
 
   function choose(p, set, val) {
+    if (guardRO(p)) return;
     const a = p.antworten;
     if (set === 'typ') { if (p.typ !== val) { p.typ = val; p.rad = {}; } }
     else if (set.startsWith('rad.')) {
@@ -958,6 +1033,7 @@
     if (t.dataset.fokus && p) { ui.fokus[p.id] = t.dataset.fokus; rerenderDetail(true); return; }
     if (t.dataset.set && p) { choose(p, t.dataset.set, t.dataset.val); return; }
     if (t.dataset.step && p) {
+      if (guardRO(p)) return;
       const k = t.dataset.step; const d = Number(t.dataset.d);
       let v = Number(p.antworten[k]);
       if (k === 'phWert') { v = isFinite(v) && v > 0 ? v + d : 4.4; v = Math.round(Math.max(3, Math.min(7, v)) * 10) / 10; delete p.rad.ph; }
@@ -969,6 +1045,7 @@
     switch (act) {
       case 'new-probe': {
         const aid = t.dataset.anlass !== undefined ? (t.dataset.anlass || null) : (ui.route.name === 'anlass' ? ui.route.id : (currentProbe() ? currentProbe().anlassId : null));
+        if (anlassReadOnly(aid)) { toast('Nur-Ansehen-Link: neue Proben bitte ohne Anlass oder in einem eigenen Anlass erfassen.'); sheetNewProbe(null); break; }
         sheetNewProbe(aid || null); break;
       }
       case 'create-probe': {
@@ -979,7 +1056,7 @@
         go('#/p/' + pr.id + '/' + (pr.typ === 'mais' ? 'haecksel' : 'bestand')); break;
       }
       case 'new-anlass': sheetAnlass(null); break;
-      case 'edit-anlass': sheetAnlass(anlassById(id)); break;
+      case 'edit-anlass': if (anlassReadOnly(id)) { toast('Nur-Ansehen-Link: Änderungen sind nicht möglich.'); break; } sheetAnlass(anlassById(id)); break;
       case 'anlass-menu': sheetAnlassMenu(anlassById(id)); break;
       case 'probe-menu': sheetProbeMenu(probeById(id)); break;
       case 'import': sheetImport(); break;
@@ -1000,7 +1077,7 @@
       case 'backup': {
         const copy = JSON.parse(JSON.stringify(db));
         download(new Blob([JSON.stringify({ f: 'agff-futter-backup', v: 2, exportiert: now(), db: copy }, null, 1)], { type: 'application/json' }), 'Futterbeurteilung_Sicherung_' + new Date().toISOString().slice(0, 10) + '.json');
-        toast('Enthält auch Freigabe-Schlüssel – vertraulich aufbewahren.'); break;
+        toast('Enthält die Schlüssel Ihrer Freigabe-Links – vertraulich aufbewahren!'); break;
       }
       case 'qr-probe': {
         const pr = probeById(id);
@@ -1015,10 +1092,12 @@
       case 'dup-probe': {
         const pr = probeById(id); const c = JSON.parse(JSON.stringify(pr));
         Object.assign(c, { id: uid(), createdAt: now(), updatedAt: now(), syncedAt: undefined, dirty: false }); c.kopf.bez = (c.kopf.bez || 'Probe') + ' (Kopie)';
+        if (readOnly(pr)) c.anlassId = null;
         db.proben.push(c); touchProbe(c); closeSheet(); go('#/p/' + c.id + '/probe'); break;
       }
       case 'delete-probe': {
         const pr = probeById(id);
+        if (guardRO(pr)) return;
         if (!confirm('Probe «' + titelOf(pr) + '» löschen?')) return;
         db.proben = db.proben.filter((x) => x.id !== id);
         const a = pr.anlassId && anlassById(pr.anlassId);
@@ -1034,11 +1113,13 @@
       case 'consent': closeSheet(); sheetConsent(anlassById(id)); break;
       case 'consent-ok': t.disabled = true; await createSpace(anlassById(id)); if (t.isConnected) t.disabled = false; break;
       case 'share-space': closeSheet(); sheetShare(anlassById(id)); break;
+      case 'share-tab': sheetShare(anlassById(id), t.dataset.tab); break;
+      case 'space-rotate': closeSheet(); await rotateSpace(anlassById(id)); break;
       case 'sync-now': { const a = anlassById(id); closeSheet(); await syncAnlass(a); render(); toast(syncState(a).t); break; }
       case 'space-delete': {
         const a = anlassById(id);
         if (!confirm('Alle Daten von «' + a.titel + '» endgültig vom Server löschen? Die lokale Kopie auf diesem Gerät bleibt erhalten. Andere Geräte mit dem Freigabe-Link verlieren den Zugriff.')) return;
-        try { await IO.api('spaces/' + a.space.id, { method: 'DELETE', key: a.space.key }); } catch (er) { if (er.status !== 404) { toast('Löschen fehlgeschlagen: ' + er.message); return; } }
+        try { await IO.api('spaces/' + a.space.id, { method: 'DELETE', headers: writeH(await keysFor(a)) }); } catch (er) { if (er.status !== 404) { toast('Löschen fehlgeschlagen: ' + er.message); return; } }
         delete a.space; probenOf(id).forEach((x) => { delete x.syncedAt; delete x.dirty; });
         save(); closeSheet(); render(); toast('Vom Server gelöscht. Daten liegen nur noch auf diesem Gerät.'); break;
       }
@@ -1060,6 +1141,7 @@
     }
     const k = el.dataset.k; const p = currentProbe();
     if (!k || !p) return;
+    if (guardRO(p)) { rerenderDetail(true); return; }
     let v = el.type === 'checkbox' ? el.checked : el.value;
     if (k === 'antworten.phWert') { v = v === '' ? null : Number(String(v).replace(',', '.')); if (v != null && !isFinite(v)) return; delete p.rad.ph; }
     if (k === 'antworten.wochen') { v = v === '' ? null : Number(v); }

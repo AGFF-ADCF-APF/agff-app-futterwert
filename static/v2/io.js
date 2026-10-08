@@ -473,8 +473,7 @@
   // ---------- Server ----------
   async function api(path, opts) {
     const o = opts || {};
-    const headers = { 'Content-Type': 'application/json' };
-    if (o.key) headers['X-Space-Key'] = o.key;
+    const headers = Object.assign({ 'Content-Type': 'application/json' }, o.headers || {});
     const r = await fetch('api/' + path, { method: o.method || 'GET', headers, body: o.body ? JSON.stringify(o.body) : undefined, cache: 'no-store', credentials: 'omit' });
     let data = null; try { data = await r.json(); } catch (e) { /* leer */ }
     if (!r.ok) { const err = new Error((data && data.error) || ('HTTP ' + r.status)); err.status = r.status; err.data = data; throw err; }

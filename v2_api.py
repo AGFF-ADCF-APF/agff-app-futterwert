@@ -17,6 +17,9 @@ import os
 import re
 import secrets
 import sqlite3
+import threading
+import time
+from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint, jsonify, redirect, render_template, request, send_from_directory
@@ -27,7 +30,7 @@ V2_DB_PATH = os.environ.get('V2_DB_PATH', 'data/v2.db')
 V2_STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'v2')
 CSV_PATH = 'data/futterwerte.csv'
 # Bei Aenderung des Zustimmungstextes im Frontend MUSS diese Version mitwachsen.
-CONSENT_VERSION = '2026-10-a'
+CONSENT_VERSION = '2026-10-b'  # b: Ende-zu-Ende-Verschlüsselung personenbezogener Angaben
 RETENTION_DAYS = int(os.environ.get('V2_RETENTION_DAYS', '730'))
 PRIVACY_URL = os.environ.get('V2_PRIVACY_URL', '')
 MAX_RECORD_BYTES = 64 * 1024
@@ -36,6 +39,13 @@ ID_RE = re.compile(r'^[A-Za-z0-9_-]{6,64}$')
 
 
 # --- DB ---------------------------------------------------------------
+# Ende-zu-Ende-Modell: Der Server kennt nur Hashes der Zugriffs-Tokens, die lesbaren
+# Analysedaten und verschlüsselte Pakete («privat») für alles Personenbezogene.
+# Schlüssel und Tokens werden im Browser aus dem Geheimnis im Link (#…) abgeleitet.
+TOKEN_RE = re.compile(r'^[A-Za-z0-9_-]{43}$')       # 32 Byte base64url
+HASH_RE = re.compile(r'^[0-9a-f]{64}$')
+
+
 def _db():
     if not os.path.exists(V2_DB_PATH):
         init_v2_db()
@@ -48,20 +58,27 @@ def _db():
 def init_v2_db():
     os.makedirs(os.path.dirname(V2_DB_PATH) or '.', exist_ok=True)
     with sqlite3.connect(V2_DB_PATH) as conn:
+        # Vorgängerschema (Klartext, Beta-Test) entfernen, sofern leer
+        for old in ('records', 'spaces'):
+            exists = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (old,)).fetchone()
+            if exists and conn.execute(f'SELECT COUNT(*) FROM {old}').fetchone()[0] == 0:
+                conn.execute(f'DROP TABLE {old}')
         conn.executescript('''
-            CREATE TABLE IF NOT EXISTS spaces (
+            CREATE TABLE IF NOT EXISTS e2e_spaces (
                 id TEXT PRIMARY KEY,
-                key_hash TEXT NOT NULL,
-                titel TEXT,
+                read_hash TEXT NOT NULL,
+                write_hash TEXT NOT NULL,
+                epoch INTEGER NOT NULL DEFAULT 1,
                 consent_version TEXT NOT NULL,
                 consent_at TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
-            CREATE TABLE IF NOT EXISTS records (
-                space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+            CREATE TABLE IF NOT EXISTS e2e_records (
+                space_id TEXT NOT NULL REFERENCES e2e_spaces(id) ON DELETE CASCADE,
                 id TEXT NOT NULL,
-                data TEXT NOT NULL,
+                analyse TEXT NOT NULL,
+                privat TEXT,
                 client_updated_at TEXT,
                 updated_at TEXT NOT NULL,
                 PRIMARY KEY (space_id, id)
@@ -73,28 +90,113 @@ def _now():
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
-def _hash_key(key):
-    return hashlib.sha256(key.encode('utf-8')).hexdigest()
+def _sha(token):
+    return hashlib.sha256(token.encode('ascii')).hexdigest()
 
 
 def _purge_expired(conn):
     cutoff = (datetime.now(timezone.utc) - timedelta(days=RETENTION_DAYS)).isoformat()
-    conn.execute('DELETE FROM spaces WHERE updated_at < ?', (cutoff,))
+    conn.execute('DELETE FROM e2e_spaces WHERE updated_at < ?', (cutoff,))
 
 
-def _auth_space(conn, space_id):
-    """Liefert die Space-Zeile, falls der Schluessel stimmt, sonst None."""
+def _auth(conn, space_id, need_write=False):
+    """Prüft Lese- bzw. Schreib-Token. Gibt die Space-Zeile oder None zurück (keine Unterscheidung nach aussen)."""
     if not ID_RE.match(space_id or ''):
         return None
-    key = request.headers.get('X-Space-Key', '')
-    row = conn.execute('SELECT * FROM spaces WHERE id = ?', (space_id,)).fetchone()
-    if not row or not key or not hmac.compare_digest(row['key_hash'], _hash_key(key)):
+    row = conn.execute('SELECT * FROM e2e_spaces WHERE id = ?', (space_id,)).fetchone()
+    if not row:
+        return None
+    header, column = ('X-Write-Token', 'write_hash') if need_write else ('X-Read-Token', 'read_hash')
+    token = request.headers.get(header, '')
+    if not TOKEN_RE.match(token) or not hmac.compare_digest(row[column], _sha(token)):
+        _rate_hit('auth_fail', limit=60, window=600)
         return None
     return row
 
 
 def _touch(conn, space_id):
-    conn.execute('UPDATE spaces SET updated_at = ? WHERE id = ?', (_now(), space_id))
+    conn.execute('UPDATE e2e_spaces SET updated_at = ? WHERE id = ?', (_now(), space_id))
+
+
+# --- Einfache Ratenbegrenzung (pro Prozess, nur im Speicher; IPs werden nicht gespeichert) ---
+_rate_lock = threading.Lock()
+_rate = defaultdict(deque)
+
+
+class RateLimited(Exception):
+    pass
+
+
+def _client_key():
+    raw = request.headers.get('X-Real-Ip') or request.remote_addr or '?'
+    return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+
+def _rate_hit(bucket, limit, window):
+    key = (bucket, _client_key())
+    now = time.monotonic()
+    with _rate_lock:
+        q = _rate[key]
+        while q and now - q[0] > window:
+            q.popleft()
+        q.append(now)
+        if len(q) > limit:
+            raise RateLimited()
+
+
+@v2.errorhandler(RateLimited)
+def _rate_limited(_e):
+    return jsonify({'error': 'RATE_LIMITED'}), 429
+
+
+# --- Inhaltsprüfung: auf dem Server darf kein personenbezogener Klartext landen ----
+_SHORT_RE = re.compile(r'^[A-Za-z0-9_.-]{0,16}$')
+_DATE_RE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
+_ISO_RE = re.compile(r'^\d{4}-\d{2}-\d{2}T[\d:.]+Z?$')
+_B64_RE = re.compile(r'^[A-Za-z0-9_-]+$')
+PROBE_KEYS = {'id', 'typ', 'createdAt', 'updatedAt', 'quelle', 'kopf', 'antworten', 'rad'}
+
+
+def _scalar_ok(v):
+    if isinstance(v, bool) or v is None:
+        return True
+    if isinstance(v, (int, float)):
+        return abs(v) < 1e6
+    return isinstance(v, str) and bool(_SHORT_RE.match(v))
+
+
+def _check_privat(pv):
+    if pv is None:
+        return True
+    return (isinstance(pv, dict) and set(pv) == {'v', 'iv', 'ct'} and pv['v'] == 1
+            and isinstance(pv['iv'], str) and len(pv['iv']) == 16 and _B64_RE.match(pv['iv'])
+            and isinstance(pv['ct'], str) and 0 < len(pv['ct']) <= MAX_RECORD_BYTES and _B64_RE.match(pv['ct']))
+
+
+def _check_record(record_id, data):
+    """Whitelist der lesbaren Analysedaten. Freitext ist nur verschlüsselt (privat) erlaubt."""
+    if not isinstance(data, dict) or not set(data) <= {'analyse', 'privat'}:
+        return False
+    an = data.get('analyse') or {}
+    if not isinstance(an, dict) or not _check_privat(data.get('privat')):
+        return False
+    if record_id == 'anlassmeta':
+        return set(an) <= {'id', 'datum'} and (an.get('datum') in (None, '') or bool(_DATE_RE.match(str(an.get('datum')))))
+    if not set(an) <= PROBE_KEYS or an.get('id') != record_id or an.get('typ') not in ('heu', 'gras', 'mais'):
+        return False
+    for k in ('createdAt', 'updatedAt'):
+        if an.get(k) is not None and not (isinstance(an[k], str) and _ISO_RE.match(an[k])):
+            return False
+    if an.get('quelle') not in (None, 'v1'):
+        return False
+    kopf = an.get('kopf') or {}
+    if not isinstance(kopf, dict) or not set(kopf) <= {'schnitt'} or (kopf.get('schnitt') and not _DATE_RE.match(str(kopf['schnitt']))):
+        return False
+    for part in ('antworten', 'rad'):
+        d = an.get(part) or {}
+        if not isinstance(d, dict) or len(d) > 40 or not all(_SHORT_RE.match(k) and _scalar_ok(v) for k, v in d.items()):
+            return False
+    return True
 
 
 # --- Sicherheits-Header ------------------------------------------------
@@ -228,73 +330,74 @@ def v2_basis():
     return resp
 
 
-# --- Freigabe-Bereiche (nur mit Zustimmung) ------------------------------
+# --- Freigabe-Bereiche (nur mit Zustimmung, Ende-zu-Ende verschlüsselt) ----
 @v2.route('/v2/api/config')
 def v2_config():
     return jsonify({'consentVersion': CONSENT_VERSION, 'retentionDays': RETENTION_DAYS,
                     'privacyUrl': PRIVACY_URL or None})
 
 
+def _json_body():
+    raw = request.get_data(cache=False, as_text=True)
+    if len(raw.encode('utf-8')) > MAX_RECORD_BYTES * 40:
+        return None
+    try:
+        return json.loads(raw)
+    except ValueError:
+        return None
+
+
 @v2.route('/v2/api/spaces', methods=['POST'])
 def v2_create_space():
-    body = request.get_json(silent=True) or {}
+    _rate_hit('create', limit=30, window=3600)
+    body = _json_body() or {}
     consent = body.get('consent') or {}
     if consent.get('accepted') is not True:
         return jsonify({'error': 'CONSENT_REQUIRED'}), 400
     if consent.get('version') != CONSENT_VERSION:
         return jsonify({'error': 'CONSENT_OUTDATED', 'consentVersion': CONSENT_VERSION}), 409
-    titel = str(body.get('titel') or '')[:200]
+    rh, wh = body.get('readHash', ''), body.get('writeHash', '')
+    if not (HASH_RE.match(rh) and HASH_RE.match(wh)) or rh == wh:
+        return jsonify({'error': 'BAD_KEYS'}), 400
     space_id = secrets.token_urlsafe(9)
-    key = secrets.token_urlsafe(24)
     now = _now()
     with _db() as conn:
         _purge_expired(conn)
-        conn.execute('INSERT INTO spaces (id, key_hash, titel, consent_version, consent_at, created_at, updated_at) '
-                     'VALUES (?, ?, ?, ?, ?, ?, ?)',
-                     (space_id, _hash_key(key), titel, CONSENT_VERSION, now, now, now))
-    return jsonify({'id': space_id, 'key': key, 'consentAt': now, 'retentionDays': RETENTION_DAYS}), 201
+        conn.execute('INSERT INTO e2e_spaces (id, read_hash, write_hash, consent_version, consent_at, created_at, updated_at) '
+                     'VALUES (?, ?, ?, ?, ?, ?, ?)', (space_id, rh, wh, CONSENT_VERSION, now, now, now))
+    return jsonify({'id': space_id, 'consentAt': now, 'retentionDays': RETENTION_DAYS}), 201
 
 
 @v2.route('/v2/api/spaces/<space_id>', methods=['GET'])
 def v2_get_space(space_id):
     with _db() as conn:
-        space = _auth_space(conn, space_id)
+        space = _auth(conn, space_id)
         if not space:
             return jsonify({'error': 'NOT_FOUND'}), 404
-        rows = conn.execute('SELECT id, data, client_updated_at, updated_at FROM records WHERE space_id = ?',
+        rows = conn.execute('SELECT id, analyse, privat, client_updated_at, updated_at FROM e2e_records WHERE space_id = ?',
                             (space_id,)).fetchall()
-    records = []
-    for r in rows:
-        try:
-            records.append({'id': r['id'], 'data': json.loads(r['data']),
-                            'clientUpdatedAt': r['client_updated_at'], 'updatedAt': r['updated_at']})
-        except ValueError:
-            continue
-    return jsonify({'space': {'id': space['id'], 'titel': space['titel'], 'createdAt': space['created_at'],
-                              'updatedAt': space['updated_at'], 'consentAt': space['consent_at'],
-                              'consentVersion': space['consent_version']},
+    records = [{'id': r['id'], 'data': {'analyse': json.loads(r['analyse']), 'privat': json.loads(r['privat']) if r['privat'] else None},
+                'clientUpdatedAt': r['client_updated_at'], 'updatedAt': r['updated_at']} for r in rows]
+    return jsonify({'space': {'id': space['id'], 'epoch': space['epoch'], 'createdAt': space['created_at'], 'updatedAt': space['updated_at'],
+                              'consentAt': space['consent_at'], 'consentVersion': space['consent_version']},
                     'records': records, 'retentionDays': RETENTION_DAYS})
-
-
-@v2.route('/v2/api/spaces/<space_id>', methods=['PATCH'])
-def v2_patch_space(space_id):
-    body = request.get_json(silent=True) or {}
-    with _db() as conn:
-        if not _auth_space(conn, space_id):
-            return jsonify({'error': 'NOT_FOUND'}), 404
-        if 'titel' in body:
-            conn.execute('UPDATE spaces SET titel = ? WHERE id = ?', (str(body.get('titel') or '')[:200], space_id))
-        _touch(conn, space_id)
-    return jsonify({'status': 'ok'})
 
 
 @v2.route('/v2/api/spaces/<space_id>', methods=['DELETE'])
 def v2_delete_space(space_id):
     with _db() as conn:
-        if not _auth_space(conn, space_id):
+        if not _auth(conn, space_id, need_write=True):
             return jsonify({'error': 'NOT_FOUND'}), 404
-        conn.execute('DELETE FROM spaces WHERE id = ?', (space_id,))
+        conn.execute('DELETE FROM e2e_spaces WHERE id = ?', (space_id,))
     return jsonify({'status': 'deleted'})
+
+
+def _store(conn, space_id, record_id, data, client_updated):
+    conn.execute('INSERT INTO e2e_records (space_id, id, analyse, privat, client_updated_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) '
+                 'ON CONFLICT(space_id, id) DO UPDATE SET analyse = excluded.analyse, privat = excluded.privat, '
+                 'client_updated_at = excluded.client_updated_at, updated_at = excluded.updated_at',
+                 (space_id, record_id, json.dumps(data.get('analyse') or {}, ensure_ascii=False),
+                  json.dumps(data['privat']) if data.get('privat') else None, client_updated, _now()))
 
 
 @v2.route('/v2/api/spaces/<space_id>/records/<record_id>', methods=['PUT'])
@@ -309,25 +412,21 @@ def v2_put_record(space_id, record_id):
     except ValueError:
         return jsonify({'error': 'BAD_JSON'}), 400
     data = body.get('data')
-    if not isinstance(data, dict):
-        return jsonify({'error': 'BAD_DATA'}), 400
+    if not _check_record(record_id, data):
+        return jsonify({'error': 'REJECTED_CONTENT'}), 422
     client_updated = str(body.get('updatedAt') or '')[:40]
     with _db() as conn:
-        if not _auth_space(conn, space_id):
+        if not _auth(conn, space_id, need_write=True):
             return jsonify({'error': 'NOT_FOUND'}), 404
-        existing = conn.execute('SELECT client_updated_at FROM records WHERE space_id = ? AND id = ?',
+        existing = conn.execute('SELECT client_updated_at FROM e2e_records WHERE space_id = ? AND id = ?',
                                 (space_id, record_id)).fetchone()
         if existing is None:
-            count = conn.execute('SELECT COUNT(*) FROM records WHERE space_id = ?', (space_id,)).fetchone()[0]
+            count = conn.execute('SELECT COUNT(*) FROM e2e_records WHERE space_id = ?', (space_id,)).fetchone()[0]
             if count >= MAX_RECORDS_PER_SPACE:
                 return jsonify({'error': 'SPACE_FULL'}), 409
         elif existing['client_updated_at'] and client_updated and existing['client_updated_at'] > client_updated:
-            # Neuere Fassung liegt bereits auf dem Server (anderes Geraet).
             return jsonify({'status': 'stale'}), 409
-        conn.execute('INSERT INTO records (space_id, id, data, client_updated_at, updated_at) VALUES (?, ?, ?, ?, ?) '
-                     'ON CONFLICT(space_id, id) DO UPDATE SET data = excluded.data, '
-                     'client_updated_at = excluded.client_updated_at, updated_at = excluded.updated_at',
-                     (space_id, record_id, json.dumps(data, ensure_ascii=False), client_updated, _now()))
+        _store(conn, space_id, record_id, data, client_updated)
         _touch(conn, space_id)
     return jsonify({'status': 'ok'})
 
@@ -335,8 +434,31 @@ def v2_put_record(space_id, record_id):
 @v2.route('/v2/api/spaces/<space_id>/records/<record_id>', methods=['DELETE'])
 def v2_delete_record(space_id, record_id):
     with _db() as conn:
-        if not _auth_space(conn, space_id):
+        if not _auth(conn, space_id, need_write=True):
             return jsonify({'error': 'NOT_FOUND'}), 404
-        conn.execute('DELETE FROM records WHERE space_id = ? AND id = ?', (space_id, record_id))
+        conn.execute('DELETE FROM e2e_records WHERE space_id = ? AND id = ?', (space_id, record_id))
         _touch(conn, space_id)
     return jsonify({'status': 'deleted'})
+
+
+@v2.route('/v2/api/spaces/<space_id>/rotate', methods=['POST'])
+def v2_rotate(space_id):
+    """Links erneuern: neue Token-Hashes und neu verschlüsselte Datensätze in einer Transaktion.
+    Danach sind alle alten Links ungültig."""
+    body = _json_body() or {}
+    rh, wh, recs = body.get('readHash', ''), body.get('writeHash', ''), body.get('records')
+    if not (HASH_RE.match(rh) and HASH_RE.match(wh)) or rh == wh or not isinstance(recs, list) or len(recs) > MAX_RECORDS_PER_SPACE + 1:
+        return jsonify({'error': 'BAD_REQUEST'}), 400
+    for r in recs:
+        if not isinstance(r, dict) or not ID_RE.match(str(r.get('id', ''))) or not _check_record(r['id'], r.get('data')):
+            return jsonify({'error': 'REJECTED_CONTENT', 'id': str(r.get('id', ''))[:64] if isinstance(r, dict) else None}), 422
+    with _db() as conn:
+        space = _auth(conn, space_id, need_write=True)
+        if not space:
+            return jsonify({'error': 'NOT_FOUND'}), 404
+        conn.execute('DELETE FROM e2e_records WHERE space_id = ?', (space_id,))
+        for r in recs:
+            _store(conn, space_id, r['id'], r['data'], str(r.get('updatedAt') or '')[:40])
+        conn.execute('UPDATE e2e_spaces SET read_hash = ?, write_hash = ?, epoch = epoch + 1, updated_at = ? WHERE id = ?',
+                     (rh, wh, _now(), space_id))
+    return jsonify({'status': 'rotated', 'epoch': space['epoch'] + 1})
