@@ -31,7 +31,7 @@
   };
 
   // ---------- Zustand ----------
-  const emptyDb = () => ({ v: 1, anlaesse: [], proben: [], prefs: { beurteiler: '', kuhGewicht: 630 }, tombstones: [] });
+  const emptyDb = () => ({ v: 1, anlaesse: [], proben: [], prefs: { beurteiler: '', kuhGewicht: 630, mastGewicht: 400 }, tombstones: [] });
   let db = emptyDb();
   let basis = null;
   let storageOk = true;
@@ -102,6 +102,15 @@
     return K3.milchPotenzial(res.werte, { kuhGewicht: db.prefs.kuhGewicht, tsvBasis: res.basis && res.basis.tsv, typ: p.typ === 'heu' ? 'heu' : 'silage', aufwuchs: p.antworten.aufwuchs });
   }
 
+  const mastGewicht = () => Number(db.prefs.mastGewicht) || 400;
+  function mastOf(p, res) { return res.werte ? K3.mastPotenzial(res.werte, { lebendgewicht: mastGewicht() }) : null; }
+  const fmtTzw = (t) => (t == null ? 'unter Erhaltung' : fmt(Math.round(t / 10) * 10, 0) + ' g');
+  function mastText(m) {
+    if (!m) return null;
+    return 'Mastpotenzial Muni ' + m.lebendgewicht + ' kg aus diesem Futter allein: ' + (m.tzw == null ? 'deckt den Erhaltungsbedarf nicht (begrenzt durch ' + m.limit + ')' : 'ca. ' + fmtTzw(m.tzw) + ' Tageszuwachs (begrenzt durch ' + m.limit + ')') +
+      '; Verzehr ' + fmt(m.tsv, 1) + ' kg TS. Agroscope, Grünes Buch Kap. 10 – Energiebedarf gilt als ca. 20 % überschätzt, reale Zunahmen eher höher.';
+  }
+
   /** Aufbereitete Texte für PDF + Ergebnisansicht */
   function label(p, res) {
     const a = p.antworten || {}; const k = p.kopf || {};
@@ -149,11 +158,14 @@
     if (p.typ === 'heu' && res.korr) klasseSub = 'Korrektur NEL ' + fmt(res.korr.nel, 0) + ' % · APDE ' + fmt(res.korr.apde, 0) + ' % · APDN ' + fmt(res.korr.apdn, 0) + ' %';
     if (p.typ !== 'heu' && res.punkte != null) klasseSub = res.punkte + ' Punkte ' + (res.mitPh ? '(inkl. pH)' : '(ohne pH)');
     const mp = p.typ === 'mais' ? null : mppOf(p, res);
+    const ms = mastOf(p, res);
     return {
       titel: titelOf(p), meta, tabelle: rows, befunde, klasseSub, bestandStadium: bestandStadium(p),
       basisLabel: p.typ === 'mais' ? 'Ausgang' : 'Tabelle',
       mpp: mp ? 'Milchbildungspotenzial aus diesem Futter allein: ' + fmt(mp.mpp, 1) + ' kg Milch/Tag (begrenzt durch ' + mp.limit + '; Verzehr ' + fmt(mp.tsv, 1) + ' kg TS, Kuh ' + mp.kuhGewicht + ' kg).' : null,
       mppKurz: mp ? fmt(mp.mpp, 1) : null,
+      mast: mastText(ms),
+      mastKurz: ms ? (ms.tzw == null ? '< Erh.' : fmt(Math.round(ms.tzw / 10) * 10, 0)) : null,
     };
   }
 
@@ -454,6 +466,20 @@
       '<div>' + nav + factorCard + '</div></div>';
   }
 
+  /** Mastpotenzial Muni: Zuwachs, den Energie bzw. Protein erlauben – das kleinere begrenzt. */
+  function mastCard(p, res) {
+    const m = mastOf(p, res);
+    if (!m) return '';
+    const vals = [['NEV', m.tzwE, 'Energie'], ['APD', m.tzwP, 'Protein (' + m.apdQuelle + ')']];
+    const max = Math.max(1600, ...vals.map((v) => v[1] || 0));
+    return '<div class="card" style="margin-top:14px"><div class="row"><b class="grow">Mastpotenzial Muni ' + m.lebendgewicht + ' kg</b><span class="kpi-inline"><b style="font-size:1.5rem">' +
+      (m.tzw == null ? '–' : fmt(Math.round(m.tzw / 10) * 10, 0)) + '</b> g/Tag</span></div>' +
+      (m.tzw == null ? '<div class="alert info" style="margin-top:8px">Dieses Futter allein deckt nicht einmal den Erhaltungsbedarf (' + (m.limit === 'APD' ? 'Protein' : 'Energie') + ') – Ergänzung nötig.</div>' : '') +
+      '<div class="bars" style="margin-top:10px">' + vals.map(([k, v, t]) => '<div class="b" style="cursor:default" title="' + t + '"><span class="lbl">' + k + (k === m.limit ? ' · begrenzt' : '') + '</span><span class="track"><span class="val" style="width:' + Math.max(0, Math.min(100, ((v || 0) / max) * 100)) + '%;background:' + (k === m.limit ? 'var(--schlecht)' : 'var(--line-strong)') + '"></span></span><span class="n">' + (v == null ? '< Erh.' : fmt(Math.round(v / 10) * 10, 0)) + '</span></div>').join('') + '</div>' +
+      '<p class="small muted" style="margin:8px 0 0">Tageszuwachs (g), den ein Muni von ' + m.lebendgewicht + ' kg allein mit diesem Futter erreichen könnte – Verzehr ' + fmt(m.tsv, 1) + ' kg TS, Bedarf nach Agroscope (Grünes Buch, Kap. 10). ' +
+      'Hinweis: Agroscope-Versuche zeigen, dass der Energiebedarf moderner Mastmuni damit um rund 20 % überschätzt wird; reale Zunahmen dürften eher höher liegen. Gewicht unter «Daten & Datenschutz» anpassbar.</p></div>';
+  }
+
   /** Milchbildungspotenzial: alle drei Grenzen zeigen, die begrenzende hervorheben. */
   function mppCard(p, res) {
     const m = p.typ === 'mais' ? null : mppOf(p, res);
@@ -487,7 +513,7 @@
         h += '<div class="card" style="margin-top:14px"><div class="row"><b class="grow">Energie (NEL) im Vergleich</b><span class="chip ' + (res.zielErreicht ? 'gut' : 'schlecht') + '">' + (res.zielErreicht ? 'Ziel erreicht' : 'unter Ziel') + '</span></div>' +
           '<div class="gauge">' + (b.nel ? '<span class="mk ghost" style="left:' + pos(b.nel) + '%" title="Tabellenwert"></span>' : '') + '<span class="mk" style="left:' + pos(w.nel) + '%"></span>' +
           (res.ziel && res.ziel.nel ? '<span class="tg" style="left:' + pos(res.ziel.nel) + '%">Ziel ' + fmt(res.ziel.nel, 1) + '</span>' : '') + '<span class="tg" style="left:0;transform:none">4,0</span><span class="tg" style="left:100%;transform:translateX(-100%)">7,5 MJ</span></div>' +
-          '<p class="small muted" style="margin:6px 0 0">' + esc(K3.TYPEN[p.typ].ziel) + '</p></div>' + mppCard(p, res);
+          '<p class="small muted" style="margin:6px 0 0">' + esc(K3.TYPEN[p.typ].ziel) + '</p></div>' + mppCard(p, res) + mastCard(p, res);
       }
     }
     h += '<div class="rad-layout" style="margin-top:14px"><div><div class="rad-box"><a href="#/p/' + p.id + '/rad" aria-label="Rad bearbeiten">' + wheelSvg(p, res) + '</a></div></div><div class="card"><h3>Befunde</h3>' +
@@ -529,18 +555,18 @@
       }).join('') + '</div><div class="row small muted" style="justify-content:space-between;margin:4px 0 0 calc(min(140px, 30%) + 10px);padding-right:62px"><span>4,0</span><span>5,0</span><span>6,0</span><span>7,0</span></div></div>' +
       '<div class="card"><b>Beurteilungsräder</b><div class="wheels" style="margin-top:10px">' + items.map(({ p, res }) => '<a href="#/p/' + p.id + '/ergebnis">' + wheelSvg(p, res) + '<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(titelOf(p)) + '</div></a>').join('') + '</div></div></div>';
     // Tabelle
-    const cols = [['titel', 'Probe'], ['typ', 'Futter'], ['bs', 'Bestand/Stadium'], ['klasse', 'Beurteilung'], ['pkt', 'Pkt./Korr.'], ['nel', 'NEL'], ['apde', 'APDE'], ['apdn', 'APDN'], ['rp', 'RP'], ['mpp', 'Milch*']];
+    const cols = [['titel', 'Probe'], ['typ', 'Futter'], ['bs', 'Bestand/Stadium'], ['klasse', 'Beurteilung'], ['pkt', 'Pkt./Korr.'], ['nel', 'NEL'], ['apde', 'APDE'], ['apdn', 'APDN'], ['rp', 'RP'], ['mpp', 'Milch*'], ['mast', 'Mast**']];
     const rows = items.map(({ p, res }) => {
-      const w = res.werte || {}; const mp = p.typ === 'mais' ? null : mppOf(p, res);
+      const w = res.werte || {}; const mp = p.typ === 'mais' ? null : mppOf(p, res); const ms = mastOf(p, res);
       return { p, res, titel: titelOf(p), typ: K3.TYPEN[p.typ].kurz, bs: bestandStadium(p), klasse: res.sperre.length ? 'Nicht verfüttern' : (res.klasse ? res.klasse.label : ''),
-        pkt: p.typ === 'heu' ? (res.korr ? res.korr.nel : null) : res.punkte, nel: w.nel, apde: w.apde, apdn: w.apdn, rp: w.rp, mpp: mp ? mp.mpp : null };
+        pkt: p.typ === 'heu' ? (res.korr ? res.korr.nel : null) : res.punkte, nel: w.nel, apde: w.apde, apdn: w.apdn, rp: w.rp, mpp: mp ? mp.mpp : null, mast: ms ? (ms.tzw == null ? -1 : ms.tzw) : null };
     });
     const { k, dir } = ui.sort;
     rows.sort((x, y) => { const A = x[k], B = y[k]; if (A == null) return 1; if (B == null) return -1; return (A > B ? 1 : A < B ? -1 : 0) * dir; });
     h += '<div class="section-title">Alle Werte</div><div class="tbl-wrap"><table class="tbl"><thead><tr>' + cols.map(([c, t]) => '<th><button data-sort="' + c + '">' + t + (k === c ? (dir > 0 ? ' ▲' : ' ▼') : '') + '</button></th>').join('') + '</tr></thead><tbody>' +
       rows.map((r) => '<tr class="click" data-go="#/p/' + r.p.id + '/ergebnis"><td><strong>' + esc(r.titel) + '</strong></td><td>' + esc(r.typ) + '</td><td>' + esc(r.bs) + '</td><td><span class="chip ' + tonOf(r.res) + '">' + esc(r.klasse || 'offen') + '</span></td><td>' +
-        (r.pkt == null ? '–' : r.p.typ === 'heu' ? fmt(r.pkt, 0) + ' %' : r.pkt) + '</td><td><strong>' + fmt(r.nel, 2) + '</strong></td><td>' + fmt(r.apde, 0) + '</td><td>' + fmt(r.apdn, 0) + '</td><td>' + fmt(r.rp, 0) + '</td><td>' + fmt(r.mpp, 1) + '</td></tr>').join('') +
-      '</tbody></table></div><p class="hint">* Milchbildungspotenzial aus dem Grundfutter allein (kg/Tag, Kuh ' + db.prefs.kuhGewicht + ' kg) – wie im Futterwert-Rechner v1. Grau schraffiert = Tabellenwert vor Abzügen.</p></div>';
+        (r.pkt == null ? '–' : r.p.typ === 'heu' ? fmt(r.pkt, 0) + ' %' : r.pkt) + '</td><td><strong>' + fmt(r.nel, 2) + '</strong></td><td>' + fmt(r.apde, 0) + '</td><td>' + fmt(r.apdn, 0) + '</td><td>' + fmt(r.rp, 0) + '</td><td>' + fmt(r.mpp, 1) + '</td><td>' + (r.mast == null ? '–' : r.mast < 0 ? '< Erh.' : fmt(Math.round(r.mast / 10) * 10, 0)) + '</td></tr>').join('') +
+      '</tbody></table></div><p class="hint">* Milchbildungspotenzial aus dem Grundfutter allein (kg/Tag, Kuh ' + db.prefs.kuhGewicht + ' kg) – wie im Futterwert-Rechner v1. ** Tageszuwachs Muni ' + mastGewicht() + ' kg in g (Agroscope, Grünes Buch Kap. 10). Grau schraffiert = Tabellenwert vor Abzügen.</p></div>';
     return h;
   }
 
@@ -558,7 +584,8 @@
       q('Daten aus der bisherigen Version (v1)', 'Wiesenfutter-Beurteilungen (Grassilage/Dürrfutter) und Silomais werden übernommen; die Sensorik von v1 hatte teilweise andere Skalen und wird als «bitte prüfen» markiert. Die v1-Daten selbst bleiben unverändert.',
         '<div class="row"><button class="btn" data-act="v1-local"' + (v1local ? '' : ' disabled') + '>' + v1local + ' lokal gespeicherte v1-Proben übernehmen</button><button class="btn" data-act="v1-server">Meine Proben vom v1-Server laden …</button></div>') +
       q('Einstellungen', '', '<div class="grid2"><label class="field"><span>Mein Name (Vorschlag für «Beurteilt von»)</span><input class="input" data-pref="beurteiler" value="' + esc(db.prefs.beurteiler) + '"></label>' +
-        '<label class="field"><span>Gewicht Referenzkuh (kg)</span><input class="input" inputmode="numeric" data-pref="kuhGewicht" value="' + esc(db.prefs.kuhGewicht) + '"></label></div>' +
+        '<label class="field"><span>Gewicht Referenzkuh (kg)</span><input class="input" inputmode="numeric" data-pref="kuhGewicht" value="' + esc(db.prefs.kuhGewicht) + '"></label>' +
+        '<label class="field"><span>Gewicht Mastmuni (kg, ' + K3.MAST.LG_MIN + '–' + K3.MAST.LG_MAX + ')</span><input class="input" inputmode="numeric" data-pref="mastGewicht" value="' + esc(mastGewicht()) + '"></label></div>' +
         '<div class="seg" style="margin-top:12px">' + [['', 'Automatisch'], ['light', 'Hell'], ['dark', 'Dunkel']].map(([v, t]) => '<button data-act="theme" data-val="' + v + '" aria-pressed="' + ((document.documentElement.dataset.theme || '') === v) + '">' + t + '</button>').join('') + '</div>') +
       q('Alles löschen', 'Entfernt alle v2-Daten aus diesem Browser. Auf dem Server gespeicherte Anlässe bleiben bestehen, bis Sie sie dort löschen.', '<button class="btn danger" data-act="wipe">Alle lokalen Daten löschen</button>') +
       '<p class="small muted">Version ' + esc(CFG.version) + ' · Grundlage: AGFF-Merkblätter K3a (2022), K3b (2023), K3c (2021); Nährwerte Agroscope.</p></div>';
@@ -1019,7 +1046,10 @@
   document.addEventListener('input', (e) => {
     const el = e.target;
     if (el.dataset.pref) {
-      db.prefs[el.dataset.pref] = el.dataset.pref === 'kuhGewicht' ? (Number(el.value) || 630) : el.value;
+      const pr = el.dataset.pref;
+      if (pr === 'kuhGewicht') db.prefs[pr] = Number(el.value) || 630;
+      else if (pr === 'mastGewicht') { const v = Number(el.value); db.prefs[pr] = v >= K3.MAST.LG_MIN && v <= K3.MAST.LG_MAX ? v : 400; }
+      else db.prefs[pr] = el.value;
       auswertungCache.clear(); save(); return;
     }
     const k = el.dataset.k; const p = currentProbe();

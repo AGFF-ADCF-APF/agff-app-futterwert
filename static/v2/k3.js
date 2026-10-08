@@ -444,10 +444,49 @@
     return { tsv, nel, apde, apdn, mpp: Math.max(0, min), limit, kuhGewicht: kg };
   }
 
+  /**
+   * Mastpotenzial Muni aus dem Grundfutter allein – Agroscope, Grünes Buch Kap. 10 (Grossviehmast), Anhang 10.10.
+   * Gesucht: höchster Tageszuwachs (g), den Energie (NEV) bzw. Protein (min. APDE/APDN) bei TS-Verzehr nach Formel decken.
+   */
+  const MAST = { LG_MIN: 125, LG_MAX: 550 };
+  function mastNevBedarf(lg, tzw) {
+    const ea = (4.453 + 0.01407 * lg) * tzw / (1000 - 0.30 * tzw);
+    const q = 0.36 + 0.0002 * tzw;
+    const k = (0.831 + 0.4305 * q) / (0.283 + 0.9235 * q);
+    return 0.495 * Math.pow(lg, 0.75) + k * (ea - 0.165 * Math.pow(lg, 0.75));
+  }
+  const mastTsv = (lg, tzw) => 0.173 + 0.01372 * lg + 0.00147 * tzw;
+  function mastApdBedarf(lg, tzw) {
+    const a = -0.2704, b = 1.024, c = -5.433, d = 1.5352, h = 0.1541, t0 = 1220;
+    const lgk = Math.exp(a + b * Math.log(lg));
+    const tzwk = (lgk / lg) * b * tzw;
+    const lip = Math.exp(c + d * Math.log(lgk));
+    const fa = (Math.pow(tzwk, 1.78) * d * t0 * lip) / (Math.pow(t0, 1.78) * lgk);
+    const pa = 1.06 * h * (tzwk - fa) * Math.pow(lgk - lip, 0.06);
+    return 3.25 * Math.pow(lg, 0.75) + pa / 0.6;
+  }
+  function maxZuwachs(ueberschuss) {
+    if (ueberschuss(0) < 0) return null; // deckt nicht einmal den Erhaltungsbedarf
+    let lo = 0, hi = 2000;
+    if (ueberschuss(hi) >= 0) return hi;
+    for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (ueberschuss(m) >= 0) lo = m; else hi = m; }
+    return lo;
+  }
+  function mastPotenzial(werte, opts) {
+    if (!werte || !werte.nev || werte.apde == null || werte.apdn == null) return null;
+    const lg = Math.max(MAST.LG_MIN, Math.min(MAST.LG_MAX, Number((opts || {}).lebendgewicht) || 400));
+    const apd = Math.min(werte.apde, werte.apdn);
+    const tzwE = maxZuwachs((t) => werte.nev * mastTsv(lg, t) - mastNevBedarf(lg, t));
+    const tzwP = maxZuwachs((t) => apd * mastTsv(lg, t) - mastApdBedarf(lg, t));
+    const tzw = tzwE == null || tzwP == null ? null : Math.min(tzwE, tzwP);
+    const limit = tzwE == null ? 'NEV' : tzwP == null ? 'APD' : (tzwE <= tzwP ? 'NEV' : 'APD');
+    return { lebendgewicht: lg, tzwE, tzwP, tzw, limit, apdQuelle: werte.apde <= werte.apdn ? 'APDE' : 'APDN', tsv: mastTsv(lg, tzw || 0) };
+  }
+
   global.K3 = {
     BESTAENDE, BESTAND_PLAIN, STADIEN_ERSTER, REFERENZPFLANZEN, STADIEN_FOLGE_HINWEIS, stadiumFolge,
     TYPEN, K3B_SAUBERKEIT, K3B_TS, K3B_KLASSEN, K3C_SCHRITTE, K3C_KORR, K3C_AUSGANG, K3C_METRIKEN, METRIK_LABEL,
     phPunkteK3b, phPunkteK3c, k3bKlasse, k3cKoernerRating, radAuswahl, pickBasis, verfuegbareStadien,
-    auswerten, milchPotenzial,
+    auswerten, milchPotenzial, mastPotenzial, mastNevBedarf, mastApdBedarf, mastTsv, MAST,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

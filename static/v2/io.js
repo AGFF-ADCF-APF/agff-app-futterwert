@@ -252,10 +252,11 @@
     ky += 46;
     if (res.werte && res.werte.nel) gauge(doc, xr + 2, ky + 4, wr - 4, 4, 7.5, res.werte.nel, res.basis && res.basis.nel, res.ziel && res.ziel.nel, 'NEL im Vergleich zum Ziel (MJ/kg TS)');
     ky += 12;
-    if (L.mpp) {
-      doc.setFontSize(8.2); doc.setTextColor(50); doc.setFont('helvetica', 'normal');
-      doc.text(doc.splitTextToSize(pdfText(L.mpp), wr), xr, ky + 3);
-    }
+    doc.setFontSize(7.8); doc.setTextColor(50); doc.setFont('helvetica', 'normal');
+    [L.mpp, L.mast].filter(Boolean).forEach((t) => {
+      const lines = doc.splitTextToSize(pdfText(t), wr);
+      doc.text(lines, xr, ky + 3); ky += lines.length * 3.3 + 1.5;
+    });
 
     y = Math.max(y + 92, ky + 10);
     if (res.sperre.length) {
@@ -344,8 +345,8 @@
     y += 12;
 
     // Tabelle
-    const head = ['Probe', 'Futter', 'Bestand / Stadium', 'Beurteilung', 'NEL', 'APDE', 'APDN', 'RP', 'Milch*'];
-    const cx = [14, 54, 80, 112, 150, 162, 174, 185, 196];
+    const head = ['Probe', 'Futter', 'Bestand / Stadium', 'Beurteilung', 'NEL', 'APDE', 'APDN', 'RP', 'Milch*', 'Mast**'];
+    const cx = [14, 50, 72, 102, 141, 152, 163, 173, 184, 196];
     doc.setFillColor(238, 242, 239); doc.rect(14, y, 182, 6, 'F');
     doc.setFontSize(7); doc.setTextColor(90); doc.setFont('helvetica', 'bold');
     head.forEach((h, i) => doc.text(h, cx[i] + (i >= 4 ? 0 : 1), y + 4, { align: i >= 4 ? 'right' : 'left' }));
@@ -355,7 +356,7 @@
       if (i % 2) { doc.setFillColor(249, 250, 249); doc.rect(14, y, 182, 5.4, 'F'); }
       const w = it.res.werte || {};
       const cells = [it.L.titel.slice(0, 22), global.K3.TYPEN[it.p.typ].kurz, it.L.bestandStadium || '–', (it.res.sperre.length ? 'Nicht verfüttern' : (it.res.klasse ? it.res.klasse.label : '–')).slice(0, 26),
-        fmt(w.nel, 2), fmt(w.apde, 0), fmt(w.apdn, 0), fmt(w.rp, 0), it.L.mppKurz || '–'];
+        fmt(w.nel, 2), fmt(w.apde, 0), fmt(w.apdn, 0), fmt(w.rp, 0), it.L.mppKurz || '–', it.L.mastKurz || '–'];
       doc.setFontSize(7.6); doc.setFont('helvetica', 'normal');
       cells.forEach((c, j) => {
         doc.setTextColor(j === 3 ? 40 : 30);
@@ -366,7 +367,7 @@
       });
       y += 5.4;
     });
-    doc.setFontSize(6.8); doc.setTextColor(120); doc.text('* Milchbildungspotenzial aus dem Grundfutter (kg/Tag), Schätzung wie Futterwert-Rechner v1.', 14, y + 4);
+    doc.setFontSize(6.8); doc.setTextColor(120); doc.text('* Milchbildungspotenzial aus dem Grundfutter (kg/Tag), Schätzung wie Futterwert-Rechner v1.  ** Tageszuwachs Muni (g/Tag) aus dem Grundfutter, Agroscope Grünes Buch Kap. 10.', 14, y + 4);
     // Beurteilungsräder als kleine Vielfache
     y += 10;
     const size = 27, gap = 3.2, perRow = 6;
