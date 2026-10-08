@@ -6847,6 +6847,14 @@
                     <div class="min-w-0">
                         <div class="flex items-center gap-2">
                             <h1 class="text-lg md:text-xl font-bold text-gray-800 whitespace-nowrap">Futterwert-Rechner</h1>
+                            <!-- Umsteller zu v2 (Beta): erscheint nur, wenn v2 auf dem Server antwortet -->
+                            <a id="v2SwitchBadge" href="v2/" title="Neue Version mit Beurteilungsrädern (K3a/K3b/K3c) ausprobieren – Daten bleiben im Browser"
+                               style="display:none;align-items:center;white-space:nowrap;font-size:10px;line-height:1;font-weight:800;letter-spacing:.03em;padding:4px 8px;border-radius:999px;background:#0f7f74;color:#fff;text-decoration:none;box-shadow:0 1px 3px rgba(0,0,0,.15)">v2 Beta 1 →</a>
+                            <script>
+                              fetch('v2/api/config', { cache: 'no-store' }).then(function (r) {
+                                if (r.ok) document.getElementById('v2SwitchBadge').style.display = 'inline-flex';
+                              }).catch(function () {});
+                            </script>
                         </div>
                         <p class="text-[11px] text-gray-500 truncate max-w-[52vw] md:max-w-none">
                             <span id="headerAgffText">Nach AGFF Merkblatt Nr. 3</span>

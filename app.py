@@ -567,6 +567,11 @@ def load_data():
 load_data()
 init_and_migrate_db()
 
+# v2 (Beta): eigenes Blueprint mit eigener SQLite-Datei (data/v2.db)
+from v2_api import v2 as v2_blueprint, init_v2_db
+app.register_blueprint(v2_blueprint)
+init_v2_db()
+
 def _parse_float_or_zero(value):
     if value is None:
         return 0.0

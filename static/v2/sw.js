@@ -1,0 +1,26 @@
+/* Futter v2 – Service Worker: App-Shell offline verfügbar. API-Daten (Server-Freigaben) werden nie gecacht. */
+const VERSION = 'futter-v2-b1-3';
+const SHELL = ['./', 'assets/app.css?v=b1-3', 'assets/k3.js?v=b1-3', 'assets/wheel.js?v=b1-3', 'assets/io.js?v=b1-3', 'assets/app.js?v=b1-3',
+  'assets/icon.svg', 'manifest.webmanifest', 'api/basis', 'assets/vendor/jspdf.umd.min.js', 'assets/vendor/qrcode.js'];
+
+self.addEventListener('install', (e) => {
+  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+});
+self.addEventListener('activate', (e) => {
+  e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k.startsWith('futter-v2') && k !== VERSION).map((k) => caches.delete(k))))
+    .then(() => self.clients.claim()));
+});
+self.addEventListener('fetch', (e) => {
+  const url = new URL(e.request.url);
+  if (e.request.method !== 'GET' || url.origin !== location.origin) return;
+  const scope = new URL(self.registration.scope);
+  if (!url.pathname.startsWith(scope.pathname)) return;
+  const rel = url.pathname.slice(scope.pathname.length);
+  if (rel.startsWith('api/') && rel !== 'api/basis') return; // Server-Freigaben immer live
+  // Netzwerk zuerst (aktuelle Version), bei Offline aus dem Cache
+  e.respondWith(fetch(e.request).then((res) => {
+    if (res.ok) { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(e.request, copy)); }
+    return res;
+  }).catch(() => caches.match(e.request, { ignoreSearch: rel === '' || e.request.mode === 'navigate' })
+    .then((r) => r || (e.request.mode === 'navigate' ? caches.match('./') : undefined))));
+});

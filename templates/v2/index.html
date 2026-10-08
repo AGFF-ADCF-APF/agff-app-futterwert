@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="de-CH">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Futterbeurteilung v2</title>
+  <meta name="description" content="Futterbeurteilung nach AGFF-Merkblättern K3a/K3b/K3c – mobil erfassen, im Büro vergleichen. Daten bleiben im Browser.">
+  <meta name="theme-color" content="#0f7f74" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0d1714" media="(prefers-color-scheme: dark)">
+  <meta name="referrer" content="no-referrer">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/icon-192.png">
+  <link rel="stylesheet" href="assets/app.css?v=b1-3">
+  <script>
+    window.AGFF_V2 = {
+      version: '2.0.0-beta.1',
+      consentVersion: {{ consent_version|tojson }},
+      retentionDays: {{ retention_days|tojson }},
+      privacyUrl: {{ (privacy_url or 'datenschutz')|tojson }}
+    };
+    try { var t = localStorage.getItem('agffV2Theme'); if (t) document.documentElement.dataset.theme = t;
+      if (localStorage.getItem('agffV2Outdoor') === '1') document.documentElement.dataset.outdoor = '1'; } catch (e) {}
+  </script>
+</head>
+<body>
+  <a class="skip" href="#main">Zum Inhalt</a>
+  <div id="app" class="shell" data-depth="0">
+    <nav id="r-nav" class="region region-nav" aria-label="Anlässe"></nav>
+    <section id="r-list" class="region region-list" aria-label="Proben"></section>
+    <main id="main" class="region region-detail" tabindex="-1"></main>
+  </div>
+  <div id="sheet-root"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <noscript><p style="padding:2rem">Diese Anwendung benötigt JavaScript.</p></noscript>
+  <script src="assets/k3.js?v=b1-3"></script>
+  <script src="assets/wheel.js?v=b1-3"></script>
+  <script src="assets/io.js?v=b1-3"></script>
+  <script src="assets/app.js?v=b1-3"></script>
+</body>
+</html>

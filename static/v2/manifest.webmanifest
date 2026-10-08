@@ -1,0 +1,16 @@
+{
+  "name": "Futterbeurteilung (AGFF K3) – v2 Beta",
+  "short_name": "Futter v2",
+  "description": "Dürrfutter, Gras- und Maissilage nach AGFF-Merkblatt K3 beurteilen – offline, Daten bleiben im Browser.",
+  "lang": "de-CH",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f6f4",
+  "theme_color": "#0f7f74",
+  "icons": [
+    { "src": "assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
