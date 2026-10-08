@@ -101,7 +101,7 @@
     .replace(/[−–—]/g, '-').replace(/≥/g, '>=').replace(/≤/g, '<=').replace(/[‘’]/g, "'")
     .replace(/[“”]/g, '"').replace(/…/g, '...').replace(/→/g, '->').replace(/[ᵣᵒᵍ​]/g, '').replace(/⅓/g, '1/3');
   const fmt = (v, d) => (v == null || !isFinite(v) ? '–' : Number(v).toLocaleString('de-CH', { minimumFractionDigits: d, maximumFractionDigits: d }));
-  const DIGITS = { nel: 1, nev: 1 };
+  const DIGITS = { nel: 2, nev: 2 };
   const dig = (m) => (DIGITS[m] != null ? DIGITS[m] : (['ca', 'p', 'mg'].includes(m) ? 1 : 0));
   const TON_RGB = { gut: [47, 158, 95], mittel: [211, 155, 23], schlecht: [226, 112, 31], kritisch: [201, 58, 50], offen: [154, 167, 161] };
   const BRAND = [15, 127, 116];
@@ -333,7 +333,7 @@
       if (bs && bs.nel) { doc.setFillColor(205, 214, 210); doc.rect(x0, yy, px(bs.nel) - x0, 4.6, 'F'); }
       if (w && w.nel) {
         doc.setFillColor(...(TON_RGB[it.res.sperre.length ? 'kritisch' : (it.res.klasse ? it.res.klasse.ton : 'offen')])); doc.rect(x0, yy + 0.8, px(w.nel) - x0, 3, 'F');
-        doc.setFont('helvetica', 'bold'); doc.setTextColor(20); doc.text(fmt(w.nel, 1), x1 + 2, yy + 3.6);
+        doc.setFont('helvetica', 'bold'); doc.setTextColor(20); doc.text(fmt(w.nel, 2), x1 + 2, yy + 3.6);
       }
       if (it.res.ziel && it.res.ziel.nel) { doc.setFillColor(20); doc.rect(px(it.res.ziel.nel) - 0.3, yy - 0.6, 0.6, 5.8, 'F'); }
     });
@@ -355,7 +355,7 @@
       if (i % 2) { doc.setFillColor(249, 250, 249); doc.rect(14, y, 182, 5.4, 'F'); }
       const w = it.res.werte || {};
       const cells = [it.L.titel.slice(0, 22), global.K3.TYPEN[it.p.typ].kurz, it.L.bestandStadium || '–', (it.res.sperre.length ? 'Nicht verfüttern' : (it.res.klasse ? it.res.klasse.label : '–')).slice(0, 26),
-        fmt(w.nel, 1), fmt(w.apde, 0), fmt(w.apdn, 0), fmt(w.rp, 0), it.L.mppKurz || '–'];
+        fmt(w.nel, 2), fmt(w.apde, 0), fmt(w.apdn, 0), fmt(w.rp, 0), it.L.mppKurz || '–'];
       doc.setFontSize(7.6); doc.setFont('helvetica', 'normal');
       cells.forEach((c, j) => {
         doc.setTextColor(j === 3 ? 40 : 30);

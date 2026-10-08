@@ -114,13 +114,13 @@
     if (p.typ === 'mais') {
       K3.K3C_METRIKEN.forEach((m) => {
         const d = w[m] != null && b[m] != null ? w[m] - b[m] : null;
-        rows.push({ key: ['nel', 'apde'].includes(m), label: K3.METRIK_LABEL[m][0], unit: K3.METRIK_LABEL[m][1], basis: fmt(b[m], m === 'nel' || m === 'nev' ? 1 : 0),
-          korr: d ? (d > 0 ? '+' : '') + fmt(d, m === 'nel' || m === 'nev' ? 1 : 0) : '–', wert: fmt(w[m], m === 'nel' || m === 'nev' ? 1 : 0) });
+        rows.push({ key: ['nel', 'apde'].includes(m), label: K3.METRIK_LABEL[m][0], unit: K3.METRIK_LABEL[m][1], basis: fmt(b[m], m === 'nel' || m === 'nev' ? 2 : 0),
+          korr: d ? (d > 0 ? '+' : '') + fmt(d, m === 'nel' || m === 'nev' ? 2 : 0) : '–', wert: fmt(w[m], m === 'nel' || m === 'nev' ? 2 : 0) });
       });
     } else {
       ['nel', 'nev', 'apde', 'apdn', 'rp', 'rf', 'ndf', 'adf', 'zucker', 'ra', 'ca', 'p', 'mg', 'k'].forEach((m) => {
         const kk = res.korr && res.korr[m] != null ? res.korr[m] : null;
-        const d = ['nel', 'nev'].includes(m) ? 1 : (['ca', 'p', 'mg'].includes(m) ? 1 : 0);
+        const d = ['nel', 'nev'].includes(m) ? 2 : (['ca', 'p', 'mg'].includes(m) ? 1 : 0);
         rows.push({ key: ['nel', 'apde', 'apdn'].includes(m), label: K3.METRIK_LABEL[m][0], unit: K3.METRIK_LABEL[m][1], basis: fmt(b[m], d),
           korr: kk ? (kk > 0 ? '+' : '') + fmt(kk, 0) + ' %' : '–', wert: fmt(w[m], d) });
       });
@@ -242,7 +242,7 @@
     const ton = tonOf(res);
     return '<li><a class="item" href="#/p/' + p.id + '" aria-current="' + active + '">' + wheelSvg(p, res, { mini: true }).replace('class="rad rad-mini"', 'class="rad rad-mini mini"') +
       '<span style="min-width:0"><span class="t">' + esc(titelOf(p)) + '</span><span class="s">' + esc(K3.TYPEN[p.typ].kurz + (bestandStadium(p) ? ' · ' + bestandStadium(p) : '')) + '</span></span>' +
-      '<span class="meta"><span class="num">' + (w && w.nel ? fmt(w.nel, 1) : '–') + '</span><br><span class="chip ' + ton + '" style="padding:0 7px;font-size:.7rem">' + esc(res.sperre.length ? 'Sperre' : res.vollstaendig ? res.klasse.label.replace(' Silage', '') : 'offen') + '</span></span></a></li>';
+      '<span class="meta"><span class="num">' + (w && w.nel ? fmt(w.nel, 2) : '–') + '</span><br><span class="chip ' + ton + '" style="padding:0 7px;font-size:.7rem">' + esc(res.sperre.length ? 'Sperre' : res.vollstaendig ? res.klasse.label.replace(' Silage', '') : 'offen') + '</span></span></a></li>';
   }
 
   function renderList(aid, r) {
@@ -454,6 +454,17 @@
       '<div>' + nav + factorCard + '</div></div>';
   }
 
+  /** Milchbildungspotenzial: alle drei Grenzen zeigen, die begrenzende hervorheben. */
+  function mppCard(p, res) {
+    const m = p.typ === 'mais' ? null : mppOf(p, res);
+    if (!m) return '';
+    const vals = [['NEL', m.nel, 'Energie'], ['APDE', m.apde, 'Protein (Energie im Pansen)'], ['APDN', m.apdn, 'Protein (Stickstoff im Pansen)']];
+    const max = Math.max(30, ...vals.map((v) => v[1]));
+    return '<div class="card" style="margin-top:14px"><div class="row"><b class="grow">Milchbildungspotenzial aus diesem Futter</b><span class="kpi-inline"><b style="font-size:1.5rem">' + fmt(m.mpp, 1) + '</b> kg/Tag</span></div>' +
+      '<div class="bars" style="margin-top:10px">' + vals.map(([k, v, t]) => '<div class="b" style="cursor:default" title="' + t + '"><span class="lbl">' + k + (k === m.limit ? ' · begrenzt' : '') + '</span><span class="track"><span class="val" style="width:' + Math.max(0, Math.min(100, (v / max) * 100)) + '%;background:' + (k === m.limit ? 'var(--schlecht)' : 'var(--line-strong)') + '"></span></span><span class="n">' + fmt(Math.max(0, v), 1) + '</span></div>').join('') + '</div>' +
+      '<p class="small muted" style="margin:8px 0 0">Milch (kg/Tag), die eine Kuh von ' + m.kuhGewicht + ' kg allein mit diesem Futter bilden könnte – Verzehr ' + fmt(m.tsv, 1) + ' kg TS (Merkblatt 3), Bedarf nach Agroscope, wie Futterwert-Rechner v1. Der kleinste der drei Werte begrenzt; ergänzende Futtermittel können ihn ausgleichen.</p></div>';
+  }
+
   function stepErgebnis(p) {
     const res = auswertung(p);
     const L = label(p, res);
@@ -466,7 +477,7 @@
     if (w) {
       const kp = p.typ === 'mais' ? ['nel', 'nev', 'apde', 'staerke'] : ['nel', 'apde', 'apdn', 'nev'];
       h += '<div class="kpis" style="margin-top:14px">' + kp.map((m) => {
-        const [lab, unit] = K3.METRIK_LABEL[m]; const d = m === 'nel' || m === 'nev' ? 1 : 0;
+        const [lab, unit] = K3.METRIK_LABEL[m]; const d = m === 'nel' || m === 'nev' ? 2 : 0;
         const diff = b[m] != null && w[m] != null ? w[m] - b[m] : 0;
         return '<div class="kpi"><div class="l">' + lab + '</div><div class="v">' + fmt(w[m], d) + ' <small>' + unit + '</small></div><div class="d ' + (diff < -0.004 ? 'neg' : diff > 0.004 ? 'pos' : 'muted') + '">' +
           (Math.abs(diff) > 0.004 ? (diff > 0 ? '+' : '') + fmt(diff, d) + ' ggü. ' + (p.typ === 'mais' ? 'Ausgang' : 'Tabelle') : 'keine Korrektur') + '</div></div>';
@@ -476,7 +487,7 @@
         h += '<div class="card" style="margin-top:14px"><div class="row"><b class="grow">Energie (NEL) im Vergleich</b><span class="chip ' + (res.zielErreicht ? 'gut' : 'schlecht') + '">' + (res.zielErreicht ? 'Ziel erreicht' : 'unter Ziel') + '</span></div>' +
           '<div class="gauge">' + (b.nel ? '<span class="mk ghost" style="left:' + pos(b.nel) + '%" title="Tabellenwert"></span>' : '') + '<span class="mk" style="left:' + pos(w.nel) + '%"></span>' +
           (res.ziel && res.ziel.nel ? '<span class="tg" style="left:' + pos(res.ziel.nel) + '%">Ziel ' + fmt(res.ziel.nel, 1) + '</span>' : '') + '<span class="tg" style="left:0;transform:none">4,0</span><span class="tg" style="left:100%;transform:translateX(-100%)">7,5 MJ</span></div>' +
-          '<p class="small muted" style="margin:6px 0 0">' + esc(K3.TYPEN[p.typ].ziel) + '</p>' + (L.mpp ? '<p class="small" style="margin:8px 0 0">' + esc(L.mpp) + '</p>' : '') + '</div>';
+          '<p class="small muted" style="margin:6px 0 0">' + esc(K3.TYPEN[p.typ].ziel) + '</p></div>' + mppCard(p, res);
       }
     }
     h += '<div class="rad-layout" style="margin-top:14px"><div><div class="rad-box"><a href="#/p/' + p.id + '/rad" aria-label="Rad bearbeiten">' + wheelSvg(p, res) + '</a></div></div><div class="card"><h3>Befunde</h3>' +
@@ -504,7 +515,7 @@
     const ziel = withW.filter((x) => x.res.zielErreicht).length;
     const sperren = items.filter((x) => x.res.sperre.length).length;
     h += '<div class="kpis"><div class="kpi"><div class="l">Proben</div><div class="v">' + list.length + '</div><div class="d muted">' + items.filter((x) => x.res.vollstaendig).length + ' vollständig</div></div>' +
-      '<div class="kpi"><div class="l">Ø NEL</div><div class="v">' + fmt(avg('nel'), 1) + ' <small>MJ</small></div><div class="d muted">Ø APDE ' + fmt(avg('apde'), 0) + ' g</div></div>' +
+      '<div class="kpi"><div class="l">Ø NEL</div><div class="v">' + fmt(avg('nel'), 2) + ' <small>MJ</small></div><div class="d muted">Ø APDE ' + fmt(avg('apde'), 0) + ' g</div></div>' +
       '<div class="kpi"><div class="l">Ziel erreicht</div><div class="v">' + ziel + '<small> / ' + withW.length + '</small></div><div class="d muted">NEL-Zielwert je Futterart</div></div>' +
       '<div class="kpi"><div class="l">Nicht verfüttern</div><div class="v" style="color:' + (sperren ? 'var(--kritisch)' : 'inherit') + '">' + sperren + '</div><div class="d muted">Proben mit Sperrvermerk</div></div></div>';
     // Balken
@@ -514,7 +525,7 @@
         const w = res.werte; const b = res.basis;
         return '<div class="b" data-go="#/p/' + p.id + '/ergebnis" title="' + esc(titelOf(p)) + '"><span class="lbl">' + esc(titelOf(p)) + '</span><span class="track">' +
           (b && b.nel ? '<span class="base" style="width:' + pos(b.nel) + '%"></span>' : '') + (w && w.nel ? '<span class="val" style="width:' + pos(w.nel) + '%;background:' + Rad.TON[tonOf(res)] + '"></span>' : '') +
-          (res.ziel && res.ziel.nel ? '<span class="target" style="left:' + pos(res.ziel.nel) + '%"></span>' : '') + '</span><span class="n">' + (w && w.nel ? fmt(w.nel, 1) : '–') + '</span></div>';
+          (res.ziel && res.ziel.nel ? '<span class="target" style="left:' + pos(res.ziel.nel) + '%"></span>' : '') + '</span><span class="n">' + (w && w.nel ? fmt(w.nel, 2) : '–') + '</span></div>';
       }).join('') + '</div><div class="row small muted" style="justify-content:space-between;margin:4px 0 0 calc(min(140px, 30%) + 10px);padding-right:62px"><span>4,0</span><span>5,0</span><span>6,0</span><span>7,0</span></div></div>' +
       '<div class="card"><b>Beurteilungsräder</b><div class="wheels" style="margin-top:10px">' + items.map(({ p, res }) => '<a href="#/p/' + p.id + '/ergebnis">' + wheelSvg(p, res) + '<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(titelOf(p)) + '</div></a>').join('') + '</div></div></div>';
     // Tabelle
@@ -528,7 +539,7 @@
     rows.sort((x, y) => { const A = x[k], B = y[k]; if (A == null) return 1; if (B == null) return -1; return (A > B ? 1 : A < B ? -1 : 0) * dir; });
     h += '<div class="section-title">Alle Werte</div><div class="tbl-wrap"><table class="tbl"><thead><tr>' + cols.map(([c, t]) => '<th><button data-sort="' + c + '">' + t + (k === c ? (dir > 0 ? ' ▲' : ' ▼') : '') + '</button></th>').join('') + '</tr></thead><tbody>' +
       rows.map((r) => '<tr class="click" data-go="#/p/' + r.p.id + '/ergebnis"><td><strong>' + esc(r.titel) + '</strong></td><td>' + esc(r.typ) + '</td><td>' + esc(r.bs) + '</td><td><span class="chip ' + tonOf(r.res) + '">' + esc(r.klasse || 'offen') + '</span></td><td>' +
-        (r.pkt == null ? '–' : r.p.typ === 'heu' ? fmt(r.pkt, 0) + ' %' : r.pkt) + '</td><td><strong>' + fmt(r.nel, 1) + '</strong></td><td>' + fmt(r.apde, 0) + '</td><td>' + fmt(r.apdn, 0) + '</td><td>' + fmt(r.rp, 0) + '</td><td>' + fmt(r.mpp, 1) + '</td></tr>').join('') +
+        (r.pkt == null ? '–' : r.p.typ === 'heu' ? fmt(r.pkt, 0) + ' %' : r.pkt) + '</td><td><strong>' + fmt(r.nel, 2) + '</strong></td><td>' + fmt(r.apde, 0) + '</td><td>' + fmt(r.apdn, 0) + '</td><td>' + fmt(r.rp, 0) + '</td><td>' + fmt(r.mpp, 1) + '</td></tr>').join('') +
       '</tbody></table></div><p class="hint">* Milchbildungspotenzial aus dem Grundfutter allein (kg/Tag, Kuh ' + db.prefs.kuhGewicht + ' kg) – wie im Futterwert-Rechner v1. Grau schraffiert = Tabellenwert vor Abzügen.</p></div>';
     return h;
   }
