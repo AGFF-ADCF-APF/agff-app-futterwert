@@ -32,7 +32,7 @@
 
   /** Felder je Schutzklasse (Pfade relativ zur Probe bzw. zum Anlass). */
   const PRIVAT = {
-    probe: ['kopf.bez', 'kopf.herkunft', 'kopf.beurteiler', 'kopf.notiz', 'kopf.v1ProbeNr'],
+    probe: ['kopf.bez', 'kopf.herkunft', 'kopf.beurteiler', 'kopf.notiz', 'kopf.v1ProbeNr', 'fotos'],
     anlass: ['titel', 'ort', 'notiz'],
   };
 
@@ -63,6 +63,15 @@
     return out;
   }
 
+  const FOTO_ID_RE = /^[A-Za-z0-9_-]{16}$/;
+  function cleanFotos(list) {
+    if (!Array.isArray(list)) return undefined;
+    const out = list.filter((f) => isObj(f) && FOTO_ID_RE.test(f.id || '') && SECRET_RE.test(f.key || '') && (f.art === 'futter' || f.art === 'labor'))
+      .slice(0, 12).map((f) => compact({ id: f.id, art: f.art, key: f.key, w: num(f.w, 1, 10000), h: num(f.h, 1, 10000), bytes: num(f.bytes, 1, 20e6),
+        mime: oneOf(f.mime, ['image/webp', 'image/jpeg']), createdAt: iso(f.createdAt), up: bool(f.up) }));
+    return out.length ? out : undefined;
+  }
+
   /** Liefert eine bereinigte Probe oder null, wenn sie unbrauchbar ist. */
   function cleanProbe(p) {
     if (!isObj(p) || !ID_RE.test(p.id || '') || !K3.TYPEN[p.typ]) return null;
@@ -76,6 +85,7 @@
       kopf: compact({ bez: str(k.bez, 120), herkunft: str(k.herkunft, 200), beurteiler: str(k.beurteiler, 120), schnitt: date(k.schnitt), notiz: str(k.notiz, 4000), v1ProbeNr: str(k.v1ProbeNr, 120) }),
       antworten: cleanAntworten(p.antworten, p.typ),
       rad: cleanRad(p.rad, p.typ),
+      fotos: cleanFotos(p.fotos),
       kursProbeId: typeof p.kursProbeId === 'string' && ID_RE.test(p.kursProbeId) ? p.kursProbeId : undefined,
       abgegebenAt: iso(p.abgegebenAt),
       // nur lokal geführte Sync-Felder
@@ -118,7 +128,8 @@
     const anlaesse = (Array.isArray(db.anlaesse) ? db.anlaesse : []).map((a) => cleanAnlass(a, { mitSpace: true })).filter(Boolean);
     const proben = (Array.isArray(db.proben) ? db.proben : []).map(cleanProbe).filter(Boolean);
     const tombstones = (Array.isArray(db.tombstones) ? db.tombstones : []).filter((t) => typeof t === 'string' && ID_RE.test(t));
-    return { v: 1, anlaesse, proben, prefs: cleanPrefs(db.prefs), tombstones, _persistAsked: !!db._persistAsked };
+    const fotoTombstones = (Array.isArray(db.fotoTombstones) ? db.fotoTombstones : []).filter((t) => isObj(t) && ID_RE.test(t.sid || '') && FOTO_ID_RE.test(t.id || '')).map((t) => ({ sid: t.sid, id: t.id }));
+    return { v: 1, anlaesse, proben, prefs: cleanPrefs(db.prefs), tombstones, fotoTombstones, _persistAsked: !!db._persistAsked };
   }
 
   // ---------- Schutzklassen ----------
@@ -154,5 +165,5 @@
     return o;
   }
 
-  global.Model = { ID_RE, SECRET_RE, PRIVAT, cleanProbe, cleanAnlass, cleanDb, cleanPrefs, split, merge };
+  global.Model = { FOTO_ID_RE, ID_RE, SECRET_RE, PRIVAT, cleanProbe, cleanAnlass, cleanDb, cleanPrefs, split, merge };
 })(typeof window !== 'undefined' ? window : globalThis);

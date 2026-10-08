@@ -348,6 +348,124 @@
     (o.lead != null ? '<span class="lead">' + o.lead + '</span>' : '') + '<span class="body"><b>' + o.t + '</b>' + (o.s ? '<small>' + o.s + '</small>' : '') + '</span>' + (o.tag ? '<span class="tag">' + o.tag + '</span>' : '') + '</button>';
   const q = (title, hint, inner) => '<section class="q"><h3>' + title + '</h3>' + (hint ? '<p class="qhint">' + hint + '</p>' : '') + inner + '</section>';
 
+  // ---------- Fotos ----------
+  const F = window.Fotos;
+  const fotoUrls = new Map();
+  /** Laborfotos bleiben verborgen, bis die eigene Beurteilung vollständig ist (keine Beeinflussung). */
+  const laborGesperrt = (p) => !auswertung(p).vollstaendig;
+
+  function fotosHtml(p) {
+    const list = p.fotos || [];
+    const ro = readOnly(p);
+    const kachel = (f) => {
+      const zu = f.art === 'labor' && laborGesperrt(p);
+      return '<button type="button" class="foto-thumb' + (zu ? ' gesperrt' : '') + '" data-act="foto-zeigen" data-id="' + p.id + '" data-foto="' + f.id + '" aria-label="' + (f.art === 'labor' ? 'Laborbericht' : 'Futterfoto') + '">' +
+        '<img alt="" data-foto-img="' + f.id + '" data-probe="' + p.id + '">' + (zu ? '<span class="lock">' + I.lock + '</span>' : '') +
+        '<span class="foto-art">' + (f.art === 'labor' ? 'Labor' : 'Futter') + (f.up === false && (anlassById(p.anlassId) || {}).space ? ' · ⟳' : '') + '</span></button>';
+    };
+    return '<div class="fotos">' + list.map(kachel).join('') +
+      (ro ? '' : '<button type="button" class="foto-add" data-act="foto-neu" data-id="' + p.id + '" data-art="futter">' + I.plus + '<span>Futter</span></button>' +
+        '<button type="button" class="foto-add" data-act="foto-neu" data-id="' + p.id + '" data-art="labor">' + I.plus + '<span>Laborbericht</span></button>') + '</div>' +
+      (list.some((f) => f.art === 'labor') && laborGesperrt(p) ? '<p class="hint">' + I.lock.replace('<svg', '<svg width="14" height="14" style="vertical-align:-2px"') + ' Laborberichte bleiben verborgen, bis Ihre eigene Beurteilung vollständig ist.</p>' : '');
+  }
+
+  /** Lädt fehlende Fotos (verschlüsselt) aus einer Server-Freigabe. */
+  async function fotoVomServer(p, meta) {
+    const a = p.anlassId && anlassById(p.anlassId);
+    if (!a || !a.space || meta.up === false) return false;
+    const k = await keysFor(a);
+    const r = await fetch('api/spaces/' + a.space.id + '/fotos/' + meta.id, { headers: readH(k), cache: 'no-store', credentials: 'omit' });
+    if (!r.ok) return false;
+    await F.ablegen(meta.id, p.id, await F.entschluesseln(meta, await r.arrayBuffer()));
+    return true;
+  }
+  async function fotosEinsetzen() {
+    for (const img of document.querySelectorAll('img[data-foto-img]')) {
+      const id = img.dataset.fotoImg;
+      let url = fotoUrls.get(id);
+      if (!url) {
+        try {
+          url = await F.thumbUrl(id);
+          if (!url) {
+            const p = probeById(img.dataset.probe); const meta = p && (p.fotos || []).find((f) => f.id === id);
+            if (meta && await fotoVomServer(p, meta)) url = await F.thumbUrl(id);
+          }
+        } catch (e) { url = null; }
+        if (url) fotoUrls.set(id, url);
+      }
+      if (url) img.src = url; else img.closest('.foto-thumb').classList.add('fehlt');
+    }
+  }
+
+  function fotoNeu(p, art) {
+    if (guardRO(p)) return;
+    if ((p.fotos || []).length >= 12) { toast('Maximal 12 Fotos pro Probe.'); return; }
+    sheet('<h2>' + (art === 'labor' ? 'Laborbericht' : 'Futter') + ' fotografieren</h2>' +
+      (art === 'labor' ? '<div class="alert info" style="margin-bottom:12px">' + I.warn + '<div><b>Datenschutz:</b> Decken Sie Adresse und Namen <b>vor dem Fotografieren</b> ab. Im nächsten Schritt können Sie Bereiche zusätzlich schwärzen – gespeichert wird nur die geschwärzte Fassung.</div></div>'
+        : '<p class="small muted" style="margin-top:0">Standortdaten (GPS) und Kamera-Informationen werden automatisch entfernt. Das Foto bleibt auf diesem Gerät.</p>') +
+      '<input type="file" accept="image/*" id="fotoInput" hidden><div class="stack"><button class="btn primary block" id="fKam">Kamera</button><button class="btn block" id="fGal">Aus Galerie / Datei</button><button class="btn ghost block" data-close>Abbrechen</button></div>', (el) => {
+      const inp = el.querySelector('#fotoInput');
+      el.querySelector('#fKam').onclick = () => { inp.setAttribute('capture', 'environment'); inp.click(); };
+      el.querySelector('#fGal').onclick = () => { inp.removeAttribute('capture'); inp.click(); };
+      inp.onchange = async () => {
+        const file = inp.files[0]; if (!file) return;
+        closeSheet(); toast('Foto wird verarbeitet …');
+        try {
+          let c = await F.vorbereiten(file, art);
+          if (art === 'labor') { c = await F.schwaerzen(c, 'Adresse und Namen schwärzen'); if (!c) { toast('Abgebrochen – kein Foto gespeichert.'); return; } }
+          const meta = await F.speichern(c, art, p.id);
+          meta.up = false;
+          p.fotos = (p.fotos || []).concat(meta);
+          touchProbe(p); rerenderDetail(true);
+          toast('Foto gespeichert (' + Math.round(meta.bytes / 1024) + ' kB' + (meta.mime === 'image/webp' ? ', WebP' : ', JPEG') + ').');
+        } catch (e) { toast(e.message); }
+      };
+    });
+  }
+
+  async function fotoZeigen(p, fid) {
+    const meta = (p.fotos || []).find((f) => f.id === fid); if (!meta) return;
+    const ro = readOnly(p);
+    const zu = meta.art === 'labor' && laborGesperrt(p);
+    let url = null;
+    if (!zu) { url = await F.bildUrl(fid); if (!url && await fotoVomServer(p, meta).catch(() => false)) url = await F.bildUrl(fid); }
+    const el = sheet('<h2>' + (meta.art === 'labor' ? 'Laborbericht' : 'Futterfoto') + '</h2>' +
+      (zu ? '<div class="alert info">' + I.lock + '<div>Verborgen, bis Ihre eigene Beurteilung vollständig ist – damit der Laborbericht Ihre Einschätzung nicht beeinflusst.</div></div>'
+        : url ? '<img class="foto-gross" alt="" src="' + url + '">' : '<p class="muted">Foto ist auf diesem Gerät nicht vorhanden.</p>') +
+      '<p class="small muted">' + meta.w + ' × ' + meta.h + ' px · ' + Math.round((meta.bytes || 0) / 1024) + ' kB · ' + (meta.mime === 'image/webp' ? 'WebP' : 'JPEG') + ' · ohne Standortdaten</p>' +
+      '<div class="row">' + (!ro && !zu && url ? '<button class="btn grow" data-act="foto-schwaerzen" data-id="' + p.id + '" data-foto="' + fid + '">Bereiche schwärzen</button>' : '') +
+      (ro ? '' : '<button class="btn danger grow" data-act="foto-loeschen" data-id="' + p.id + '" data-foto="' + fid + '">Löschen</button>') + '<button class="btn ghost grow" data-close>Schliessen</button></div>');
+    void el;
+  }
+
+  async function fotoLoeschen(p, fid) {
+    if (guardRO(p) || !confirm('Foto löschen?')) return;
+    const meta = (p.fotos || []).find((f) => f.id === fid);
+    p.fotos = (p.fotos || []).filter((f) => f.id !== fid);
+    if (!p.fotos.length) delete p.fotos;
+    await F.del(fid).catch(() => {});
+    const a = p.anlassId && anlassById(p.anlassId);
+    if (a && a.space && meta && meta.up !== false) db.fotoTombstones = (db.fotoTombstones || []).concat({ sid: a.space.id, id: fid });
+    fotoUrls.delete(fid);
+    touchProbe(p); closeSheet(); rerenderDetail(true);
+  }
+
+  async function fotosHochladen(a, k) {
+    const sid = a.space.id;
+    for (const t of (db.fotoTombstones || []).filter((x) => x.sid === sid)) {
+      await fetch('api/spaces/' + sid + '/fotos/' + t.id, { method: 'DELETE', headers: writeH(k), credentials: 'omit' }).catch(() => {});
+    }
+    db.fotoTombstones = (db.fotoTombstones || []).filter((x) => x.sid !== sid);
+    for (const p of probenOf(a.id)) {
+      for (const f of (p.fotos || []).filter((x) => x.up === false)) {
+        const b = await F.blob(f.id); if (!b) continue;
+        const r = await fetch('api/spaces/' + sid + '/fotos/' + f.id, { method: 'PUT', headers: Object.assign({ 'Content-Type': 'application/octet-stream' }, writeH(k)), body: await F.verschluesseln(f, b), credentials: 'omit' });
+        if (!r.ok) { const e = new Error(r.status === 409 ? 'Speicherplatz der Freigabe für Fotos ist voll' : 'Foto-Upload fehlgeschlagen (' + r.status + ')'); e.status = r.status; throw e; }
+        f.up = true; p.dirty = true;
+      }
+    }
+  }
+
   function stepProbe(p) {
     const k = p.kopf || {};
     const an = db.anlaesse;
@@ -360,6 +478,7 @@
       '<label class="field"><span>Anlass</span><select class="input" data-k="anlassId"><option value="">– ohne Anlass –</option>' + an.filter((a) => !(a.space && a.space.mode === 'r') || a.id === p.anlassId).map((a) => '<option value="' + a.id + '"' + (a.id === p.anlassId ? ' selected' : '') + '>' + esc(a.titel) + '</option>').join('') + '</select></label></div>' +
       '<label class="field"><span>Notiz</span><textarea class="input" data-k="kopf.notiz" placeholder="Beobachtungen, Lagerung, Fütterung …">' + esc(k.notiz) + '</textarea></label>' +
       '<p class="hint">Personenbezogene Angaben (Betrieb, Name) nur erfassen, wenn die betroffene Person einverstanden ist.</p></div>') +
+      q('Fotos', 'Futter und Laborbericht – bleiben auf diesem Gerät, ohne Standortdaten.', fotosHtml(p)) +
       q('Futterart', '', '<div class="opts cols3">' + Object.values(K3.TYPEN).map((t) => opt({ set: 'typ', val: t.id, on: p.typ === t.id, t: t.titel, s: 'AGFF ' + t.merkblatt })).join('') + '</div>');
   }
 
@@ -533,6 +652,7 @@
         L.tabelle.map((r) => '<tr><td>' + (r.key ? '<strong>' + esc(r.label) + '</strong>' : esc(r.label)) + '</td><td class="muted">' + esc(r.unit) + '</td><td class="muted">' + r.basis + '</td><td class="' + (String(r.korr).startsWith('-') || String(r.korr).startsWith('−') ? 'd neg' : r.korr !== '–' ? 'd pos' : 'muted') + '">' + r.korr + '</td><td><strong>' + r.wert + '</strong></td></tr>').join('') + '</tbody></table></div>' +
         '<p class="hint">Nährwerte: Agroscope; Schlüssel AGFF ' + K3.TYPEN[p.typ].merkblatt + '. Sensorische Schätzung – ersetzt keine Laboranalyse.</p>';
     }
+    if ((p.fotos || []).length || !readOnly(p)) h += '<div class="section-title">Fotos</div>' + fotosHtml(p);
     h += window.Kurs.ergebnisExtra(p);
     h += '<div class="row" style="margin-top:18px"><button class="btn primary" data-act="pdf-probe" data-id="' + p.id + '">' + I.pdf + ' PDF mit QR-Code</button><button class="btn" data-act="qr-probe" data-id="' + p.id + '">' + I.share + ' QR / Link</button><button class="btn ghost" data-act="dup-probe" data-id="' + p.id + '">Kopie als neue Probe</button></div>';
     return h;
@@ -607,6 +727,7 @@
   function afterRender() {
     // Neuer Schritt / neue Seite: oben beginnen
     if (location.hash !== lastHash) { lastHash = location.hash; window.scrollTo(0, 0); $('#main').scrollTop = 0; }
+    fotosEinsetzen();
   }
 
   // ---------- Sheets / Toast ----------
@@ -692,6 +813,7 @@
   async function sealProbe(k, sid, p) {
     const { analyse, privat } = Model.split(p, 'probe');
     delete analyse.anlassId;
+    if (privat.fotos) privat.fotos = privat.fotos.map((f) => { const c = Object.assign({}, f); delete c.up; return c; });
     return { analyse, privat: Object.keys(privat).length ? await C.encryptJSON(k.key, privat, C.aadFor(sid, p.id)) : null };
   }
   async function sealMeta(k, sid, a) {
@@ -771,6 +893,7 @@
           if (remoteIds.has(id)) await IO.api('spaces/' + sid + '/records/' + id, { method: 'DELETE', headers: writeH(k) }).catch(() => {});
         }
         db.tombstones = [];
+        await fotosHochladen(a, k);
         for (const p of probenOf(a.id).filter((x) => x.dirty || !remoteIds.has(x.id))) {
           try {
             await IO.api('spaces/' + sid + '/records/' + p.id, { method: 'PUT', headers: writeH(k), body: { data: await sealProbe(k, sid, p), updatedAt: p.updatedAt } });
@@ -865,8 +988,14 @@
   function applyImport(obj) {
     if (obj.f === 'agff-futter-backup') {
       sheet('<h2>Sicherung wiederherstellen?</h2><p>' + obj.db.anlaesse.length + ' Anlässe und ' + obj.db.proben.length + ' Proben. Vorhandene Einträge mit gleicher Kennung werden durch die neuere Fassung ersetzt.</p><div class="row"><button class="btn ghost grow" data-close>Abbrechen</button><button class="btn primary grow" id="doRestore">Wiederherstellen</button></div>', (el) => {
-        el.querySelector('#doRestore').onclick = () => {
+        el.querySelector('#doRestore').onclick = async () => {
           obj.db = Model.cleanDb(obj.db);
+          let nf = 0;
+          for (const f of (Array.isArray(obj.fotos) ? obj.fotos : [])) {
+            if (!f || !Model.FOTO_ID_RE.test(f.id || '') || typeof f.data !== 'string' || !/^image\/(webp|jpeg)$/.test(f.mime || '')) continue;
+            try { const bin = Uint8Array.from(atob(f.data), (ch) => ch.charCodeAt(0)); await F.ablegen(f.id, f.probeId, new Blob([bin], { type: f.mime })); nf++; } catch (er) { /* defektes Foto überspringen */ }
+          }
+          if (nf) toast(nf + ' Fotos wiederhergestellt.');
           obj.db.anlaesse.forEach((a) => { const l = anlassById(a.id); if (!l) db.anlaesse.push(a); else if ((a.updatedAt || '') > (l.updatedAt || '')) Object.assign(l, a); });
           obj.db.proben.forEach((p) => { const l = probeById(p.id); if (!l) db.proben.push(p); else if ((p.updatedAt || '') > (l.updatedAt || '')) Object.assign(l, p); });
           save(); closeSheet(); render(); toast('Sicherung wiederhergestellt.');
@@ -981,7 +1110,14 @@
   async function pdfFor(anlass, proben, name) {
     toast('PDF wird erstellt …');
     try {
-      const blob = await IO.makePdf({ anlass, proben, auswertung, wheelSvg: (p, res) => wheelSvg(p, res), label, titel: anlass ? anlass.titel : titelOf(proben[0]) });
+      const fotos = async (p) => {
+        const out = [];
+        for (const f of (p.fotos || []).filter((x) => x.art === 'futter' || !laborGesperrt(p))) {
+          const d = await F.jpegDataUrl(f.id, 1400).catch(() => null); if (d) out.push(Object.assign(d, { art: f.art }));
+        }
+        return out;
+      };
+      const blob = await IO.makePdf({ anlass, proben, auswertung, wheelSvg: (p, res) => wheelSvg(p, res), label, fotos, titel: anlass ? anlass.titel : titelOf(proben[0]) });
       download(blob, name);
       toast('PDF gespeichert – enthält alle Eingaben zum Wiederimport.');
     } catch (e) { console.error(e); toast('PDF fehlgeschlagen: ' + e.message); }
@@ -1000,6 +1136,7 @@
     m.innerHTML = renderProbe(p, ui.route.step);
     if (keepScroll) { m.scrollTop = st; window.scrollTo(0, ws); }
     $('#r-list').innerHTML = renderList(p.anlassId || null, ui.route);
+    fotosEinsetzen();
   }
 
   function choose(p, set, val) {
@@ -1084,7 +1221,12 @@
       case 'export-anlass': { const a = anlassById(id); closeSheet(); download(new Blob([JSON.stringify(IO.bundle(a, probenOf(id)), null, 1)], { type: 'application/json' }), 'Futterbeurteilung_' + fileSafe(a.titel) + '.json'); break; }
       case 'backup': {
         const copy = JSON.parse(JSON.stringify(db));
-        download(new Blob([JSON.stringify({ f: 'agff-futter-backup', v: 2, exportiert: now(), db: copy }, null, 1)], { type: 'application/json' }), 'Futterbeurteilung_Sicherung_' + new Date().toISOString().slice(0, 10) + '.json');
+        const fotos = [];
+        for (const p of db.proben) for (const f of (p.fotos || [])) {
+          const b = await F.blob(f.id).catch(() => null);
+          if (b) fotos.push({ id: f.id, probeId: p.id, mime: b.type, data: await new Promise((res) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.readAsDataURL(b); }) });
+        }
+        download(new Blob([JSON.stringify({ f: 'agff-futter-backup', v: 2, exportiert: now(), db: copy, fotos })], { type: 'application/json' }), 'Futterbeurteilung_Sicherung_' + new Date().toISOString().slice(0, 10) + '.json');
         toast('Enthält die Schlüssel Ihrer Freigabe-Links – vertraulich aufbewahren!'); break;
       }
       case 'qr-probe': {
@@ -1109,6 +1251,7 @@
         if (!confirm('Probe «' + titelOf(pr) + '» löschen?')) return;
         db.proben = db.proben.filter((x) => x.id !== id);
         const a = pr.anlassId && anlassById(pr.anlassId);
+        (pr.fotos || []).forEach((f) => { F.del(f.id).catch(() => {}); if (a && a.space && f.up !== false) db.fotoTombstones = (db.fotoTombstones || []).concat({ sid: a.space.id, id: f.id }); });
         if (a && a.space) { db.tombstones = (db.tombstones || []).concat(id); scheduleSync(a); }
         save(); closeSheet(); go(pr.anlassId ? '#/a/' + pr.anlassId : '#/e'); break;
       }
@@ -1133,7 +1276,18 @@
       }
       case 'v1-local': { let arr = []; try { arr = JSON.parse(localStorage.getItem('agffLocalSavedProbes') || '[]'); } catch (er) { /* leer */ } importV1(arr.map((x) => Object.assign({ probeNr: x.meta && x.meta.probeNr, beurteiler: x.meta && x.meta.beurteiler }, x))); break; }
       case 'v1-server': sheetV1Server(); break;
-      case 'wipe': if (confirm('Wirklich alle lokalen v2-Daten löschen? Das kann nicht rückgängig gemacht werden.')) { db = emptyDb(); flush(); go('#/'); } break;
+      case 'wipe': if (confirm('Wirklich alle lokalen v2-Daten inkl. Fotos löschen? Das kann nicht rückgängig gemacht werden.')) { db = emptyDb(); flush(); F.aufraeumen([]).catch(() => {}); fotoUrls.clear(); go('#/'); } break;
+      case 'foto-neu': fotoNeu(probeById(id), t.dataset.art); break;
+      case 'foto-zeigen': await fotoZeigen(probeById(id), t.dataset.foto); break;
+      case 'foto-loeschen': await fotoLoeschen(probeById(id), t.dataset.foto); break;
+      case 'foto-schwaerzen': {
+        const pr = probeById(id); if (guardRO(pr)) break;
+        const i = (pr.fotos || []).findIndex((f) => f.id === t.dataset.foto); if (i < 0) break;
+        closeSheet();
+        const neu = await F.nachSchwaerzen(pr.fotos[i], pr.id);
+        if (neu) { pr.fotos[i] = neu; fotoUrls.delete(neu.id); touchProbe(pr); rerenderDetail(true); toast('Geschwärzte Fassung gespeichert.'); }
+        break;
+      }
       default: if (act && act.startsWith('kurs-')) await window.Kurs.handle(act, t); break;
     }
   });
@@ -1198,6 +1352,8 @@
   load();
   try { basis = JSON.parse(localStorage.getItem('agffV2Basis')); } catch (e) { basis = null; }
   route();
+  // Verwaiste Fotos (gelöschte Proben) aus IndexedDB entfernen
+  F.aufraeumen(db.proben.flatMap((p) => (p.fotos || []).map((f) => f.id))).catch(() => {});
   loadBasis().then(() => render());
   db.anlaesse.filter((a) => a.space).forEach((a) => syncAnlass(a).then(refreshChrome));
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js', { scope: './' }).catch(() => {});

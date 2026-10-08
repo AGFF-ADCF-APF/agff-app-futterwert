@@ -41,7 +41,8 @@
 
   /** Exportpaket ohne Server-Schlüssel und interne Felder. */
   function bundle(anlass, proben) {
-    const clean = (p) => { const c = JSON.parse(JSON.stringify(p)); delete c.syncedAt; delete c.dirty; return c; };
+    // Fotos reisen nicht über PDF/QR/JSON-Export (zu gross, Schlüssel bleiben privat)
+    const clean = (p) => { const c = JSON.parse(JSON.stringify(p)); delete c.syncedAt; delete c.dirty; delete c.fotos; delete c.kursProbeId; delete c.abgegebenAt; return c; };
     const a = anlass ? { id: anlass.id, titel: anlass.titel, datum: anlass.datum, ort: anlass.ort, notiz: anlass.notiz, updatedAt: anlass.updatedAt } : null;
     return { f: FORMAT, v: 2, exportiert: new Date().toISOString(), anlass: a, proben: proben.map(clean) };
   }
@@ -134,6 +135,7 @@
     for (let i = 0; i < ctx.proben.length; i++) {
       if (multi || i > 0) doc.addPage();
       await pdfProbe(doc, ctx, ctx.proben[i]);
+      if (ctx.fotos) await pdfFotos(doc, ctx, ctx.proben[i]);
     }
     const pages = doc.getNumberOfPages();
     for (let i = 1; i <= pages; i++) {
@@ -307,6 +309,28 @@
     const url = appUrl() + '#import=' + (await pack(single));
     const ok = await drawQr(doc, url, 160, 252, 36);
     footer(doc, ok, 'Nährwerte: Agroscope (Fütterungsempfehlungen); Beurteilungsschlüssel AGFF ' + typ.merkblatt + '. Sensorische Schätzung – ersetzt keine Laboranalyse.');
+  }
+
+  /** Fotoseite(n) einer Probe: Raster, Seitenverhältnis bleibt erhalten. */
+  async function pdfFotos(doc, ctx, probe) {
+    const bilder = await ctx.fotos(probe);
+    if (!bilder.length) return;
+    const L = ctx.label(probe, ctx.auswertung(probe));
+    let i = 0;
+    while (i < bilder.length) {
+      doc.addPage();
+      band(doc, 'Fotos – ' + L.titel, 'Futterbeurteilung · ' + global.K3.TYPEN[probe.typ].titel);
+      const zellen = [[14, 34], [108, 34], [14, 140], [108, 140]];
+      for (let z = 0; z < 4 && i < bilder.length; z++, i++) {
+        const b = bilder[i]; const [x, y] = zellen[z]; const maxW = 88, maxH = 96;
+        const f = Math.min(maxW / b.w, maxH / b.h); const w = b.w * f, h = b.h * f;
+        doc.addImage(b.url, 'JPEG', x + (maxW - w) / 2, y, w, h);
+        doc.setFontSize(8); doc.setTextColor(90); doc.setFont('helvetica', 'normal');
+        doc.text(b.art === 'labor' ? 'Laborbericht (Adresse geschwärzt)' : 'Futter', x, y + h + 4);
+      }
+      doc.setFontSize(7.2); doc.setTextColor(120);
+      doc.text('Fotos ohne Standortdaten. Sie sind nicht im QR-Code enthalten und werden beim PDF-Import nicht übernommen.', 14, 250);
+    }
   }
 
   async function pdfUebersicht(doc, ctx, payloadAll) {

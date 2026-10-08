@@ -74,6 +74,13 @@ def init_v2_db():
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS e2e_fotos (
+                space_id TEXT NOT NULL REFERENCES e2e_spaces(id) ON DELETE CASCADE,
+                id TEXT NOT NULL,
+                bytes INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (space_id, id)
+            );
             CREATE TABLE IF NOT EXISTS e2e_records (
                 space_id TEXT NOT NULL REFERENCES e2e_spaces(id) ON DELETE CASCADE,
                 id TEXT NOT NULL,
@@ -94,8 +101,26 @@ def _sha(token):
     return hashlib.sha256(token.encode('ascii')).hexdigest()
 
 
+FOTO_DIR = os.environ.get('V2_FOTO_DIR', 'data/v2_fotos')
+FOTO_ID_RE = re.compile(r'^[A-Za-z0-9_-]{16}$')
+MAX_FOTO_BYTES = 5 * 1024 * 1024          # verschlüsselt, inkl. Kopf
+MAX_FOTOS_PER_SPACE = 400
+MAX_FOTO_TOTAL = 400 * 1024 * 1024
+
+
+def _foto_path(space_id, foto_id):
+    return os.path.join(FOTO_DIR, space_id, foto_id + '.bin')
+
+
+def _fotos_entfernen(space_id):
+    import shutil
+    shutil.rmtree(os.path.join(FOTO_DIR, space_id), ignore_errors=True)
+
+
 def _purge_expired(conn):
     cutoff = (datetime.now(timezone.utc) - timedelta(days=RETENTION_DAYS)).isoformat()
+    for row in conn.execute('SELECT id FROM e2e_spaces WHERE updated_at < ?', (cutoff,)).fetchall():
+        _fotos_entfernen(row['id'] if isinstance(row, sqlite3.Row) else row[0])
     conn.execute('DELETE FROM e2e_spaces WHERE updated_at < ?', (cutoff,))
 
 
@@ -389,6 +414,7 @@ def v2_delete_space(space_id):
         if not _auth(conn, space_id, need_write=True):
             return jsonify({'error': 'NOT_FOUND'}), 404
         conn.execute('DELETE FROM e2e_spaces WHERE id = ?', (space_id,))
+    _fotos_entfernen(space_id)
     return jsonify({'status': 'deleted'})
 
 
@@ -462,3 +488,62 @@ def v2_rotate(space_id):
         conn.execute('UPDATE e2e_spaces SET read_hash = ?, write_hash = ?, epoch = epoch + 1, updated_at = ? WHERE id = ?',
                      (rh, wh, _now(), space_id))
     return jsonify({'status': 'rotated', 'epoch': space['epoch'] + 1})
+
+
+# --- Fotos (Ende-zu-Ende verschlüsselt, eigener Schlüssel je Foto; Server sieht nur Bytes) ---
+@v2.route('/v2/api/spaces/<space_id>/fotos/<foto_id>', methods=['PUT'])
+def v2_foto_put(space_id, foto_id):
+    if not FOTO_ID_RE.match(foto_id):
+        return jsonify({'error': 'BAD_ID'}), 400
+    if (request.content_length or 0) > MAX_FOTO_BYTES:
+        return jsonify({'error': 'TOO_LARGE'}), 413
+    data = request.get_data(cache=False)
+    # Format: 1 Byte Version, 12 Byte IV, Chiffrat inkl. 16 Byte Tag
+    if len(data) > MAX_FOTO_BYTES or len(data) < 1 + 12 + 16 + 1 or data[0] != 1:
+        return jsonify({'error': 'REJECTED_CONTENT'}), 422
+    with _db() as conn:
+        if not _auth(conn, space_id, need_write=True):
+            return jsonify({'error': 'NOT_FOUND'}), 404
+        n, total = conn.execute('SELECT COUNT(*), COALESCE(SUM(bytes), 0) FROM e2e_fotos WHERE space_id = ? AND id != ?',
+                                (space_id, foto_id)).fetchone()
+        if n >= MAX_FOTOS_PER_SPACE or total + len(data) > MAX_FOTO_TOTAL:
+            return jsonify({'error': 'QUOTA'}), 409
+        os.makedirs(os.path.join(FOTO_DIR, space_id), exist_ok=True)
+        tmp = _foto_path(space_id, foto_id) + '.tmp'
+        with open(tmp, 'wb') as fh:
+            fh.write(data)
+        os.replace(tmp, _foto_path(space_id, foto_id))
+        conn.execute('INSERT INTO e2e_fotos (space_id, id, bytes, created_at) VALUES (?, ?, ?, ?) '
+                     'ON CONFLICT(space_id, id) DO UPDATE SET bytes = excluded.bytes', (space_id, foto_id, len(data), _now()))
+        _touch(conn, space_id)
+    return jsonify({'status': 'ok'})
+
+
+@v2.route('/v2/api/spaces/<space_id>/fotos/<foto_id>', methods=['GET'])
+def v2_foto_get(space_id, foto_id):
+    if not FOTO_ID_RE.match(foto_id):
+        return jsonify({'error': 'BAD_ID'}), 400
+    with _db() as conn:
+        if not _auth(conn, space_id):
+            return jsonify({'error': 'NOT_FOUND'}), 404
+        if not conn.execute('SELECT 1 FROM e2e_fotos WHERE space_id = ? AND id = ?', (space_id, foto_id)).fetchone():
+            return jsonify({'error': 'NOT_FOUND'}), 404
+    resp = send_from_directory(os.path.abspath(os.path.join(FOTO_DIR, space_id)), foto_id + '.bin', mimetype='application/octet-stream')
+    resp.headers['Cache-Control'] = 'no-store'
+    return resp
+
+
+@v2.route('/v2/api/spaces/<space_id>/fotos/<foto_id>', methods=['DELETE'])
+def v2_foto_delete(space_id, foto_id):
+    if not FOTO_ID_RE.match(foto_id):
+        return jsonify({'error': 'BAD_ID'}), 400
+    with _db() as conn:
+        if not _auth(conn, space_id, need_write=True):
+            return jsonify({'error': 'NOT_FOUND'}), 404
+        conn.execute('DELETE FROM e2e_fotos WHERE space_id = ? AND id = ?', (space_id, foto_id))
+        _touch(conn, space_id)
+    try:
+        os.remove(_foto_path(space_id, foto_id))
+    except FileNotFoundError:
+        pass
+    return jsonify({'status': 'deleted'})

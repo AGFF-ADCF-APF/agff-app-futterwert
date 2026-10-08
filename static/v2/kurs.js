@@ -310,7 +310,7 @@
     try {
       const k = await kk(a.kurs.secret);
       const { analyse, privat } = global.Model.split(p, 'probe');
-      delete analyse.anlassId;
+      delete analyse.anlassId; delete privat.fotos; // Fotos bleiben beim Kurs lokal
       const box = Object.keys(privat).length ? await C.encryptJSON(k.key, privat, C.kursAad(a.kurs.id, 'beurteilung|' + p.kursProbeId + '|' + p.id)) : null;
       await api(a.kurs.id + '/proben/' + p.kursProbeId + '/beurteilung', { method: 'PUT', headers: H(a), body: { data: { analyse, privat: box } } });
       p.abgegebenAt = A.now(); A.save(); vergleichCache.delete(p.kursProbeId);
