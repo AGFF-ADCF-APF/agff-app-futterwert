@@ -545,7 +545,7 @@
         '<a href="' + esc(CFG.privacyUrl) + '" target="_blank" rel="noopener">Datenschutzerklärung</a></div>') +
       q('Sicherung', 'Komplette Sicherung aller Daten als Datei – z. B. für den Gerätewechsel.', '<div class="row"><button class="btn" data-act="backup">Sicherung herunterladen (JSON)</button><button class="btn" data-act="import">' + I.upload + ' PDF/JSON importieren</button></div>') +
       q('Daten aus der bisherigen Version (v1)', 'Wiesenfutter-Beurteilungen (Grassilage/Dürrfutter) und Silomais werden übernommen; die Sensorik von v1 hatte teilweise andere Skalen und wird als «bitte prüfen» markiert. Die v1-Daten selbst bleiben unverändert.',
-        '<div class="row"><button class="btn" data-act="v1-local"' + (v1local ? '' : ' disabled') + '>' + v1local + ' lokal gespeicherte v1-Proben übernehmen</button><button class="btn" data-act="v1-server">Anlass vom v1-Server laden …</button></div>') +
+        '<div class="row"><button class="btn" data-act="v1-local"' + (v1local ? '' : ' disabled') + '>' + v1local + ' lokal gespeicherte v1-Proben übernehmen</button><button class="btn" data-act="v1-server">Meine Proben vom v1-Server laden …</button></div>') +
       q('Einstellungen', '', '<div class="grid2"><label class="field"><span>Mein Name (Vorschlag für «Beurteilt von»)</span><input class="input" data-pref="beurteiler" value="' + esc(db.prefs.beurteiler) + '"></label>' +
         '<label class="field"><span>Gewicht Referenzkuh (kg)</span><input class="input" inputmode="numeric" data-pref="kuhGewicht" value="' + esc(db.prefs.kuhGewicht) + '"></label></div>' +
         '<div class="seg" style="margin-top:12px">' + [['', 'Automatisch'], ['light', 'Hell'], ['dark', 'Dunkel']].map(([v, t]) => '<button data-act="theme" data-val="' + v + '" aria-pressed="' + ((document.documentElement.dataset.theme || '') === v) + '">' + t + '</button>').join('') + '</div>') +
@@ -814,9 +814,30 @@
     save(); render();
     toast(ok + ' v1-Proben übernommen' + (skip ? ', ' + skip + ' übersprungen (bereits vorhanden oder ohne K3-Bezug)' : '') + '.');
   }
-  async function sheetV1Server() {
-    let rows = [];
-    try { const r = await fetch('../api/proben', { credentials: 'omit' }); rows = await r.json(); } catch (e) { return toast('v1-Server nicht erreichbar.'); }
+  function sheetV1Server() {
+    sheet('<h2>Proben vom v1-Server laden</h2><p class="small" style="margin-top:0">Aus Datenschutzgründen liefert der v1-Server nur <b>Ihre eigenen</b> Beurteilungen (gleicher Name wie in v1). Mit dem Admin-Passwort sind alle Beurteilungen verfügbar.</p>' +
+      '<form id="v1Form" class="stack"><label class="field"><span>Ihr Name wie in v1</span><input class="input" name="name" value="' + esc(db.prefs.beurteiler) + '" autocomplete="name"></label>' +
+      '<label class="field"><span>Admin-Passwort (optional)</span><input class="input" name="pass" type="password" autocomplete="off"></label>' +
+      '<p class="hint" id="v1Msg"></p><div class="row"><button type="button" class="btn ghost grow" data-close>Abbrechen</button><button class="btn primary grow">Laden</button></div></form>', (el) => {
+      el.querySelector('#v1Form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const name = String(fd.get('name') || '').trim(); const pass = String(fd.get('pass') || '');
+        const msg = el.querySelector('#v1Msg');
+        if (!name && !pass) { msg.textContent = 'Bitte Namen oder Admin-Passwort angeben.'; return; }
+        let rows;
+        try {
+          const r = await fetch('../api/proben' + (name ? '?beurteiler=' + encodeURIComponent(name) : ''), { credentials: 'omit', cache: 'no-store', headers: pass ? { 'X-Admin-Pass': pass } : {} });
+          if (r.status === 401) { msg.textContent = 'Zugriff verweigert – Passwort prüfen.'; return; }
+          rows = await r.json();
+        } catch (er) { msg.textContent = 'v1-Server nicht erreichbar.'; return; }
+        if (!Array.isArray(rows) || !rows.length) { msg.textContent = 'Keine Beurteilungen gefunden' + (name ? ' für «' + name + '»' : '') + '.'; return; }
+        if (name && !db.prefs.beurteiler) { db.prefs.beurteiler = name; save(); }
+        sheetV1Groups(rows);
+      });
+    });
+  }
+  function sheetV1Groups(rows) {
     const groups = {};
     rows.forEach((x) => { const pre = (x.probeNr || '').includes('_') ? x.probeNr.split('_')[0] : '(ohne Anlass)'; (groups[pre] = groups[pre] || []).push(x); });
     const keys = Object.keys(groups).sort();

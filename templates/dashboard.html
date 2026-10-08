@@ -10,6 +10,11 @@
     <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
 
     <script>
+        function adminHeaders() {
+            const pwd = (document.getElementById('admin-passwort') || {}).value || localStorage.getItem('agffAdminPass') || '';
+            return pwd ? { 'X-Admin-Pass': pwd } : {};
+        }
+
         async function verifyAdminPassword(pwd) {
             try {
                 const response = await fetch('api/admin/verify', {
@@ -78,7 +83,15 @@
         async function loadData() {
             try {
                 // API Aufruf an Flask
-                const response = await fetch('api/proben'); // Relativer Pfad!
+                const response = await fetch('api/proben', { headers: adminHeaders() }); // Relativer Pfad!
+                if (response.status === 401) {
+                    // Datenschutz: Beurteilungen nur mit Admin-Passwort
+                    alleProben = [];
+                    showLoading(false);
+                    const st = document.getElementById('admin-unlock-status');
+                    if (st) st.textContent = 'Beurteilungen werden aus Datenschutzgründen nur nach Entsperren geladen.';
+                    return;
+                }
                 if (!response.ok) throw new Error("Server Fehler beim Laden");
                 
                 alleProben = await response.json();
@@ -96,7 +109,7 @@
 
         async function loadSummaryData() {
             try {
-                const response = await fetch('api/results/summary');
+                const response = await fetch('api/results/summary', { headers: adminHeaders() });
                 if (!response.ok) throw new Error("Server Fehler beim Laden");
                 summaryRows = await response.json();
                 renderSummaryTable(summaryRows || []);
@@ -233,6 +246,8 @@
                     localStorage.setItem('agffAdminUnlocked', '1');
                     const bf = document.getElementById('filter-beurteiler');
                     if (bf) bf.classList.remove('hidden');
+                    showLoading(true, "Lade Daten vom Server...");
+                    await loadData();
                 } else {
                     document.getElementById('admin-unlock-status').textContent = "Falsch";
                 }

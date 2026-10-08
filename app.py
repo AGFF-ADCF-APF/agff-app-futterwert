@@ -911,9 +911,24 @@ def get_uploaded_file(bucket, filename):
 
 @app.route('/api/proben', methods=['GET'])
 def get_all_proben():
+    # Datenschutz: Vollständige Liste nur mit Admin-Passwort. Ohne Passwort nur
+    # die Beurteilungen der angegebenen Person (optional eingeschränkt auf eine Probe).
+    is_admin = check_auth()
+    beurteiler_filter = (request.args.get('beurteiler') or '').strip()
+    probe_filter = (request.args.get('probeNr') or '').strip()
+    if not is_admin and not beurteiler_filter:
+        return jsonify({"error": "AUTH_REQUIRED"}), 401
     try:
         conn = get_db_connection()
-        rows = conn.execute('SELECT * FROM proben WHERE is_active = 1 ORDER BY id DESC').fetchall()
+        sql = 'SELECT * FROM proben WHERE is_active = 1'
+        params = []
+        if not is_admin or beurteiler_filter:
+            sql += ' AND TRIM(beurteiler) = ?'
+            params.append(beurteiler_filter)
+        if probe_filter:
+            sql += ' AND TRIM(probe_nr) = ?'
+            params.append(probe_filter)
+        rows = conn.execute(sql + ' ORDER BY id DESC', params).fetchall()
         conn.close()
         data = []
         def konservierung_label(value):
@@ -952,6 +967,8 @@ def get_all_proben():
 def results_summary():
     try:
         futterart = request.args.get('futterart', 'alle')
+        # Namen der Beurteilenden nur für Admins (Ergebnisseite zeigt sie nicht an)
+        include_names = check_auth()
 
         conn = get_db_connection()
         rows = conn.execute('SELECT * FROM proben WHERE is_active = 1 ORDER BY id DESC').fetchall()
@@ -1011,7 +1028,7 @@ def results_summary():
             g['count'] += 1
 
             g['details'].append({
-                'beurteiler': beurteiler,
+                'beurteiler': beurteiler if include_names else None,
                 'datum': (row['datum_tag'] or (row['datum'][:10] if row['datum'] else '')),
                 'nel': nel,
                 'apde': apde,
@@ -1043,7 +1060,9 @@ def results_summary():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-def check_auth(): return bool(ADMIN_PASSWORD) and request.headers.get('X-Admin-Pass') == ADMIN_PASSWORD
+def check_auth():
+    import hmac
+    return bool(ADMIN_PASSWORD) and hmac.compare_digest(request.headers.get('X-Admin-Pass', ''), ADMIN_PASSWORD)
 
 @app.route('/api/samples/save', methods=['POST'])
 def save_sample():
@@ -1110,6 +1129,7 @@ def save_sample():
 @app.route('/api/samples', methods=['GET'])
 def get_samples():
     """Holt alle Probensammlungen"""
+    if not check_auth(): return jsonify({"error": "AUTH_REQUIRED"}), 401
     try:
         conn = get_db_connection()
         rows = conn.execute('SELECT * FROM probensammlungen ORDER BY id DESC').fetchall()
@@ -1139,6 +1159,7 @@ def get_samples():
 @app.route('/api/samples/export', methods=['GET'])
 def export_samples():
     """Exportiert alle Probensammlungen als CSV"""
+    if not check_auth(): return jsonify({"error": "AUTH_REQUIRED"}), 401
     try:
         conn = get_db_connection()
         rows = conn.execute('SELECT * FROM probensammlungen ORDER BY id DESC').fetchall()

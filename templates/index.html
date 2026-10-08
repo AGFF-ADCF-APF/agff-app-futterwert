@@ -6192,7 +6192,7 @@
             info.textContent = '';
 
             try {
-                const response = await fetch('api/proben');
+                const response = await fetch(`api/proben?beurteiler=${encodeURIComponent(name)}`);
                 const data = await response.json();
                 const mine = Array.isArray(data)
                     ? data.filter(d => (d.beurteiler || '').trim() === name)
@@ -6596,7 +6596,7 @@
                     return;
                 }
 
-                const response = await fetch('api/proben');
+                const response = await fetch(`api/proben?beurteiler=${encodeURIComponent(name)}&probeNr=${encodeURIComponent(probeNr)}`);
                 const data = await response.json();
                 const match = Array.isArray(data)
                     ? data.find(d => (d.beurteiler || '').trim() === name && (d.probeNr || '').trim() === probeNr)
