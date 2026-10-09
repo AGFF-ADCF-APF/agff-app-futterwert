@@ -193,6 +193,7 @@
     if (seg[0] === 'p' && seg[1]) return { name: 'probe', id: seg[1], step: seg[2] || null };
     if (seg[0] === 'daten') return { name: 'daten' };
     if (seg[0] === 'schweiz') return { name: 'schweiz' };
+    if (seg[0] === 'bilanz') return { name: 'bilanz' };
     return { name: 'home' };
   }
   const go = (hash) => { if (location.hash === hash) route(); else location.hash = hash; };
@@ -220,14 +221,14 @@
       if (!p) { ui.route = { name: 'home' }; return render(); }
       depth = 2; anlassId = p.anlassId || null;
     }
-    if (r.name === 'daten' || r.name === 'schweiz') depth = 2;
-    ui.ctxAnlass = r.name === 'home' || r.name === 'daten' || r.name === 'schweiz' ? (ui.ctxAnlass !== undefined ? ui.ctxAnlass : undefined) : anlassId;
+    if (r.name === 'daten' || r.name === 'schweiz' || r.name === 'bilanz') depth = 2;
+    ui.ctxAnlass = ['home', 'daten', 'schweiz', 'bilanz'].includes(r.name) ? (ui.ctxAnlass !== undefined ? ui.ctxAnlass : undefined) : anlassId;
     app.dataset.depth = depth;
     $('#r-nav').innerHTML = renderNav(r);
-    $('#r-list').innerHTML = renderList(r.name === 'home' || r.name === 'daten' || r.name === 'schweiz' ? ui.ctxAnlass : anlassId, r);
+    $('#r-list').innerHTML = renderList(['home', 'daten', 'schweiz', 'bilanz'].includes(r.name) ? ui.ctxAnlass : anlassId, r);
     $('#main').innerHTML = r.name === 'probe' ? renderProbe(probeById(r.id), r.step)
       : r.name === 'anlass' ? (r.sammel ? window.Sammel.render(anlassId) : renderUebersicht(anlassId))
-      : r.name === 'daten' ? renderDaten() : r.name === 'schweiz' ? window.Schweiz.render() : renderWelcome();
+      : r.name === 'daten' ? renderDaten() : r.name === 'schweiz' ? window.Schweiz.render() : r.name === 'bilanz' ? window.Bilanz.render() : renderWelcome();
     afterRender();
   }
   let lastHash = null;
@@ -261,6 +262,7 @@
       '</ul>' +
       '<div class="section-title" style="padding:0 12px">Daten & Datenschutz</div><ul class="list" style="padding:0 8px 24px">' +
       '<li><a class="item" href="#/daten" aria-current="' + (r.name === 'daten') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.lock.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Speicherort, Sicherung, v1-Daten</span><span class="s">' + (storageOk ? 'Daten liegen nur in diesem Browser' : 'Browserspeicher nicht verfügbar!') + '</span></span></a></li>' +
+      '<li><a class="item" href="#/bilanz" aria-current="' + (r.name === 'bilanz') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.table.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Grundfutter-Bilanz</span><span class="s">Energie und Protein der Ration</span></span></a></li>' +
       '<li><a class="item" href="#/schweiz" aria-current="' + (r.name === 'schweiz') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">CH</span><span><span class="t">Auswertung Schweiz</span><span class="s">Karte nach PLZ und Höhenzone</span></span></a></li>' +
       '<li><a class="item" href="../"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">v1</span><span><span class="t">Zur bisherigen Version</span><span class="s">Futterwert-Rechner v1</span></span></a></li>' +
       '</ul>';
@@ -813,6 +815,7 @@
     sheet('<h2>' + esc(a.titel) + '</h2><div class="stack">' +
       (ro ? '<div class="alert info">' + I.lock + '<div>Geöffnet über einen <b>Nur-Ansehen-Link</b>. Ändern ist nicht möglich.</div></div>' : '<button class="btn block" data-act="edit-anlass" data-id="' + a.id + '">Bearbeiten</button>') +
       (ro ? '' : '<button class="btn block" data-go="#/a/' + a.id + '/sammel">' + I.table + ' Sammelerfassung (wie Ernterapport)</button>') +
+      '<button class="btn block" data-act="bilanz-anlass" data-id="' + a.id + '">Grundfutter-Bilanz mit diesen Proben</button>' +
       '<button class="btn block" data-act="pdf-anlass" data-id="' + a.id + '">' + I.pdf + ' PDF aller Proben (mit QR-Codes)</button>' +
       '<button class="btn block" data-act="export-anlass" data-id="' + a.id + '">Als JSON-Datei exportieren</button>' +
       (a.space ? '<button class="btn block" data-act="share-space" data-id="' + a.id + '">' + I.share + ' Freigabe-Links fürs Büro / Team</button><button class="btn block" data-act="sync-now" data-id="' + a.id + '">Jetzt synchronisieren</button>' +
@@ -1252,6 +1255,7 @@
 
   document.addEventListener('click', async (e) => {
     if (ui.route.name === 'schweiz' && e.target.closest('[data-sw],[data-sw-region]') && window.Schweiz.handle(e.target)) return;
+    if (e.target.closest('[data-bl]') && window.Bilanz.handle(e)) return;
     const t = e.target.closest('[data-close],[data-act],[data-set],[data-go],[data-fokus],[data-step],[data-sort],[data-o],[data-f]');
     if (!t) return;
     if (t.tagName === 'A' && t.dataset.act) e.preventDefault();
@@ -1311,6 +1315,7 @@
       case 'assist-ruhe': window.Assistent.ruhe = t.dataset.val === 'ruhe'; render(); break;
       case 'assist-stufe': window.Assistent.stufe = t.dataset.val; render(); break;
       case 'assist-reset': window.Assistent.zuruecksetzen(); window.Assistent.ruhe = false; toast('Der Traktor meldet sich bei jedem Schritt wieder einmal.'); render(); break;
+      case 'bilanz-anlass': { const ids = probenOf(id).filter((p) => auswertung(p).vollstaendig).map((p) => p.id); window.Bilanz.hinzufuegen(ids); closeSheet(); go('#/bilanz'); toast(ids.length + ' Proben übernommen – Mengen eintragen.'); break; }
       case 'theme': {
         const v = t.dataset.val; if (v) document.documentElement.dataset.theme = v; else delete document.documentElement.dataset.theme;
         try { localStorage.setItem('agffV2Theme', v); } catch (er) { /* ignore */ }
@@ -1408,6 +1413,7 @@
 
   document.addEventListener('input', (e) => {
     const el = e.target;
+    if (window.Bilanz && el.closest('.bilanz')) { window.Bilanz.eingabe(e); return; }
     if (el.dataset.pref) {
       const pr = el.dataset.pref;
       if (pr === 'kuhGewicht') db.prefs[pr] = Number(el.value) || 630;
