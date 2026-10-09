@@ -607,7 +607,7 @@
     }).join('') + '</div>';
     const live = '<div class="live"><span class="dot" style="background:' + (Rad.TON[z.ton] || Rad.TON.offen) + ';width:14px;height:14px"></span><span class="grow">' + esc(res.sperre.length ? 'Nicht verfüttern' : (z.ton === 'offen' ? 'Noch keine Angaben' : res.klasse ? res.klasse.label : '')) + '</span><span class="muted small">' + esc(z.wert + ' ' + (z.label || '')) + '</span></div>';
     return '<div class="rad-layout"><div class="rad-sticky"><div class="rad-box" id="radbox">' + wheelSvg(p, res, { interaktiv: true, fokus: fokusId }) + '</div>' + live +
-      '<p class="hint">Tipp: Segment im Rad direkt antippen – oder unten in Ruhe auswählen. Gelesen wird wie auf dem Merkblatt von der Mitte nach aussen.</p></div>' +
+      '<p class="hint">Tipp: Faktor im Rad antippen – er dreht sich nach oben und wird gross; dann die passende Ausprägung antippen. Oder unten in Ruhe auswählen.</p></div>' +
       '<div>' + nav + factorCard + '</div></div>';
   }
 
@@ -759,6 +759,7 @@
     fotosEinsetzen();
     if (window.Assistent) window.Assistent.update();
     if (ui.route.sammel && window.Sammel) window.Sammel.verdrahten();
+    Rad.animieren($('#radbox'));
   }
 
   // ---------- Sheets / Toast ----------
@@ -1192,6 +1193,7 @@
     $('#r-list').innerHTML = renderList(p.anlassId || null, ui.route);
     fotosEinsetzen();
     if (window.Assistent) window.Assistent.update();
+    Rad.animieren($('#radbox'));
   }
 
   function choose(p, set, val) {
@@ -1227,7 +1229,12 @@
     if (t.hasAttribute('data-close') && (e.target === t || t.tagName === 'BUTTON')) { closeSheet(); return; }
     if (t.dataset.go) { go(t.dataset.go); return; }
     const p = currentProbe();
-    if (t.dataset.o && p) { choose(p, 'rad.' + t.dataset.f, t.dataset.o); return; }
+    if (t.dataset.o && p) {
+      // Touch: Antippen eines anderen Faktors wählt erst diesen aus (dreht ihn nach oben, gross) – Fehltreffer vermeiden
+      const grob = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+      if (grob && ui.fokus[p.id] !== t.dataset.f) { ui.fokus[p.id] = t.dataset.f; rerenderDetail(true); return; }
+      choose(p, 'rad.' + t.dataset.f, t.dataset.o); return;
+    }
     if (t.dataset.f && p && !t.dataset.o) { ui.fokus[p.id] = t.dataset.f; rerenderDetail(true); return; }
     if (t.dataset.fokus && p) { ui.fokus[p.id] = t.dataset.fokus; rerenderDetail(true); return; }
     if (t.dataset.set && p) { choose(p, t.dataset.set, t.dataset.val); return; }
