@@ -192,6 +192,7 @@
     if (seg[0] === 'e') return { name: 'anlass', id: null, ov: seg[1] === 'uebersicht' };
     if (seg[0] === 'p' && seg[1]) return { name: 'probe', id: seg[1], step: seg[2] || null };
     if (seg[0] === 'daten') return { name: 'daten' };
+    if (seg[0] === 'schweiz') return { name: 'schweiz' };
     return { name: 'home' };
   }
   const go = (hash) => { if (location.hash === hash) route(); else location.hash = hash; };
@@ -219,14 +220,14 @@
       if (!p) { ui.route = { name: 'home' }; return render(); }
       depth = 2; anlassId = p.anlassId || null;
     }
-    if (r.name === 'daten') depth = 2;
-    ui.ctxAnlass = r.name === 'home' || r.name === 'daten' ? (ui.ctxAnlass !== undefined ? ui.ctxAnlass : undefined) : anlassId;
+    if (r.name === 'daten' || r.name === 'schweiz') depth = 2;
+    ui.ctxAnlass = r.name === 'home' || r.name === 'daten' || r.name === 'schweiz' ? (ui.ctxAnlass !== undefined ? ui.ctxAnlass : undefined) : anlassId;
     app.dataset.depth = depth;
     $('#r-nav').innerHTML = renderNav(r);
-    $('#r-list').innerHTML = renderList(r.name === 'home' || r.name === 'daten' ? ui.ctxAnlass : anlassId, r);
+    $('#r-list').innerHTML = renderList(r.name === 'home' || r.name === 'daten' || r.name === 'schweiz' ? ui.ctxAnlass : anlassId, r);
     $('#main').innerHTML = r.name === 'probe' ? renderProbe(probeById(r.id), r.step)
       : r.name === 'anlass' ? (r.sammel ? window.Sammel.render(anlassId) : renderUebersicht(anlassId))
-      : r.name === 'daten' ? renderDaten() : renderWelcome();
+      : r.name === 'daten' ? renderDaten() : r.name === 'schweiz' ? window.Schweiz.render() : renderWelcome();
     afterRender();
   }
   let lastHash = null;
@@ -260,6 +261,7 @@
       '</ul>' +
       '<div class="section-title" style="padding:0 12px">Daten & Datenschutz</div><ul class="list" style="padding:0 8px 24px">' +
       '<li><a class="item" href="#/daten" aria-current="' + (r.name === 'daten') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.lock.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Speicherort, Sicherung, v1-Daten</span><span class="s">' + (storageOk ? 'Daten liegen nur in diesem Browser' : 'Browserspeicher nicht verfügbar!') + '</span></span></a></li>' +
+      '<li><a class="item" href="#/schweiz" aria-current="' + (r.name === 'schweiz') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">CH</span><span><span class="t">Auswertung Schweiz</span><span class="s">Karte nach PLZ und Höhenzone</span></span></a></li>' +
       '<li><a class="item" href="../"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">v1</span><span><span class="t">Zur bisherigen Version</span><span class="s">Futterwert-Rechner v1</span></span></a></li>' +
       '</ul>';
   }
@@ -737,7 +739,7 @@
       q('Sicherung', 'Komplette Sicherung aller Daten als Datei – z. B. für den Gerätewechsel.', '<div class="row"><button class="btn" data-act="backup">Sicherung herunterladen (JSON)</button><button class="btn" data-act="import">' + I.upload + ' PDF/JSON importieren</button></div>') +
       q('Anonym beitragen und vergleichen', 'Proben mit PLZ anonym für Auswertungen und Publikationen beitragen – und im Gegenzug sehen, wie Ihre Proben im Vergleich zur Region abschneiden. Ohne Namen, Betrieb, Parzelle, Notizen und Fotos; jederzeit widerrufbar.',
         db.prefs.beitragen && db.prefs.beitragConsent ? '<div class="row"><span class="chip gut">eingeschaltet</span><span class="small muted grow">' + db.proben.filter((x) => x.beitrag).length + ' Proben beigetragen</span><button class="btn danger sm" data-act="beitrag-aus">Ausschalten und alle zurückziehen</button></div>'
-          : '<button class="btn" data-act="beitrag-ein">Anonym beitragen einschalten …</button>') +
+          : '<button class="btn" data-act="beitrag-ein">Anonym beitragen einschalten …</button>') + '<p style="margin:10px 0 0"><a href="#/schweiz">Auswertung Schweiz ansehen (Karte, Höhenzonen) →</a></p>' +
       q('Daten aus der bisherigen Version (v1)', 'Wiesenfutter-Beurteilungen (Grassilage/Dürrfutter) und Silomais werden übernommen; die Sensorik von v1 hatte teilweise andere Skalen und wird als «bitte prüfen» markiert. Die v1-Daten selbst bleiben unverändert.',
         '<div class="row"><button class="btn" data-act="v1-local"' + (v1local ? '' : ' disabled') + '>' + v1local + ' lokal gespeicherte v1-Proben übernehmen</button><button class="btn" data-act="v1-server">Meine Proben vom v1-Server laden …</button></div>') +
       q('Einstellungen', '', '<div class="grid2"><label class="field"><span>Mein Name (Vorschlag für «Beurteilt von»)</span><input class="input" data-pref="beurteiler" value="' + esc(db.prefs.beurteiler) + '"></label>' +
@@ -1223,6 +1225,7 @@
   }
 
   document.addEventListener('click', async (e) => {
+    if (ui.route.name === 'schweiz' && e.target.closest('[data-sw],[data-sw-region]') && window.Schweiz.handle(e.target)) return;
     const t = e.target.closest('[data-close],[data-act],[data-set],[data-go],[data-fokus],[data-step],[data-sort],[data-o],[data-f]');
     if (!t) return;
     if (t.tagName === 'A' && t.dataset.act) e.preventDefault();

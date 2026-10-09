@@ -180,5 +180,5 @@
   }
 
   global.addEventListener('online', () => { if (app()) alleAbgleichen(); });
-  global.Statistik = { erlaubt, planen, abgleichen, alleAbgleichen, zurueckziehen, einwilligung, vergleichHtml, speicherHinweis, handle };
+  global.Statistik = { consentVersion, erlaubt, planen, abgleichen, alleAbgleichen, zurueckziehen, einwilligung, vergleichHtml, speicherHinweis, handle };
 })(window);

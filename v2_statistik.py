@@ -46,13 +46,21 @@ def _zahl(v, lo, hi):
 
 def pruefen(d):
     """Strikte Whitelist. Gibt bereinigte Daten oder None zurück."""
-    erlaubt = {'typ', 'plz', 'hoehe', 'jahr', 'monat', 'aufwuchs', 'bestand', 'stadium', 'klasse', 'punkte', 'antworten', 'rad', 'werte', 'labor'}
+    erlaubt = {'typ', 'plz', 'hoehe', 'jahr', 'monat', 'aufwuchs', 'bestand', 'stadium', 'klasse', 'punkte', 'antworten', 'rad', 'werte', 'labor', 'quelle', 'n'}
     if not isinstance(d, dict) or d.get('typ') not in ('heu', 'gras', 'mais') or set(d) - erlaubt:
         return None
     plz = str(d.get('plz') or '')
     if not re.match(r'^[1-9]\d{3}$', plz):
         return None
     out = {'typ': d['typ'], 'plz': plz}
+    if d.get('quelle') is not None:  # eigen | kurs (Kursprobe: Median der Beurteilungen, n = Anzahl)
+        if d['quelle'] not in ('eigen', 'kurs'):
+            return None
+        out['quelle'] = d['quelle']
+    if d.get('n') is not None:
+        if not (isinstance(d['n'], int) and not isinstance(d['n'], bool) and 0 <= d['n'] <= 500):
+            return None
+        out['n'] = d['n']
     if d.get('hoehe') is not None:
         if not _zahl(d['hoehe'], 0, 4000):
             return None
@@ -175,6 +183,68 @@ def vergleich():
     return resp
 
 
+# Höhenzonen: Näherung über die Höhe (die amtlichen landwirtschaftlichen Zonen folgen dem Produktionskataster)
+ZONEN = [('tal', 'Talgebiet', 0, 600), ('huegel', 'Hügelgebiet', 600, 800), ('berg', 'Berggebiet', 800, 5000)]
+
+
+def _kennwerte(daten):
+    """Kennzahlen einer Gruppe; None-Werte unter K_MIN (k-Anonymität)."""
+    out = {'n': len(daten)}
+    if len(daten) < K_MIN:
+        return out
+    v = _verteilung([d['werte']['nel'] for d in daten if 'nel' in d.get('werte', {})])
+    if v:
+        out['nel'] = v
+    lab = _verteilung([d['labor']['nel'] for d in daten if 'nel' in d.get('labor', {})])
+    if lab:
+        out['laborNel'] = lab
+    kl = {}
+    for d in daten:
+        if d.get('klasse'):
+            kl[d['klasse']] = kl.get(d['klasse'], 0) + 1
+    out['klassen'] = kl
+    out['kurs'] = sum(1 for d in daten if d.get('quelle') == 'kurs')
+    return out
+
+
+@v2.route('/v2/api/statistik/schweiz')
+def schweiz():
+    """Übersicht für Karte (PLZ-Region = erste 2 Ziffern) und Höhenzonen. Gruppen unter K_MIN nur als Anzahl."""
+    _rate_hit('schweiz', limit=300, window=3600)
+    typ = request.args.get('typ', 'alle')
+    if typ not in ('alle', 'heu', 'gras', 'mais'):
+        return jsonify({'error': 'BAD_REQUEST'}), 400
+    try:
+        seit = int(request.args.get('seit', '0') or 0)
+    except ValueError:
+        return jsonify({'error': 'BAD_REQUEST'}), 400
+    q, par = 'SELECT region, daten FROM beitraege WHERE (jahr >= ? OR ? = 0)', [seit, seit]
+    if typ != 'alle':
+        q += ' AND typ = ?'
+        par.append(typ)
+    with _db() as conn:
+        rows = conn.execute(q, par).fetchall()
+    alle = [(r['region'], json.loads(r['daten'])) for r in rows]
+    regionen = {}
+    for reg, d in alle:
+        regionen.setdefault(reg, []).append(d)
+    zonen = []
+    for zid, name, lo, hi in ZONEN:
+        zd = [d for _, d in alle if d.get('hoehe') is not None and lo <= d['hoehe'] < hi]
+        zonen.append(dict(_kennwerte(zd), id=zid, name=name, von=lo, bis=hi))
+    # Höhenprofil: Anzahl und Median NEL je 200 m (Median nur ab K_MIN)
+    profil = []
+    for lo in range(0, 2600, 200):
+        nel = [d['werte']['nel'] for _, d in alle if d.get('hoehe') is not None and lo <= d['hoehe'] < lo + 200 and 'nel' in d.get('werte', {})]
+        if nel or any(d.get('hoehe') is not None and lo <= d['hoehe'] < lo + 200 for _, d in alle):
+            profil.append({'von': lo, 'n': len(nel), 'nel': round(statistics.median(nel), 2) if len(nel) >= K_MIN else None})
+    resp = jsonify({'n': len(alle), 'kMin': K_MIN, 'gesamt': _kennwerte([d for _, d in alle]),
+                    'regionen': {k: _kennwerte(v) for k, v in regionen.items()},
+                    'zonen': zonen, 'profil': profil, 'ohneHoehe': sum(1 for _, d in alle if d.get('hoehe') is None)})
+    resp.headers['Cache-Control'] = 'no-store'
+    return resp
+
+
 @v2.route('/v2/api/statistik/config')
 def statistik_config():
     return jsonify({'consentVersion': BEITRAG_CONSENT_VERSION, 'kMin': K_MIN})
@@ -188,14 +258,14 @@ def admin_export():
         return jsonify({'error': 'NOT_FOUND'}), 404
     with _db() as conn:
         rows = conn.execute('SELECT daten, created_at FROM beitraege ORDER BY created_at').fetchall()
-    spalten = ['typ', 'plz', 'hoehe', 'jahr', 'monat', 'aufwuchs', 'bestand', 'stadium', 'klasse', 'punkte'] + \
+    spalten = ['typ', 'plz', 'hoehe', 'jahr', 'monat', 'aufwuchs', 'bestand', 'stadium', 'klasse', 'punkte', 'quelle', 'n'] + \
               ['schaetzung_' + k for k in WERTE] + ['labor_' + k for k in LABOR] + ['antworten', 'rad']
     buf = io.StringIO()
     w = csv.writer(buf, delimiter=';')
     w.writerow(spalten)
     for r in rows:
         d = json.loads(r['daten'])
-        w.writerow([d.get(k, '') for k in spalten[:10]] + [d.get('werte', {}).get(k, '') for k in WERTE] +
+        w.writerow([d.get(k, '') for k in spalten[:12]] + [d.get('werte', {}).get(k, '') for k in WERTE] +
                    [d.get('labor', {}).get(k, '') for k in LABOR] + [json.dumps(d.get('antworten', {})), json.dumps(d.get('rad', {}))])
     return Response('﻿' + buf.getvalue(), mimetype='text/csv; charset=utf-8',
                     headers={'Content-Disposition': 'attachment; filename="futter_beitraege.csv"', 'Cache-Control': 'no-store'})

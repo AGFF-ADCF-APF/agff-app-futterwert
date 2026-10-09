@@ -33,7 +33,7 @@ import v2_mail as M
 from v2_api import (v2, _db, _now, _sha, _rate_hit, _check_record, _check_privat, _json_body,
                     ID_RE, HASH_RE, TOKEN_RE, RETENTION_DAYS, MAX_RECORD_BYTES, FOTO_ID_RE)
 
-KURS_CONSENT_VERSION = '2026-10-k3'
+KURS_CONSENT_VERSION = '2026-10-k4'
 SESSION_TTL = 120 * 24 * 3600
 MAX_PROBEN = 400
 MAX_TEILNEHMENDE = 300
@@ -337,7 +337,8 @@ def kurs_lesen(kurs_id):
         teilnehmende.append({'id': p['id'], 'rolle': p['rolle'], 'name': _box(p['name_privat']), 'mitEmail': bool(email),
                              'email': (email if (leitung or p['id'] == ich['id']) else M.email_mask(email)) if email else None})
     return jsonify({
-        'kurs': {'id': k['id'], 'meta': {'analyse': _box(k['meta_analyse']) or {}, 'privat': _box(k['meta_privat'])}, 'updatedAt': k['updated_at']},
+        'kurs': {'id': k['id'], 'meta': {'analyse': _box(k['meta_analyse']) or {}, 'privat': _box(k['meta_privat'])}, 'updatedAt': k['updated_at'],
+                 'consentVersion': k['consent_version']},
         'hinweise': hinweise,
         'ich': {'id': ich['id'], 'rolle': ich['rolle'], 'fotoBytes': foto_bytes, 'fotoLimit': FOTO_PRO_PERSON},
         'teilnehmende': teilnehmende,
@@ -375,7 +376,9 @@ def _leitung(conn, kurs_id):
 def kurs_meta(kurs_id):
     body = _json_body() or {}
     an, pv = body.get('analyse') or {}, body.get('privat')
-    if not isinstance(an, dict) or not set(an) <= {'datum', 'hinweise'} or not _check_privat(pv):
+    if not isinstance(an, dict) or not set(an) <= {'datum', 'hinweise', 'beitragen'} or not _check_privat(pv):
+        return _err('REJECTED_CONTENT', 422)
+    if 'beitragen' in an and not isinstance(an['beitragen'], bool):
         return _err('REJECTED_CONTENT', 422)
     if an.get('datum') and not re.match(r'^\d{4}-\d{2}-\d{2}$', str(an['datum'])):
         return _err('REJECTED_CONTENT', 422)

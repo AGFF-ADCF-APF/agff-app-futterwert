@@ -46,6 +46,7 @@
       '<li>Ihr <b>Vorname</b> (Anzeigename) und – falls angegeben – Ihre <b>E-Mail-Adresse</b>' + (leitung ? ' (für die Kursleitung Pflicht, Anmeldung per Code)' : ' (freiwillig, damit Sie Ihre Proben auch auf anderen Geräten sehen)') + '.</li>' +
       '<li>Alle <b>Angaben zu den Proben</b>: Bezeichnung, Schnitt, Notizen, <b>Standort</b> (PLZ, Ort, Höhe, ungefähre Position), <b>Fotos vom Futter</b>, <b>Fotos von Laborberichten</b> und Laborwerte.</li>' +
       '<li>Ihre <b>Beurteilungen</b> inklusive Fotos und Laborimport.</li>' +
+      '<li><b>Nationale Auswertung:</b> Erfasste Kursproben werden anonym für Auswertungen und Publikationen beigetragen – Postleitzahl, Höhe (100 m), Monat, Futterart, Laborwerte und der Mittelwert (Median) der Beurteilungen. Ohne Namen, Bezeichnungen, Notizen und Fotos. Die Kursleitung kann das ausschalten.</li>' +
       '<li><b>Wer sieht was:</b> Die Kursleitung sieht alles, auch die vollständigen E-Mail-Adressen. Kursmitglieder sehen Namen, Proben und Beurteilungen der anderen – Beurteilungen und Laborwerte erst nach der eigenen Abgabe; E-Mail-Adressen nur gekürzt.</li>' +
       '<li>Die Daten sind auf dem Server mit dem Kursschlüssel (im Kurs-Link bzw. auf dem QR-Etikett) verschlüsselt; die Beurteilungsdaten ohne Namen sind lesbar und können anonym ausgewertet werden. Laborberichte: Adresse vor dem Fotografieren abdecken oder schwärzen.</li>' +
       '<li>Sie können jederzeit austreten – Ihre Daten werden gelöscht. Kurse werden ' + monate() + ' Monate nach der letzten Änderung gelöscht.</li>' +
@@ -72,8 +73,9 @@
       const lab = p.labor ? await dec(p.labor, 'labor|' + p.id) : null;
       proben.push(Object.assign({ id: p.id, nr: p.nr, status: p.status, eigene: p.eigene, ownerId: p.ownerId, typ: p.analyse.typ, abgaben: p.abgaben, meineAbgabe: p.meineAbgabe, hatLabor: p.hatLabor, labor: lab }, pv));
     }
-    const st = { meta, hinweise: r.hinweise, teilnehmende, proben, ich: r.ich, geladen: Date.now() };
+    const st = { meta, hinweise: r.hinweise, teilnehmende, proben, ich: r.ich, geladen: Date.now(), kursConsent: r.kurs.consentVersion || '' };
     cache.set(a.id, st);
+    if (r.ich.rolle === 'leitung') setTimeout(() => beitraegeAbgleichen(a).catch(() => {}), 4000);
     a.kurs.rolle = r.ich.rolle; a.kurs.ichId = r.ich.id;
     if (meta.titel) { a.titel = String(meta.titel).slice(0, 200); a.datum = meta.datum; a.ort = meta.ort; }
     app().db.proben.filter((p) => p.anlassId === a.id && p.kursProbeId).forEach((p) => {
@@ -127,11 +129,12 @@
     await api(a.kurs.id + '/ich', { method: 'PUT', headers: H(a), body: { name: await C.encryptJSON(k.key, { name }, C.kursAad(a.kurs.id, 'name|' + a.kurs.ichId)) } });
     await laden(a);
   }
-  async function metaSpeichern(a, hinweise) {
+  async function metaSpeichern(a, hinweise, beitragen) {
     const k = await kk(a.kurs.secret);
     const st = cache.get(a.id);
     const h = hinweise || (st && st.hinweise) || undefined;
-    await api(a.kurs.id + '/meta', { method: 'PUT', headers: H(a), body: { analyse: Object.assign(a.datum ? { datum: a.datum } : {}, h ? { hinweise: h } : {}),
+    const bt = beitragen != null ? beitragen : (st && st.meta && typeof st.meta.beitragen === 'boolean' ? st.meta.beitragen : undefined);
+    await api(a.kurs.id + '/meta', { method: 'PUT', headers: H(a), body: { analyse: Object.assign(a.datum ? { datum: a.datum } : {}, h ? { hinweise: h } : {}, bt != null ? { beitragen: bt } : {}),
       privat: await C.encryptJSON(k.key, { titel: a.titel, ort: a.ort || '' }, C.kursAad(a.kurs.id, 'meta')) } });
   }
 
@@ -490,15 +493,16 @@
   function hinweiseDialog(a) {
     const A = app(); const st = cache.get(a.id) || {}; const h = Object.assign({}, st.hinweise || {});
     const opt = (k, t, s) => '<label class="toggle"><input type="checkbox" name="' + k + '"' + (h[k] ? ' checked' : '') + '> <span><b>' + t + '</b><br><span class="small muted">' + s + '</span></span></label>';
-    A.sheet('<h2>Hilfestellungen beim Beurteilen</h2><p class="small" style="margin-top:0">Welche Angaben aus der Ersterfassung sehen die Teilnehmenden, <b>bevor</b> sie ihre Beurteilung abgeben? Nach der Abgabe sehen alle alles.</p>' +
+    A.sheet('<h2>Hilfestellungen und Auswertung</h2><p class="small" style="margin-top:0">Welche Angaben aus der Ersterfassung sehen die Teilnehmenden, <b>bevor</b> sie ihre Beurteilung abgeben? Nach der Abgabe sehen alle alles.</p>' +
       '<form id="hwForm" class="stack">' + opt('foto', 'Foto des Futters', 'Hilft bei Farbe und Struktur') + opt('alter', 'Alter in Wochen', 'Seit dem Schnitt – hilft beim Stadium von Folgeaufwüchsen') +
       opt('standort', 'Standort', 'PLZ, Ort, Höhe') + opt('bezeichnung', 'Bezeichnung', 'Name der Probe') + opt('notiz', 'Notiz der erfassenden Person', 'Lagerung, Besonderheiten') +
       opt('labor', 'Laboranalyse', 'Werte und Laborbericht – verrät das Ergebnis, daher normalerweise aus. Wird vom Server erst freigegeben, wenn eingeschaltet.') +
+      '<h3 style="margin:10px 0 0">Nationale Auswertung</h3><label class="toggle"><input type="checkbox" name="beitragen"' + (beitragAktiv(a) ? ' checked' : '') + '> <span><b>Kursproben anonym beitragen</b><br><span class="small muted">PLZ, Höhe, Monat, Futterart, Laborwerte und Median der Beurteilungen – ohne Namen, Notizen, Fotos. Ausschalten zieht alle Beiträge dieses Kurses zurück.</span></span></label>' +
       '<div class="row"><button type="button" class="btn ghost grow" data-close>Abbrechen</button><button class="btn primary grow">Speichern</button></div></form>', (el) => {
       el.querySelector('#hwForm').addEventListener('submit', async (e) => {
         e.preventDefault(); const fd = new FormData(e.target);
         const neu = {}; ['foto', 'alter', 'standort', 'bezeichnung', 'notiz', 'labor'].forEach((k) => { neu[k] = fd.get(k) === 'on'; });
-        try { await metaSpeichern(a, neu); await laden(a); A.closeSheet(); A.toast('Hilfestellungen gespeichert.'); } catch (er) { A.toast(fehlerText(er)); }
+        try { await metaSpeichern(a, neu, fd.get('beitragen') === 'on'); await laden(a); A.closeSheet(); A.toast('Einstellungen gespeichert.'); beitraegeAbgleichen(a, true).catch(() => {}); } catch (er) { A.toast(fehlerText(er)); }
       });
     });
   }
@@ -1022,6 +1026,7 @@
       case 'kurs-austreten': case 'kurs-loeschen': {
         const loeschen = act === 'kurs-loeschen';
         if (!confirm(loeschen ? 'Den ganzen Kurs mit allen Proben, Fotos und Abgaben für ALLE endgültig löschen?' : 'Kurs verlassen? Ihre Abgaben, Fotos und Ihr Name werden auf dem Server gelöscht. Ihre lokalen Beurteilungen bleiben auf diesem Gerät.')) return true;
+        if (loeschen) await beitraegeZurueckziehen(a).catch(() => {});
         try {
           await api(loeschen ? a.kurs.id : a.kurs.id + '/teilnehmende/' + a.kurs.ichId, { method: 'DELETE', headers: H(a) });
           A.db.proben.filter((p) => p.anlassId === a.id).forEach((p) => { delete p.kursProbeId; delete p.abgegebenAt; });
@@ -1045,6 +1050,86 @@
     const a = aid && app().anlassById(aid);
     if (a && a.kurs && a.kurs.session) { vergleichCache.clear(); aktualisieren(a, true); }
   });
+
+  // ---------- Nationale Auswertung: Kursproben anonym beitragen ----------
+  /** Aktiv, wenn die Kursleitung es eingestellt hat; sonst Standard «an» für Kurse mit Zustimmung ab Version k4. */
+  function beitragAktiv(a) {
+    const st = cache.get(a.id) || {};
+    if (st.meta && typeof st.meta.beitragen === 'boolean') return st.meta.beitragen;
+    return String(st.kursConsent || '') >= '2026-10-k4';
+  }
+  const b64uB = (buf) => btoa(String.fromCharCode.apply(null, new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  /** Kennung und Token je Kursprobe aus dem Kursschlüssel ableiten – gleich auf allen Geräten der Kursleitung. */
+  async function beitragKennung(a, kpId) {
+    const h = async (t) => crypto.subtle.digest('SHA-256', new TextEncoder().encode(a.kurs.secret + '|' + t + '|' + kpId));
+    return { id: b64uB(await h('beitrag-id')).slice(0, 16), token: b64uB(await h('beitrag-token')).slice(0, 43) };
+  }
+  const STAND = (a) => 'agffV2KursBeitrag|' + a.kurs.id;
+  const standLesen = (a) => { try { return JSON.parse(localStorage.getItem(STAND(a)) || '{}'); } catch (e) { return {}; } };
+  const standSchreiben = (a, s) => { try { localStorage.setItem(STAND(a), JSON.stringify(s)); } catch (e) { /* egal */ } };
+  const median = (xs) => { const s = xs.slice().sort((x, y) => x - y); const m = s.length >> 1; return s.length ? (s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2) : undefined; };
+  const modus = (xs) => { const c = new Map(); xs.filter((x) => x != null && x !== '').forEach((x) => c.set(x, (c.get(x) || 0) + 1)); let best; let n = 0; c.forEach((v, k) => { if (v > n) { n = v; best = k; } }); return best; };
+
+  /** Beitrag einer Kursprobe aus Ersterfassung, Laborwerten und dem Median aller abgegebenen Beurteilungen. */
+  async function beitragDaten(a, kp) {
+    const A = app();
+    if (kp.status !== 'erfasst' || !kp.typ || !(kp.standort && /^[1-9]\d{3}$/.test(String(kp.standort.plz || '').trim()))) return null;
+    let probes = [];
+    try {
+      const r = await api(a.kurs.id + '/proben/' + kp.id + '/beurteilungen', { headers: H(a) });
+      probes = r.beurteilungen.map((b) => global.Model.cleanProbe(Object.assign({}, b.analyse))).filter(Boolean);
+    } catch (e) { probes = []; }
+    const res = probes.map((p) => ({ p, r: A.auswertung(p) })).filter((x) => x.r.vollstaendig);
+    const labor = kp.labor && Object.keys(kp.labor).length ? kp.labor : undefined;
+    if (!res.length && !labor) return null;
+    const d = new Date(kp.schnitt || Date.now());
+    const werte = {};
+    ['nel', 'nev', 'apde', 'apdn', 'rp', 'rf', 'ndf', 'zucker', 'staerke'].forEach((k) => { const m = median(res.map((x) => x.r.werte && x.r.werte[k]).filter((v) => typeof v === 'number' && isFinite(v) && v >= 0)); if (m != null) werte[k] = Math.round(m * 100) / 100; });
+    const rad = {}; (global.K3.TYPEN[kp.typ].rad || []).forEach((f) => { const m = modus(res.map((x) => x.r.auswahl[f.id])); if (m) rad[f.id] = m; });
+    const antworten = {}; const keys = new Set(); res.forEach((x) => Object.keys(x.p.antworten || {}).forEach((k) => keys.add(k)));
+    keys.forEach((k) => { if (k === 'leitpflanze') return; const m = modus(res.map((x) => x.p.antworten[k])); if (m != null && (typeof m === 'boolean' || typeof m === 'number' || /^[A-Za-z0-9_.-]{0,16}$/.test(String(m)))) antworten[k] = m; });
+    const o = { typ: kp.typ, plz: String(kp.standort.plz).trim(), jahr: d.getFullYear(), monat: d.getMonth() + 1, quelle: 'kurs', n: res.length,
+      aufwuchs: antworten.aufwuchs, bestand: antworten.bestand, stadium: antworten.stadium,
+      klasse: modus(res.map((x) => (x.r.sperre.length ? 'sperre' : x.r.klasse ? x.r.klasse.id : null))),
+      punkte: median(res.map((x) => x.r.punkte).filter((v) => typeof v === 'number')), antworten, rad, werte, labor };
+    const hoehe = Number(String(kp.standort.hoehe || '').replace(/[^\d]/g, ''));
+    if (hoehe > 0 && hoehe < 4000) o.hoehe = hoehe;
+    Object.keys(o).forEach((k) => { if (o[k] === undefined) delete o[k]; });
+    return o;
+  }
+  const letzterAbgleich = new Map();
+  /** Nur die Kursleitung gleicht ab (höchstens alle 10 Minuten, ausser «sofort»). */
+  async function beitraegeAbgleichen(a, sofort) {
+    if (!a || !a.kurs || a.kurs.rolle !== 'leitung' || !navigator.onLine) return;
+    if (!sofort && Date.now() - (letzterAbgleich.get(a.id) || 0) < 600000) return;
+    letzterAbgleich.set(a.id, Date.now());
+    const st = cache.get(a.id); if (!st) return;
+    const stand = standLesen(a);
+    if (!beitragAktiv(a)) { await beitraegeZurueckziehen(a); return; }
+    const version = await global.Statistik.consentVersion();
+    for (const kp of st.proben) {
+      const daten = await beitragDaten(a, kp).catch(() => null);
+      const kenn = await beitragKennung(a, kp.id);
+      if (!daten) {
+        if (stand[kp.id]) { await fetch('api/statistik/' + kenn.id, { method: 'DELETE', headers: { 'X-Beitrag-Token': kenn.token }, credentials: 'omit' }).catch(() => {}); delete stand[kp.id]; }
+        continue;
+      }
+      const json = JSON.stringify(daten);
+      if (stand[kp.id] === json) continue;
+      try { await global.FutterIO.api('statistik/' + kenn.id, { method: 'PUT', body: { token: kenn.token, consent: { version }, daten } }); stand[kp.id] = json; } catch (e) { /* nächstes Mal */ }
+    }
+    // gelöschte Kursproben: Beiträge zurückziehen
+    for (const id of Object.keys(stand)) {
+      if (!st.proben.some((p) => p.id === id)) { const kenn = await beitragKennung(a, id); await fetch('api/statistik/' + kenn.id, { method: 'DELETE', headers: { 'X-Beitrag-Token': kenn.token }, credentials: 'omit' }).catch(() => {}); delete stand[id]; }
+    }
+    standSchreiben(a, stand);
+  }
+  async function beitraegeZurueckziehen(a) {
+    const st = cache.get(a.id) || { proben: [] }; const stand = standLesen(a);
+    const ids = new Set(Object.keys(stand).concat(st.proben.map((p) => p.id)));
+    for (const id of ids) { const kenn = await beitragKennung(a, id); await fetch('api/statistik/' + kenn.id, { method: 'DELETE', headers: { 'X-Beitrag-Token': kenn.token }, credentials: 'omit' }).catch(() => {}); }
+    standSchreiben(a, {});
+  }
 
   // ---------- Sammelerfassung (Ernterapport) → Kursproben ----------
   async function sammelAnlegen(a, zeilen) {
@@ -1075,5 +1160,5 @@
     }, 120);
   }
 
-  global.Kurs = { sammelAnlegen, etikettenNachSammel, mailLink, renderList, renderUebersicht, ergebnisExtra, hinweisKarte, nachRender, handle, beitreten, anlegen, istAbgegeben: (p) => !!(p && p.abgegebenAt), nameAusEmail, FORMATE };
+  global.Kurs = { beitraegeAbgleichen, beitragAktiv, sammelAnlegen, etikettenNachSammel, mailLink, renderList, renderUebersicht, ergebnisExtra, hinweisKarte, nachRender, handle, beitreten, anlegen, istAbgegeben: (p) => !!(p && p.abgegebenAt), nameAusEmail, FORMATE };
 })(window);

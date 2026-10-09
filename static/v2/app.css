@@ -391,3 +391,14 @@ table.tbl { width: 100%; border-collapse: collapse; font-variant-numeric: tabula
 .sammel-tbl td.nr { color: var(--ink-3); font-size: .85rem; text-align: right; }
 .sammel-tbl td.info { min-width: 12em; }
 .sammel .actionbar { margin-top: 16px; }
+
+/* Auswertung Schweiz */
+.sw-karte, .sw-hoehe { display: block; width: 100%; height: auto; font-family: var(--font); }
+.sw-karte-box { padding: 8px; }
+.sw-reg { cursor: pointer; }
+.sw-reg:focus { outline: none; }
+.sw-reg:focus-visible circle:last-of-type, .sw-reg.aktiv circle:last-of-type { stroke: #17221e; stroke-width: 2; }
+.sw-detail { margin-top: 10px; }
+.sw-klassen { display: flex; height: 10px; border-radius: 6px; overflow: hidden; margin-top: 10px; gap: 2px; }
+.sw-zonen { display: grid; gap: 10px; margin-top: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
+.sw .seg.sm { width: auto; flex-wrap: wrap; }
