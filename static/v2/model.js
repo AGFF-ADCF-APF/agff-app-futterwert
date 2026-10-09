@@ -113,7 +113,8 @@
     if (!isObj(k) || !ID_RE.test(k.id || '') || !SECRET_RE.test(k.secret || '')) return undefined;
     return compact({ id: k.id, secret: k.secret, session: SECRET_RE.test(k.session || '') ? k.session : undefined,
       rolle: oneOf(k.rolle, ['leitung', 'teilnahme']), ichId: typeof k.ichId === 'string' && ID_RE.test(k.ichId) ? k.ichId : undefined,
-      email: typeof k.email === 'string' && /^[^@\s]{1,64}@[^@\s]{1,190}$/.test(k.email) ? k.email : undefined });
+      email: typeof k.email === 'string' && /^[^@\s]{1,64}@[^@\s]{1,190}$/.test(k.email) ? k.email : undefined,
+      emailPending: typeof k.emailPending === 'string' && /^[^@\s]{1,64}@[^@\s]{1,190}$/.test(k.emailPending) ? k.emailPending : undefined });
   }
 
   function cleanAnlass(a, opts) {

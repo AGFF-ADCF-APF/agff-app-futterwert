@@ -185,6 +185,7 @@
     if (h.startsWith('import=')) return { name: 'import', payload: h.slice(7) };
     if (h.startsWith('s=')) return { name: 'join', token: h.slice(2) };
     if (h.startsWith('k=')) return { name: 'kurs', token: h.slice(2) };
+    if (h.startsWith('km=')) return { name: 'kursmail', token: h.slice(3) };
     if (h.startsWith('space=')) return { name: 'join', token: '' }; // Format aus Beta-Test, nicht mehr gültig
     const seg = h.replace(/^\//, '').split('/').filter(Boolean);
     if (seg[0] === 'a' && seg[1]) return { name: 'anlass', id: seg[1], ov: seg[2] === 'uebersicht' };
@@ -199,6 +200,7 @@
     const r = parseHash();
     if (r.name === 'import') { history.replaceState(null, '', location.pathname + '#/'); handleImportPayload(r.payload); ui.route = { name: 'home' }; }
     else if (r.name === 'join') { history.replaceState(null, '', location.pathname + '#/'); joinSpace(r.token); ui.route = { name: 'home' }; }
+    else if (r.name === 'kursmail') { history.replaceState(null, '', location.pathname + '#/'); ui.route = { name: 'home' }; render(); window.Kurs.mailLink(r.token); return; }
     else if (r.name === 'kurs') { history.replaceState(null, '', location.pathname + '#/'); ui.route = { name: 'home' }; render(); window.Kurs.beitreten(r.token); return; }
     else ui.route = r;
     render();

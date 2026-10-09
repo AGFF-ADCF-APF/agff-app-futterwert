@@ -97,7 +97,7 @@ def email_mask(email):
 
 
 # --- Codes ---------------------------------------------------------------------------
-def code_erzeugen(zweck, email):
+def code_erzeugen(zweck, email, ttl=None):
     """Neuen 6-stelligen Code für (Zweck, Adresse) ablegen und zurückgeben. Ratenbegrenzt je Adresse."""
     _rate_hit('code_mail:' + email_hmac(email), limit=5, window=3600)
     code = f'{secrets.randbelow(1_000_000):06d}'
@@ -105,7 +105,7 @@ def code_erzeugen(zweck, email):
         conn.execute('INSERT INTO email_codes (zweck, email_hmac, code_hash, expires_at, attempts) VALUES (?, ?, ?, ?, 0) '
                      'ON CONFLICT(zweck, email_hmac) DO UPDATE SET code_hash = excluded.code_hash, '
                      'expires_at = excluded.expires_at, attempts = 0',
-                     (zweck, email_hmac(email), _sha(zweck + '|' + code), time.time() + CODE_TTL))
+                     (zweck, email_hmac(email), _sha(zweck + '|' + code), time.time() + (ttl or CODE_TTL)))
     return code
 
 
@@ -161,7 +161,17 @@ def senden(to_addr, betreff, text):
     threading.Thread(target=run, daemon=True).start()
 
 
-def code_senden(zweck, email, wozu):
+def code_senden(zweck, email, wozu, link=None):
+    """link: Basis-URL, an die der Code angehängt wird (Bestätigung per Antippen, 48 h gültig)."""
+    if link:
+        code = code_erzeugen(zweck, email, ttl=48 * 3600)
+        senden(email_norm(email), 'Bitte E-Mail-Adresse bestätigen',
+               f'Bitte bestätigen Sie Ihre E-Mail-Adresse für die Futterbeurteilung ({wozu}).\n\n'
+               f'Link auf dem Gerät antippen, mit dem Sie mitmachen:\n{link}{code}\n\n'
+               f'Oder den Code in der App eingeben:  {code}\n\n'
+               'Der Link ist 48 Stunden gültig. Nach der Bestätigung finden Sie Ihre Proben auch auf anderen Geräten wieder.\n\n'
+               'Falls Sie sich nicht angemeldet haben, können Sie diese E-Mail ignorieren.\n')
+        return
     code = code_erzeugen(zweck, email)
     senden(email_norm(email), f'Ihr Bestätigungscode: {code}',
            f'Ihr Code für die Futterbeurteilung ({wozu}) lautet:\n\n    {code}\n\n'

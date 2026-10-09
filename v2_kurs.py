@@ -265,9 +265,12 @@ def kurs_email_code(kurs_id):
     if not M.email_ok(email):
         return _err('BAD_REQUEST', 400)
     with _db() as conn:
-        if not (_session(conn, kurs_id) or _join_ok(conn, kurs_id, body.get('joinToken'))):
+        ich = _session(conn, kurs_id)
+        if not (ich or _join_ok(conn, kurs_id, body.get('joinToken'))):
             return _err('NOT_FOUND', 404)
-    M.code_senden('kurs:' + kurs_id, email, 'Kurs')
+    # Mit Sitzung (Adresse verknüpfen): Bestätigungslink; ohne (Anmeldung neues Gerät): nur Code
+    link = (os.environ.get('V2_PUBLIC_URL') or 'https://apps.graswachstum.ch/futter/v2/') + '#km=' + kurs_id + '.' if ich else None
+    M.code_senden('kurs:' + kurs_id, email, 'Kurs', link=link)
     return jsonify({'status': 'sent'})
 
 

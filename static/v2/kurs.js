@@ -98,9 +98,9 @@
   }
 
   // ---------- Dialog-Bausteine ----------
-  function codeSchritt(titel, email, onCode, onResend) {
+  function codeSchritt(titel, email, onCode, onResend, gueltig) {
     const A = app();
-    A.sheet('<h2>' + A.esc(titel) + '</h2><p class="small" style="margin-top:0">Wir haben einen 6-stelligen Code an <b>' + A.esc(email) + '</b> geschickt (gültig 15 Minuten). Bitte auch im Spam-Ordner nachsehen.</p>' +
+    A.sheet('<h2>' + A.esc(titel) + '</h2><p class="small" style="margin-top:0">Wir haben einen 6-stelligen Code an <b>' + A.esc(email) + '</b> geschickt (gültig ' + (gueltig || '15 Minuten') + '). Bitte auch im Spam-Ordner nachsehen.</p>' +
       '<form id="codeForm" class="stack"><label class="field"><span>Code</span><input class="input" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="\\d{6}" maxlength="6" required style="font-size:1.6rem;letter-spacing:.3em;text-align:center"></label>' +
       '<p class="hint" id="codeMsg"></p><div class="row"><button type="button" class="btn ghost grow" id="resend">Neuen Code senden</button><button class="btn primary grow">Bestätigen</button></div></form>', (el) => {
       el.querySelector('#codeForm').addEventListener('submit', async (e) => {
@@ -232,17 +232,20 @@
     const A = app();
     A.sheet('<h2>' + (L.probe ? 'Probe im Kurs' : 'Kurs beitreten') + '</h2><p class="small" style="margin-top:0">Zum Mitmachen genügt ein Anzeigename – ohne Konto, ohne Passwort.</p>' +
       '<form id="joinForm" class="stack"><label class="field"><span>Anzeigename (z. B. Vorname und Initiale)</span><input class="input" name="name" required maxlength="60" autocomplete="nickname"></label>' +
+      '<label class="field"><span>E-Mail-Adresse <span class="muted">(empfohlen)</span></span><input class="input" type="email" name="email" maxlength="200" autocomplete="email" placeholder="damit Sie Ihre Proben später wiederfinden"></label>' +
       consentHtml(false) + '<label class="toggle"><input type="checkbox" name="ok" required> <span>Ich habe die Hinweise gelesen und bin einverstanden.</span></label>' +
       '<div class="row"><button type="button" class="btn ghost grow" data-close>Abbrechen</button><button class="btn primary grow">Mitmachen</button></div></form>' +
       '<button class="btn ghost block" id="emailLogin" style="margin-top:8px">Schon dabei? Mit E-Mail anmelden</button>', (el) => {
       el.querySelector('#joinForm').addEventListener('submit', async (e) => {
         e.preventDefault(); const btn = e.target.querySelector('.primary'); btn.disabled = true;
-        const name = String(new FormData(e.target).get('name')).trim().slice(0, 60);
+        const fd = new FormData(e.target);
+        const name = String(fd.get('name')).trim().slice(0, 60); const email = String(fd.get('email') || '').trim().toLowerCase();
         try {
           const k = await kk(L.secret); const version = await consentVersion();
           const v = await api(L.id + '/beitreten', { method: 'POST', body: { joinToken: k.joinToken, consent: { accepted: true, version } } });
           const a = anlassFuer(L, vorhanden, v);
           await nameSetzen(a, name); A.closeSheet();
+          if (email) await mailSenden(a, email).catch((er) => A.toast('Bestätigungsmail nicht gesendet: ' + fehlerText(er)));
           if (L.probe) scan(a, L.probe); else A.go('#/a/' + a.id);
         } catch (er) { btn.disabled = false; A.toast(er.status === 404 ? 'Kurs nicht gefunden oder Etikett ungültig.' : fehlerText(er)); }
       });
@@ -278,25 +281,45 @@
       });
     });
   }
-  /** Nachträglich E-Mail bestätigen (Ermunterung), damit die Proben später wieder sichtbar sind. */
+  /** Bestätigungsmail mit Link senden; die Teilnahme läuft sofort weiter, die Adresse gilt erst nach Bestätigung. */
+  async function mailSenden(a, email) {
+    const A = app();
+    await api(a.kurs.id + '/email/code', { method: 'POST', headers: H(a), body: { email } });
+    a.kurs.emailPending = email; A.save();
+    A.toast('Bestätigungsmail an ' + email + ' gesendet – Link in der Mail antippen.');
+  }
+  async function mailBestaetigen(a, code) {
+    const A = app(); const email = a.kurs.emailPending;
+    await api(a.kurs.id + '/email/verify', { method: 'POST', headers: H(a), body: { email, code } });
+    a.kurs.email = email; delete a.kurs.emailPending; A.save(); await laden(a).catch(() => {});
+    A.closeSheet(); A.toast('E-Mail bestätigt – Ihre Proben sind jetzt auch auf anderen Geräten erreichbar.'); A.render();
+  }
+  /** Link aus der Bestätigungsmail (#km=<kursId>.<code>) */
+  async function mailLink(token) {
+    const A = app(); const m = /^([A-Za-z0-9_-]{6,64})\.(\d{6})$/.exec(token || '');
+    const a = m && A.db.anlaesse.find((x) => x.kurs && x.kurs.id === m[1]);
+    if (!a || !a.kurs.session || !a.kurs.emailPending) {
+      A.sheet('<h2>E-Mail bestätigen</h2><p>Bitte öffnen Sie den Link auf dem Gerät, mit dem Sie im Kurs mitmachen – oder geben Sie dort den Code aus der Mail ein' + (m ? ': <b style="letter-spacing:.2em">' + m[2] + '</b>' : '') + '.</p><button class="btn primary block" data-close>OK</button>');
+      return;
+    }
+    try { await mailBestaetigen(a, m[2]); A.go('#/a/' + a.id); } catch (er) { A.toast('Bestätigung fehlgeschlagen: ' + fehlerText(er) + '. Bitte neuen Link anfordern.'); A.go('#/a/' + a.id); }
+  }
+  /** E-Mail angeben oder korrigieren (Ermunterung), damit die Proben später wieder sichtbar sind. */
   function emailVerknuepfen(a) {
     const A = app();
-    A.sheet('<h2>Proben später wiederfinden</h2><p class="small" style="margin-top:0">Ohne E-Mail ist Ihre Teilnahme an dieses Gerät gebunden. Mit bestätigter Adresse können Sie sich jederzeit auf einem anderen Gerät anmelden. Die Kursleitung sieht Ihre Adresse, andere nur gekürzt.</p>' +
-      '<form id="mailForm" class="stack"><label class="field"><span>E-Mail-Adresse</span><input class="input" type="email" name="email" required autocomplete="email"></label>' +
-      '<div class="row"><button type="button" class="btn ghost grow" data-close>Später</button><button class="btn primary grow">Code anfordern</button></div></form>', (el) => {
+    A.sheet('<h2>' + (a.kurs.emailPending ? 'E-Mail-Adresse ändern' : 'Proben später wiederfinden') + '</h2><p class="small" style="margin-top:0">Ohne bestätigte E-Mail ist Ihre Teilnahme an dieses Gerät gebunden. Mit bestätigter Adresse können Sie sich jederzeit auf einem anderen Gerät anmelden. Die Kursleitung sieht Ihre Adresse, andere nur gekürzt.</p>' +
+      '<form id="mailForm" class="stack"><label class="field"><span>E-Mail-Adresse</span><input class="input" type="email" name="email" required autocomplete="email" value="' + A.esc(a.kurs.emailPending || '') + '"></label>' +
+      '<div class="row"><button type="button" class="btn ghost grow" data-close>Später</button><button class="btn primary grow">Bestätigungsmail senden</button></div></form>', (el) => {
       el.querySelector('#mailForm').addEventListener('submit', async (e) => {
         e.preventDefault(); const email = String(new FormData(e.target).get('email')).trim().toLowerCase();
-        try {
-          const anfordern = () => api(a.kurs.id + '/email/code', { method: 'POST', headers: H(a), body: { email } });
-          await anfordern();
-          codeSchritt('E-Mail bestätigen', email, async (code) => {
-            await api(a.kurs.id + '/email/verify', { method: 'POST', headers: H(a), body: { email, code } });
-            a.kurs.email = email; A.save(); await laden(a); A.closeSheet(); A.toast('E-Mail bestätigt – Ihre Proben sind jetzt auch von anderen Geräten erreichbar.');
-          }, anfordern);
-        } catch (er) { A.toast(fehlerText(er)); }
+        try { await mailSenden(a, email); A.closeSheet(); A.render(); } catch (er) { A.toast(fehlerText(er)); }
       });
     });
   }
+  function codeEingeben(a) {
+    codeSchritt('E-Mail bestätigen', a.kurs.emailPending, (code) => mailBestaetigen(a, code), () => mailSenden(a, a.kurs.emailPending), '48 Stunden');
+  }
+
 
   /** Etikett gescannt: leer → erfassen, erfasst → beurteilen. */
   async function scan(a, pid) {
@@ -479,7 +502,7 @@
   }
 
   const FORMATE = {
-    rund50: { titel: 'Rund Ø 50 mm, 20 pro Bogen', w: 50, h: 50, rund: true, cols: 4, rows: 5, oben: 8.5, links: 3, dx: 52, dy: 57 },
+    rund50: { titel: 'Rund Ø 50 mm, 20 pro Bogen (z. B. ENDI-Haft GA00050-20)', w: 50, h: 50, rund: true, cols: 4, rows: 5, oben: 13.5, links: 3, dx: 52, dy: 55 },
     l7160: { titel: 'Rechteckig 63,5 × 38,1 mm, 21 pro Bogen (z. B. Avery L7160)', w: 63.5, h: 38.1, rund: false, cols: 3, rows: 7, oben: 15.15, links: 7.25, dx: 66.04, dy: 38.1 },
   };
   function etikettenDialog(a) {
@@ -488,7 +511,10 @@
     let fmtId = 'rund50';
     try { fmtId = localStorage.getItem('agffV2EtikettFormat') || 'rund50'; } catch (e) { /* egal */ }
     if (!FORMATE[fmtId]) fmtId = 'rund50';
-    const f = () => FORMATE[fmtId];
+    // Angepasste Ränder je Format auf diesem Gerät merken (Drucker verschieben oft um 1–2 mm)
+    const RAND = 'agffV2EtikettRand';
+    const eigene = () => { try { return JSON.parse(localStorage.getItem(RAND) || '{}')[fmtId] || {}; } catch (e) { return {}; } };
+    const f = () => Object.assign({}, FORMATE[fmtId], eigene());
     A.sheet('<h2>QR-Etiketten drucken</h2><p class="small" style="margin-top:0">Jedes Etikett ist eine nummerierte, noch leere Probe dieses Kurses. Teilnehmende kleben es auf ihre Probe und scannen es: beim ersten Mal erfassen, danach beurteilen.</p>' +
       '<form id="etForm" class="stack"><label class="field"><span>Etikettenformat</span><select class="input" name="format">' + Object.entries(FORMATE).map(([id, x]) => '<option value="' + id + '"' + (id === fmtId ? ' selected' : '') + '>' + x.titel + '</option>').join('') + '</select></label>' +
       '<div class="grid2"><label class="field"><span>Anzahl Proben</span><input class="input" type="number" name="anzahl" min="1" max="100" value="10" inputmode="numeric"></label>' +
@@ -532,6 +558,12 @@
         e.preventDefault(); const fd = new FormData(e.target); const btn = e.target.querySelector('.primary'); btn.disabled = true;
         const num = (k) => Number(String(fd.get(k)).replace(',', '.'));
         const layout = Object.assign({}, f(), { oben: num('oben'), links: num('links'), dx: num('dx'), dy: num('dy'), linien: fd.get('linien') === 'on' });
+        try {
+          const alle = JSON.parse(localStorage.getItem(RAND) || '{}'); const std = FORMATE[fmtId]; const mein = {};
+          ['oben', 'links', 'dx', 'dy'].forEach((k) => { if (isFinite(layout[k]) && layout[k] !== std[k]) mein[k] = layout[k]; });
+          if (Object.keys(mein).length) alle[fmtId] = mein; else delete alle[fmtId];
+          localStorage.setItem(RAND, JSON.stringify(alle));
+        } catch (er) { /* egal */ }
         const anzahl = Math.max(1, Math.min(100, parseInt(fd.get('anzahl'), 10) || 1));
         const ex = Math.max(1, Math.min(6, parseInt(fd.get('exemplare'), 10) || 1));
         try {
@@ -604,7 +636,11 @@
       '<span class="sub">Kurs · ' + (leitung ? 'Kursleitung' : 'Teilnahme') + (st ? ' · ' + st.teilnehmende.length + ' Personen' : '') + '</span></h2>' +
       '<button class="icon-btn" data-act="kurs-menu" data-id="' + a.id + '" aria-label="Kurs-Aktionen">' + A.I.more + '</button></div>';
     if (a.kurs.error) h += '<div class="pad" style="padding-bottom:0"><div class="alert info">' + A.I.warn + '<div>' + esc(a.kurs.error) + (a.kurs.error.startsWith('Anmeldung') ? ' <button class="btn sm" data-act="kurs-login" data-id="' + a.id + '">Neu anmelden</button>' : '') + '</div></div></div>';
-    if (st && ich && !ich.mitEmail && !leitung) h += '<div class="pad" style="padding-bottom:0"><div class="alert info">' + A.I.lock + '<div style="flex:1">Ihre Teilnahme ist an dieses Gerät gebunden. <b>Mit E-Mail bestätigen</b>, um Ihre Proben später wiederzufinden. <button class="btn sm" data-act="kurs-email" data-id="' + a.id + '">E-Mail bestätigen</button></div></div></div>';
+    if (st && ich && !ich.mitEmail && !leitung) {
+      h += '<div class="pad" style="padding-bottom:0"><div class="alert info">' + A.I.lock + '<div style="flex:1">' + (a.kurs.emailPending
+        ? 'Bitte bestätigen Sie Ihre E-Mail: Wir haben einen Link an <b>' + A.esc(a.kurs.emailPending) + '</b> geschickt – in der Mail antippen (auch Spam-Ordner prüfen). Sie können inzwischen normal weiterarbeiten.<div class="row" style="margin-top:8px;gap:6px"><button class="btn sm" data-act="kurs-code" data-id="' + a.id + '">Code eingeben</button><button class="btn sm" data-act="kurs-mail-neu" data-id="' + a.id + '">Nochmals senden</button><button class="btn sm ghost" data-act="kurs-email" data-id="' + a.id + '">Adresse ändern</button></div>'
+        : 'Ihre Teilnahme ist an dieses Gerät gebunden. <b>Mit E-Mail bestätigen</b>, um Ihre Proben später wiederzufinden. <button class="btn sm" data-act="kurs-email" data-id="' + a.id + '">E-Mail angeben</button>') + '</div></div></div>';
+    }
     h += '<div class="pad" style="padding-bottom:0"><div class="row"><button class="btn sm grow" data-act="kurs-teilnehmende" data-id="' + a.id + '">Teilnehmende</button>' +
       (leitung ? '<button class="btn sm grow" data-act="kurs-etiketten" data-id="' + a.id + '">QR-Etiketten</button><button class="btn sm grow" data-act="kurs-hinweise" data-id="' + a.id + '">Hilfestellungen</button><button class="btn sm grow" data-act="kurs-pool" data-id="' + a.id + '">Probenpool</button>' : '') +
       '<a class="btn sm grow" href="#/a/' + a.id + '/uebersicht">' + A.I.table + ' Übersicht</a></div></div>';
@@ -930,6 +966,8 @@
       case 'pool-pdf': await poolPdf(a, t.dataset.pool); return true;
       case 'pool-loeschen': if (confirm('Diesen Eintrag aus dem Pool löschen? Kurse, die ihn übernommen haben, verlieren die Fotos und Referenzen.')) { try { await poolApi('/' + t.dataset.pool, a, { method: 'DELETE' }); poolCache = null; A.closeSheet(); await poolDialog(a); } catch (er) { A.toast(fehlerText(er)); } } return true;
       case 'kurs-email': A.closeSheet(); emailVerknuepfen(a); return true;
+      case 'kurs-code': A.closeSheet(); codeEingeben(a); return true;
+      case 'kurs-mail-neu': try { await mailSenden(a, a.kurs.emailPending); } catch (er) { A.toast(fehlerText(er)); } return true;
       case 'kurs-qr': {
         A.closeSheet();
         const link = global.FutterIO.appUrl() + '#k=' + a.kurs.id + '.' + a.kurs.secret;
@@ -1005,5 +1043,5 @@
     if (a && a.kurs && a.kurs.session) { vergleichCache.clear(); aktualisieren(a, true); }
   });
 
-  global.Kurs = { renderList, renderUebersicht, ergebnisExtra, hinweisKarte, nachRender, handle, beitreten, anlegen, istAbgegeben: (p) => !!(p && p.abgegebenAt), nameAusEmail, FORMATE };
+  global.Kurs = { mailLink, renderList, renderUebersicht, ergebnisExtra, hinweisKarte, nachRender, handle, beitreten, anlegen, istAbgegeben: (p) => !!(p && p.abgegebenAt), nameAusEmail, FORMATE };
 })(window);
