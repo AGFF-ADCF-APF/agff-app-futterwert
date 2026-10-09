@@ -140,6 +140,7 @@
         if (!ok) { resolve(null); return; }
         const ctx = canvas.getContext('2d'); ctx.fillStyle = '#000';
         rects.forEach((r) => ctx.fillRect(r.x, r.y, r.w, r.h));
+        canvas._rechtecke = rects.length;
         resolve(canvas);
       };
       wrap.addEventListener('click', (e) => {
@@ -151,6 +152,46 @@
     });
   }
 
+  /**
+   * Automatisch schwärzen (ohne KI): Texterkennung auf dem Gerät, sichtbar bleiben nur erkannte
+   * Analysezeilen – alles andere (Adresse, Namen, Kopfzeilen, Unerkanntes) wird abgedeckt.
+   * Liefert null, wenn zu wenige Analysezeilen erkannt wurden.
+   */
+  async function autoSchwaerzen(canvas) {
+    let keep = [];
+    for (const winkel of [0, 90, 270]) { // Handyfotos liegen oft quer
+      const k = (await global.LaborOCR.zeilen(canvas, winkel)).filter((z) => global.LaborOCR.istWertzeile(z.text));
+      if (k.length > keep.length) keep = k;
+      if (keep.length >= 6) break;
+    }
+    if (keep.filter((z) => /\d/.test(z.text)).length < 3) return null;
+    const out = document.createElement('canvas'); out.width = canvas.width; out.height = canvas.height;
+    const ctx = out.getContext('2d'); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, out.width, out.height);
+    const pad = Math.round(canvas.width / 300);
+    keep.forEach(({ bbox: b }) => {
+      const x = Math.max(0, b.x0 - pad), y = Math.max(0, b.y0 - pad);
+      const w = Math.min(canvas.width, b.x1 + pad) - x, h = Math.min(canvas.height, b.y1 + pad) - y;
+      if (w > 0 && h > 0) ctx.drawImage(canvas, x, y, w, h, x, y, w, h);
+    });
+    return { canvas: out, zeilen: keep.length };
+  }
+
+  /**
+   * Laborbericht: erst automatisch schwärzen, dann zum Prüfen/Ergänzen ins Schwärzen-Werkzeug.
+   * Liefert {canvas, ger} oder null (abgebrochen). ger: 'auto' | 'manuell' | undefined (nichts geschwärzt → nur privat).
+   */
+  async function laborSchwaerzen(canvas, meldung) {
+    let auto = null;
+    try { if (meldung) meldung('Schwärze automatisch … (beim ersten Mal wird die Texterkennung geladen, ca. 6 MB)'); auto = await autoSchwaerzen(canvas); } catch (e) { auto = null; }
+    const titel = auto ? 'Automatisch geschwärzt: nur Analysezeilen sichtbar – prüfen, ggf. weitere Bereiche abdecken'
+      : 'Automatisch nicht möglich – bitte Adresse und Namen selbst abdecken';
+    const c = await schwaerzen(auto ? auto.canvas : canvas, titel);
+    if (!c) return null;
+    let ger = auto ? 'auto' : (c._rechtecke ? 'manuell' : undefined);
+    if (!ger && !global.confirm('Sie haben nichts geschwärzt.\n\nDas Foto bleibt deshalb privat: Andere (z. B. im Kurs oder Pool) bekommen es nie zu sehen. Trotzdem speichern?')) return null;
+    return { canvas: c, ger };
+  }
+
   /** Vorhandenes Foto nachträglich schwärzen (ersetzt die gespeicherte Fassung). */
   async function nachSchwaerzen(meta, probeId) {
     const r = await get(meta.id); if (!r) return null;
@@ -159,7 +200,7 @@
     if (!out) return null;
     const blobNeu = await kodieren(out, QUALI);
     await put({ id: meta.id, probeId, blob: blobNeu, thumb: await kodieren(zeichnen(out, 360), 0.8), mime: blobNeu.type });
-    return Object.assign({}, meta, { bytes: blobNeu.size, mime: blobNeu.type, key: neuerSchluessel(), up: false });
+    return Object.assign({}, meta, { bytes: blobNeu.size, mime: blobNeu.type, key: neuerSchluessel(), up: false, ger: meta.ger || (out._rechtecke ? 'manuell' : undefined) });
   }
 
   // ---------- Verschlüsselung für den Server (eigener Schlüssel je Foto) ----------
@@ -186,5 +227,5 @@
     for (const id of await alleIds()) if (!set.has(id)) await del(id);
   }
 
-  global.Fotos = { neueId, neuerSchluessel, vorbereiten, speichern, schwaerzen, nachSchwaerzen, thumbUrl, bildUrl, blob, ablegen, jpegDataUrl, del, get, aufraeumen, verschluesseln, entschluesseln, MAX_KANTE };
+  global.Fotos = { neueId, neuerSchluessel, vorbereiten, speichern, schwaerzen, laborSchwaerzen, autoSchwaerzen, nachSchwaerzen, thumbUrl, bildUrl, blob, ablegen, jpegDataUrl, del, get, aufraeumen, verschluesseln, entschluesseln, MAX_KANTE };
 })(window);

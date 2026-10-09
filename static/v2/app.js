@@ -424,9 +424,10 @@
         closeSheet(); toast('Foto wird verarbeitet …');
         try {
           let c = await F.vorbereiten(file, art);
-          if (art === 'labor') { c = await F.schwaerzen(c, 'Adresse und Namen schwärzen'); if (!c) { toast('Abgebrochen – kein Foto gespeichert.'); return; } }
+          let ger;
+          if (art === 'labor') { const r = await F.laborSchwaerzen(c, toast); if (!r) { toast('Abgebrochen – kein Foto gespeichert.'); return; } c = r.canvas; ger = r.ger; }
           const meta = await F.speichern(c, art, p.id);
-          meta.up = false;
+          meta.up = false; if (ger) meta.ger = ger;
           p.fotos = (p.fotos || []).concat(meta);
           touchProbe(p); rerenderDetail(true);
           toast('Foto gespeichert (' + Math.round(meta.bytes / 1024) + ' kB' + (meta.mime === 'image/webp' ? ', WebP' : ', JPEG') + ').');

@@ -224,5 +224,32 @@
     return h + '</div>';
   }
 
-  global.LaborOCR = { dialog, parse, vergleich, vergleichHtml, FELDER, OCR_CONSENT };
+  // ---------- Zeilen mit Position (für automatisches Schwärzen) ----------
+  /** Erkennt Textzeilen eines Bildes auf dem Gerät; liefert [{text, bbox:{x0,y0,x1,y1}}] in Bildkoordinaten.
+   *  winkel: Drehung im Uhrzeigersinn, mit der gelesen wird – Positionen werden aufs Original zurückgerechnet. */
+  async function zeilen(canvas, winkel) {
+    const worker = await tesseract();
+    const w = canvas.width, h = canvas.height;
+    const vor = vorbereiten(canvas, winkel || 0); const f = (winkel % 180 ? h : w) / vor.width;
+    const { data } = await worker.recognize(vor);
+    let ls = data.lines;
+    if (!ls && data.blocks) ls = data.blocks.flatMap((b) => (b.paragraphs || []).flatMap((p) => p.lines || []));
+    const zurueck = (X, Y) => (winkel === 90 ? [Y, h - X] : winkel === 270 ? [w - Y, X] : winkel === 180 ? [w - X, h - Y] : [X, Y]);
+    return (ls || []).map((l) => {
+      const a = zurueck(l.bbox.x0 * f, l.bbox.y0 * f); const b = zurueck(l.bbox.x1 * f, l.bbox.y1 * f);
+      return { text: l.text || '', bbox: { x0: Math.min(a[0], b[0]), y0: Math.min(a[1], b[1]), x1: Math.max(a[0], b[0]), y1: Math.max(a[1], b[1]) } };
+    });
+  }
+  const NAEHRSTOFF = /verdaul|abbaubar|stärke|staerke|mineral|calcium|phosphor|magnesium|kalium|natrium|energie|protein|faser|asche|fett|zucker|säure|saeure|\bnel\b|\bnev\b|\bapd|\bndf|\badf|\badl|\bts\b|ph[\s-]*wert/i;
+  const SPALTEN = /^(?=.*\b(resultat|ergebnis|einheit|parameter|methode|messwert|wert|gehalt|analyse)\b)[^\d@]*$/i;
+  /** Zeile darf sichtbar bleiben: Analysezeile mit Zahl oder Spaltentitel – nie Adressmerkmale. */
+  function istWertzeile(text) {
+    const z = String(text || '').replace(/\|/g, ' ').trim();
+    if (!z || /@|www\.|https?:|\btel\b|\btelefon|\bfax\b|strasse|str\.|weg\b|gasse|platz\b|\b(herr|frau|familie|fam\.)\b|kunde|auftrag|betrieb|einsender|absender|adresse|\bname\b/i.test(z)) return false;
+    if (/\b[1-9]\d{3}\s+[A-ZÄÖÜ][a-zäöüé]{2,}/.test(z)) return false; // PLZ + Ort
+    if (SPALTEN.test(z)) return true;
+    return /\d/.test(z) && (PARAM.some(([, rx]) => rx.test(z)) || NAEHRSTOFF.test(z));
+  }
+
+  global.LaborOCR = { zeilen, istWertzeile, dialog, parse, vergleich, vergleichHtml, FELDER, OCR_CONSENT };
 })(window);

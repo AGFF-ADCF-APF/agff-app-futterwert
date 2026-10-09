@@ -395,8 +395,9 @@
           const file = inp.files[0]; inp.remove(); if (!file) return;
           try {
             let c = await F().vorbereiten(file, art);
-            if (art === 'labor') { c = await F().schwaerzen(c, 'Adresse und Namen schwärzen'); if (!c) return; }
-            const meta = await F().speichern(c, art, pid); meta.up = false;
+            let ger;
+            if (art === 'labor') { const r = await F().laborSchwaerzen(c, A.toast); if (!r) return; c = r.canvas; ger = r.ger; }
+            const meta = await F().speichern(c, art, pid); meta.up = false; if (ger) meta.ger = ger;
             d.fotos.push(meta); el.querySelector('#efFotos').innerHTML = fotosHtml(); nachRender();
           } catch (er) { A.toast(er.message); }
         };
@@ -449,7 +450,8 @@
     if (zeig('standort') && kp.standort && (kp.standort.plz || kp.standort.ort || kp.standort.hoehe)) zeilen.push(['Standort', esc([[kp.standort.plz, kp.standort.ort].filter(Boolean).join(' '), kp.standort.hoehe ? kp.standort.hoehe + ' m ü. M.' : ''].filter(Boolean).join(', '))]);
     if (zeig('notiz') && kp.notiz) zeilen.push(['Notiz', esc(kp.notiz)]);
     if (kp.labor && Object.keys(kp.labor).length) zeilen.push(['Labor', esc(Object.entries(kp.labor).map(([k, v]) => ({ ts: 'TS ' + v + ' %', nel: 'NEL ' + v + ' MJ', apde: 'APDE ' + v + ' g', apdn: 'APDN ' + v + ' g', rp: 'RP ' + v + ' g', ph: 'pH ' + v })[k]).join(' · '))]);
-    const fotos = (kp.fotos || []).filter((f) => (f.art === 'futter' && zeig('foto')) || (f.art === 'labor' && (alle || h.labor)));
+    // Laborberichte anderer nur, wenn nachweislich geschwärzt (Kursleitung und Erfassende sehen alles)
+    const fotos = (kp.fotos || []).filter((f) => (f.art === 'futter' && zeig('foto')) || (f.art === 'labor' && (alle || h.labor) && (a.kurs.rolle === 'leitung' || kp.eigene || f.ger)));
     if (!zeilen.length && !fotos.length) return '';
     return '<details class="card hinweis" open style="margin-bottom:14px"><summary style="font-weight:750;cursor:pointer">Hilfestellung zur Probe Nr. ' + kp.nr + '</summary>' +
       (fotos.length ? '<div class="fotos" style="margin:10px 0">' + fotos.map((f) => '<button type="button" class="foto-thumb" data-act="kurs-foto" data-id="' + a.id + '" data-kp="' + esc(kp.id) + '" data-foto="' + esc(f.id) + '"><img alt="" data-kfoto="' + esc(f.id) + '" data-kprobe="' + esc(kp.id) + '" data-kanlass="' + a.id + '"><span class="foto-art">' + (f.art === 'labor' ? 'Labor' : 'Futter') + '</span></button>').join('') + '</div>' : '') +
@@ -792,10 +794,11 @@
         f.optionen.filter((o) => zaehl[o.id]).map((o) => '<span class="chip' + (o.id === mein ? ' gut' : '') + '" title="' + esc(o.text) + '">' + esc(o.kurz === '!' ? '⚠' : o.kurz) + ' · ' + esc(o.text.split(/: | – |,/)[0].slice(0, 28)) + ' <b>×' + zaehl[o.id] + '</b></span>').join('') + '</div></div>';
     }).join('') + '</div><p class="hint">Grün = Ihre Antwort.</p></div>';
     h += '<div class="section-title">Räder aller Abgaben</div><div class="wheels">' + rows.map(({ x, res }) => '<div class="card" style="padding:8px;text-align:center' + (x.ich ? ';border-color:var(--brand)' : '') + '">' + A.wheelSvg(x.probe, res) + '<div class="small" style="font-weight:600">' + esc(x.name) + '</div></div>').join('') + '</div>';
-    const mitFotos = rows.filter(({ x }) => !x.referenz && (x.probe.fotos || []).length);
+    const sichtbar = (x) => (x.probe.fotos || []).filter((f) => f.art !== 'labor' || f.ger || x.ich || leitung);
+    const mitFotos = rows.filter(({ x }) => !x.referenz && sichtbar(x).length);
     if (mitFotos.length) {
       h += '<div class="section-title">Fotos aus den Beurteilungen</div><div class="card"><div class="stack">' + mitFotos.map(({ x }) => '<div><div class="small" style="font-weight:700;margin-bottom:4px">' + esc(x.name) + (x.ich ? ' (ich)' : '') + '</div><div class="fotos">' +
-        x.probe.fotos.map((f) => '<button type="button" class="foto-thumb" data-act="kurs-foto" data-id="' + a.id + '" data-kp="' + esc(p.kursProbeId) + '" data-foto="' + esc(f.id) + '"><img alt="" data-kfoto="' + esc(f.id) + '" data-kprobe="' + esc(p.kursProbeId) + '" data-kanlass="' + a.id + '"><span class="foto-art">' + (f.art === 'labor' ? 'Labor' : 'Futter') + '</span></button>').join('') + '</div></div>').join('') + '</div></div>';
+        sichtbar(x).map((f) => '<button type="button" class="foto-thumb" data-act="kurs-foto" data-id="' + a.id + '" data-kp="' + esc(p.kursProbeId) + '" data-foto="' + esc(f.id) + '"><img alt="" data-kfoto="' + esc(f.id) + '" data-kprobe="' + esc(p.kursProbeId) + '" data-kanlass="' + a.id + '"><span class="foto-art">' + (f.art === 'labor' ? 'Labor' : 'Futter') + '</span></button>').join('') + '</div></div>').join('') + '</div></div>';
     }
     return h;
   }
@@ -834,7 +837,7 @@
       const t = st.teilnehmende.find((x) => x.id === b.teilnehmerId);
       zeilen.push({ probe, name: t ? t.name : '?', res: A.auswertung(probe), analyse: b.analyse });
     }
-    const fotos = kp.fotos || [];
+    const fotos = (kp.fotos || []).filter((f) => f.art !== 'labor' || f.ger); // ungeschwärzte Laborberichte nie in den Pool
     A.sheet('<h2>In den Probenpool stellen</h2><p class="small" style="margin-top:0">Andere freigeschaltete Kursleitende können diese Probe in eigene Kurse übernehmen. <b>Ohne Personennamen</b>: Beurteilungen werden als «Referenz» gespeichert. Pool-Einträge sind für alle Kursleitenden lesbar (nicht Ende-zu-Ende verschlüsselt).</p>' +
       '<form id="poolForm" class="stack"><label class="field"><span>Titel *</span><input class="input" name="titel" required maxlength="120" value="' + esc(kp.bez || ('Probe Nr. ' + kp.nr)) + '"></label>' +
       '<label class="field"><span>Beschreibung (ohne Betriebs- oder Personennamen)</span><textarea class="input" name="beschreibung" maxlength="1000">' + esc(kp.notiz || '') + '</textarea></label>' +

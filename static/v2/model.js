@@ -75,7 +75,7 @@
     if (!Array.isArray(list)) return undefined;
     const out = list.filter((f) => isObj(f) && FOTO_ID_RE.test(f.id || '') && SECRET_RE.test(f.key || '') && (f.art === 'futter' || f.art === 'labor'))
       .slice(0, 12).map((f) => compact({ id: f.id, art: f.art, key: f.key, w: num(f.w, 1, 10000), h: num(f.h, 1, 10000), bytes: num(f.bytes, 1, 20e6),
-        mime: oneOf(f.mime, ['image/webp', 'image/jpeg']), createdAt: iso(f.createdAt), up: bool(f.up) }));
+        mime: oneOf(f.mime, ['image/webp', 'image/jpeg']), createdAt: iso(f.createdAt), up: bool(f.up), ger: oneOf(f.ger, ['auto', 'manuell']) }));
     return out.length ? out : undefined;
   }
 
