@@ -221,7 +221,7 @@
     }
     const weitere = Object.keys(lab).filter((k) => !z.find((x) => x.k === k));
     if (weitere.length) h += '<p class="small muted" style="margin:10px 0 0">Weitere Laborwerte: ' + weitere.map((k) => { const f = FELDER.find((x) => x[0] === k); return (f ? f[1] : k) + ' ' + A.fmt(lab[k], f ? f[3] : 1) + (f && f[2] ? ' ' + f[2] : ''); }).join(' · ') + '</p>';
-    return h + '</div>' + tabelleHtml(p, res);
+    return h + '</div>' + tabelleHtml(p, res) + gbHtml(p);
   }
 
   // ---------- Labor im Vergleich zur AGFF-Tabelle ----------
@@ -292,6 +292,90 @@
     return h + '<p class="small muted" style="margin:8px 0 0">Grün ±8 %, gelb ±15 %. Laborwerte streuen auch innerhalb eines Stadiums; die Tabelle gibt typische Werte.</p></div>';
   }
 
+  // ---------- Nährwert nach Grünem Buch aus den Laborgehalten (Unsicherheit der Deklaration) ----------
+  const gbAnnahme = new Map(); // je Probe: eigene Annahme {bestand, aufwuchs, stadium} – nur für diese Ansicht
+  const N = () => global.Naehrwert;
+  const MISCH = ['G', 'GR', 'A', 'AR', 'L', 'KF', 'KG', 'Unb'];
+  function gbBasis(p) {
+    const lab = p.labor || {};
+    if (!(lab.rp > 0) || !(lab.rf > 0 || lab.adf > 0) || !N()) return null;
+    return { lab, kons: N().KONS[p.typ] };
+  }
+  /** Welche Deklaration reproduziert die Laborwerte am besten? */
+  function laborDeklaration(lab, kons) {
+    if (lab.nel == null) return null;
+    let best = null;
+    N().BESTAENDE.forEach((b) => ['1', 'f'].forEach((auf) => ['', '1', '2', '3', '4', '5'].forEach((st) => {
+      const r = N().berechnen(lab, { kons, bestand: b, aufwuchs: auf, stadium: st }); if (!r) return;
+      const d = Math.abs(r.nel - lab.nel) + (lab.nev != null ? Math.abs(r.nev - lab.nev) : 0) + (lab.apde != null ? Math.abs(r.apde - lab.apde) / 40 : 0);
+      if (!best || d < best.d) best = { d, bestand: b, aufwuchs: auf, stadium: st };
+    })));
+    return best && best.d <= 0.15 ? best : null;
+  }
+  /** Kurztext für Optionen im Bestand-/Stadium-Schritt: NEL, die sich mit den Laborgehalten ergäbe. */
+  function nelMitLabor(p, ueber) {
+    const g = gbBasis(p); if (!g || g.kons === 'mais') return '';
+    const a = Object.assign({}, p.antworten || {}, ueber);
+    const r = N().berechnen(g.lab, { kons: g.kons, bestand: a.bestand || 'Unb', aufwuchs: a.aufwuchs || '1', stadium: a.stadium || '' });
+    return r ? 'mit Ihren Laborgehalten: NEL ' + r.nel.toFixed(2) + ' MJ' : '';
+  }
+  function gbHtml(p) {
+    const A = app(); const g = gbBasis(p); if (!g) return '';
+    const esc = A.esc; const fmt = A.fmt; const lab = g.lab; const a = p.antworten || {};
+    const an = gbAnnahme.get(p.id) || { bestand: a.bestand || 'Unb', aufwuchs: a.aufwuchs || '1', stadium: a.stadium || '' };
+    const r = N().berechnen(lab, { kons: g.kons, bestand: an.bestand, aufwuchs: an.aufwuchs, stadium: an.stadium });
+    if (!r) return '';
+    const zeile = (l, k, d, u) => '<tr><td><strong>' + l + '</strong> <span class="muted">' + u + '</span></td><td><strong>' + fmt(r[k], d) + '</strong></td><td>' + (lab[k] != null ? fmt(lab[k], d) : '–') + '</td><td>' + (lab[k] != null ? '<span class="chip ' + (Math.abs(r[k] - lab[k]) <= (d ? 0.1 : 3) ? 'gut' : Math.abs(r[k] - lab[k]) <= (d ? 0.25 : 8) ? 'mittel' : 'schlecht') + '">' + (r[k] - lab[k] > 0 ? '+' : '') + fmt(r[k] - lab[k], d) + '</span>' : '') + '</td></tr>';
+    let h = '<div class="card" style="margin-top:12px"><b>Nährwert nach Grünem Buch – aus Ihren Laborgehalten</b>' +
+      '<p class="small muted" style="margin:4px 0 8px">Das Labor misst Gehalte (Rohprotein, ' + (r.faser === 'rf' ? 'Rohfaser' : 'ADF') + ', Asche). NEL, NEV und APD werden daraus mit Gleichungen berechnet, die vom <b>Pflanzenbestand</b> und vom <b>Stadium</b> abhängen (Agroscope, Grünes Buch Kap. 15). Eine falsche Deklaration verschiebt die Werte.</p>';
+    if (g.kons !== 'mais') {
+      const sel = (name, opts) => '<select class="input sm" data-gb="' + name + '" data-pid="' + p.id + '">' + opts.map(([v, t]) => '<option value="' + v + '"' + (String(an[name]) === v ? ' selected' : '') + '>' + esc(t) + '</option>').join('') + '</select>';
+      h += '<div class="gb-annahme">' + sel('bestand', N().BESTAENDE.map((b) => [b, b + ' · ' + N().BESTAND_NAMEN[b]])) + sel('aufwuchs', [['1', '1. Aufwuchs'], ['f', 'Folgeaufwuchs']]) +
+        sel('stadium', [['', 'Stadium unbekannt']].concat([1, 2, 3, 4, 5, 6, 7].map((n) => [String(n), 'Stadium ' + n]))) + '</div>';
+    }
+    h += '<div class="tbl-wrap" style="margin-top:8px"><table class="tbl"><thead><tr><th></th><th>Berechnet</th><th>Labor</th><th>Diff.</th></tr></thead><tbody>' +
+      zeile('NEL', 'nel', 2, 'MJ') + zeile('NEV', 'nev', 2, 'MJ') + zeile('APDE', 'apde', 0, 'g') + zeile('APDN', 'apdn', 0, 'g') + '</tbody></table></div>' +
+      '<p class="small muted" style="margin:6px 0 0">vOS ' + fmt(r.vos, 1) + ' %' + (r.annahmen.length ? ' · Annahmen: ' + esc(r.annahmen.join(', ')) : '') + (r.ausserhalb ? ' · <b>ausserhalb des Anwendungsbereichs der Gleichung</b>' : '') + '</p>';
+    if (g.kons !== 'mais') {
+      const dek = laborDeklaration(lab, g.kons);
+      if (dek) h += '<p class="small" style="margin:8px 0 0">🔎 Das Labor hat vermutlich mit <b>' + esc(dek.bestand + ' (' + N().BESTAND_NAMEN[dek.bestand] + '), ' + (dek.aufwuchs === '1' ? '1. Aufwuchs' : 'Folgeaufwuchs') + ', ' + (dek.stadium ? 'Stadium ' + dek.stadium + (dek.stadium === '5' ? ' oder später' : '') : 'Stadium unbekannt')) + '</b> gerechnet – damit lassen sich die Laborwerte nachvollziehen.</p>';
+      h += spannweite(p, g, an);
+      h += '<p class="small" style="margin:8px 0 0">💡 Beim Einsenden ans Labor Bestand, Aufwuchs und Stadium möglichst genau angeben – je nach Deklaration liegt NEL hier zwischen ' + spanneText(g, an) + '.</p>';
+    }
+    return h + '</div>';
+  }
+  function spanneWerte(g, an) {
+    const best = MISCH.map((b) => ({ b, r: N().berechnen(g.lab, { kons: g.kons, bestand: b, aufwuchs: an.aufwuchs, stadium: an.stadium }) })).filter((x) => x.r);
+    const st = [1, 2, 3, 4, 5].map((s) => ({ s, r: N().berechnen(g.lab, { kons: g.kons, bestand: an.bestand, aufwuchs: an.aufwuchs, stadium: String(s) }) })).filter((x) => x.r);
+    return { best, st };
+  }
+  function spanneText(g, an) {
+    const { best, st } = spanneWerte(g, an); const all = best.map((x) => x.r.nel).concat(st.map((x) => x.r.nel));
+    return Math.min(...all).toFixed(2) + ' und ' + Math.max(...all).toFixed(2) + ' MJ';
+  }
+  /** Punktgrafik: NEL je Bestand (beim gewählten Stadium) und je Stadium (beim gewählten Bestand), Labor als Linie. */
+  function spannweite(p, g, an) {
+    const { best, st } = spanneWerte(g, an);
+    const werte = best.map((x) => x.r.nel).concat(st.map((x) => x.r.nel)).concat(g.lab.nel != null ? [g.lab.nel] : []);
+    const lo = Math.floor((Math.min(...werte) - 0.15) * 4) / 4; const hi = Math.ceil((Math.max(...werte) + 0.15) * 4) / 4;
+    const W = 340, x0 = 70, x1 = 330; const X = (v) => x0 + (v - lo) / (hi - lo || 1) * (x1 - x0);
+    let s = '<svg class="gb-spanne" viewBox="0 0 ' + W + ' 112" role="img" aria-label="NEL je nach Deklaration">';
+    for (let v = lo; v <= hi + 1e-9; v += 0.25) s += '<line x1="' + X(v) + '" x2="' + X(v) + '" y1="14" y2="92" stroke="#dbe3df" stroke-width=".6"/>' + (Math.abs(v * 2 - Math.round(v * 2)) < 1e-9 ? '<text x="' + X(v) + '" y="104" text-anchor="middle" font-size="7" fill="#74837d">' + v.toFixed(1) + '</text>' : '');
+    s += '<text x="4" y="36" font-size="7.5" fill="#4b5a54">Bestand</text><text x="4" y="45" font-size="6.5" fill="#74837d">(Stadium ' + (an.stadium || '?') + ')</text>';
+    s += '<text x="4" y="72" font-size="7.5" fill="#4b5a54">Stadium</text><text x="4" y="81" font-size="6.5" fill="#74837d">(' + an.bestand + ')</text>';
+    best.forEach((x, i) => { const cx = X(x.r.nel); const on = x.b === an.bestand; s += '<circle cx="' + cx + '" cy="38" r="' + (on ? 5 : 3.6) + '" fill="' + (on ? '#0f7f74' : '#9fb3aa') + '"/><text x="' + cx + '" y="' + (i % 2 ? 50 : 30) + '" text-anchor="middle" font-size="6.5" fill="' + (on ? '#0f7f74' : '#4b5a54') + '" font-weight="' + (on ? 700 : 500) + '">' + x.b + '</text>'; });
+    st.forEach((x, i) => { const cx = X(x.r.nel); const on = String(x.s) === String(an.stadium); s += '<circle cx="' + cx + '" cy="74" r="' + (on ? 5 : 3.6) + '" fill="' + (on ? '#0f7f74' : '#c9a227') + '"/><text x="' + cx + '" y="' + (i % 2 ? 86 : 66) + '" text-anchor="middle" font-size="6.5" fill="#4b5a54">' + x.s + '</text>'; });
+    if (g.lab.nel != null) s += '<line x1="' + X(g.lab.nel) + '" x2="' + X(g.lab.nel) + '" y1="10" y2="94" stroke="#c93a32" stroke-width="1.4" stroke-dasharray="3 2"/><text x="' + X(g.lab.nel) + '" y="9" text-anchor="middle" font-size="7" fill="#c93a32" font-weight="700">Labor ' + g.lab.nel.toFixed(2) + '</text>';
+    return s + '</svg><p class="small muted" style="margin:2px 0 0">NEL in MJ/kg TS aus denselben Laborgehalten – oben je Mischbestand, unten je Stadium. Grün: Ihre Annahme.</p>';
+  }
+  document.addEventListener('change', (e) => {
+    const el = e.target.closest && e.target.closest('select[data-gb]'); if (!el) return;
+    const p = app().probeById(el.dataset.pid); if (!p) return;
+    const a = p.antworten || {};
+    const an = Object.assign({ bestand: a.bestand || 'Unb', aufwuchs: a.aufwuchs || '1', stadium: a.stadium || '' }, gbAnnahme.get(p.id) || {});
+    an[el.dataset.gb] = el.value; gbAnnahme.set(p.id, an); app().rerenderDetail(true);
+  });
+
   // ---------- Zeilen mit Position (für automatisches Schwärzen) ----------
   /** Erkennt Textzeilen eines Bildes auf dem Gerät; liefert [{text, bbox:{x0,y0,x1,y1}}] in Bildkoordinaten.
    *  winkel: Drehung im Uhrzeigersinn, mit der gelesen wird – Positionen werden aufs Original zurückgerechnet. */
@@ -319,5 +403,5 @@
     return /\d/.test(z) && (PARAM.some(([, rx]) => rx.test(z)) || NAEHRSTOFF.test(z));
   }
 
-  global.LaborOCR = { tabelleHtml, bestePassung, zeilen, istWertzeile, dialog, parse, vergleich, vergleichHtml, FELDER, OCR_CONSENT };
+  global.LaborOCR = { gbHtml, nelMitLabor, tabelleHtml, bestePassung, zeilen, istWertzeile, dialog, parse, vergleich, vergleichHtml, FELDER, OCR_CONSENT };
 })(window);

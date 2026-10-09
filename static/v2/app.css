@@ -426,3 +426,6 @@ table.tbl { width: 100%; border-collapse: collapse; font-variant-numeric: tabula
 .bl-werte .input.sm { width: 5.2em; }
 .bars .track { position: relative; }
 .bars .ziel { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--ink); border-radius: 1px; }
+.gb-annahme { display: flex; flex-wrap: wrap; gap: 6px; }
+.gb-annahme .input { width: auto; flex: 1 1 140px; min-width: 0; }
+.gb-spanne { display: block; width: 100%; height: auto; margin-top: 10px; font-family: var(--font); }

@@ -507,7 +507,8 @@
     const groups = [['> 70 % Gräser', ['G', 'GR']], ['50–70 % Gräser', ['A', 'AR']], ['> 50 % Klee oder Kräuter', ['L', 'KF', 'KG']], ['Reinbestände', ['ITRG', 'LUZ']]];
     return q('Botanische Zusammensetzung', 'Bestimmen Sie den Anteil Gräser, Klee und Kräuter sowie den Raigras-Anteil und wählen Sie den passenden Wiesentyp.',
       groups.map(([g, ids]) => '<div class="section-title" style="margin-left:0">' + g + '</div><div class="opts cols-wide">' +
-        ids.map((id) => { const b = K3.BESTAENDE.find((x) => x.id === id); return opt({ set: 'bestand', val: id, on: a.bestand === id, lead: b.kurz, t: b.titel, s: b.text }); }).join('') + '</div>').join(''));
+        ids.map((id) => { const b = K3.BESTAENDE.find((x) => x.id === id); const nl = window.LaborOCR.nelMitLabor(p, { bestand: id }); return opt({ set: 'bestand', val: id, on: a.bestand === id, lead: b.kurz, t: b.titel, s: b.text + (nl ? ' · ' + nl : '') }); }).join('') + '</div>').join('') +
+      (window.LaborOCR.nelMitLabor(p, {}) ? '<p class="hint">Mit Laborgehalten (Rohprotein, Rohfaser/ADF) zeigt jede Option, welches NEL sich nach Grünem Buch ergäbe – so sehen Sie, wie stark die Deklaration wirkt.</p>' : ''));
   }
 
   function stepStadium(p) {
@@ -521,7 +522,8 @@
         K3.REFERENZPFLANZEN.map((n, i) => '<button class="btn sm' + (lp === i ? ' primary' : '') + '" data-set="leitpflanze" data-val="' + i + '">' + n + '</button>').join('') + '</div><div class="opts">' +
         K3.STADIEN_ERSTER.map((row, i) => {
           const st = i + 1; const ok = !avail.length || avail.includes(st);
-          return ok ? opt({ set: 'stadium', val: String(st), on: String(a.stadium) === String(st), lead: st, t: row[lp], s: K3.REFERENZPFLANZEN.map((n, j) => j === lp ? '' : n.split(' /')[0] + ': ' + row[j]).filter(Boolean).join(' · ') }) : '';
+          const nl = window.LaborOCR.nelMitLabor(p, { stadium: String(st) });
+          return ok ? opt({ set: 'stadium', val: String(st), on: String(a.stadium) === String(st), lead: st, t: row[lp], s: K3.REFERENZPFLANZEN.map((n, j) => j === lp ? '' : n.split(' /')[0] + ': ' + row[j]).filter(Boolean).join(' · ') + (nl ? ' · ' + nl : '') }) : '';
         }).join('') + '</div>';
     } else {
       const sug = K3.stadiumFolge(a.wochen, a.ueber600, a.herbst);
@@ -532,7 +534,8 @@
         '<label class="toggle"><input type="checkbox" data-k="antworten.herbst"' + (a.herbst ? ' checked' : '') + '> Aufwuchs ab September</label></div></div><div class="opts" style="margin-top:14px">' +
         col.map((w, i) => {
           const st = i + 1; const ok = !avail.length || avail.includes(st);
-          return ok ? opt({ set: 'stadium', val: String(st), on: String(a.stadium) === String(st), cls: sug === st ? 'suggest' : '', lead: st, t: w + ' Wochen', s: K3.STADIEN_FOLGE_HINWEIS[st] || '' }) : '';
+          const nl = window.LaborOCR.nelMitLabor(p, { stadium: String(st) });
+          return ok ? opt({ set: 'stadium', val: String(st), on: String(a.stadium) === String(st), cls: sug === st ? 'suggest' : '', lead: st, t: w + ' Wochen', s: (K3.STADIEN_FOLGE_HINWEIS[st] || '') + (nl ? ' · ' + nl : '') }) : '';
         }).join('') + '</div>';
     }
     if (!a.bestand) inner += '<p class="hint">Hinweis: Bestand noch nicht gewählt.</p>';
