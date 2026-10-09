@@ -762,6 +762,7 @@
     if (window.Assistent) window.Assistent.update();
     if (ui.route.sammel && window.Sammel) window.Sammel.verdrahten();
     Rad.animieren($('#radbox'));
+    naechstesMarkieren();
   }
 
   // ---------- Sheets / Toast ----------
@@ -1187,6 +1188,30 @@
     o[ks[ks.length - 1]] = val;
   }
   function currentProbe() { return ui.route.name === 'probe' ? probeById(ui.route.id) : null; }
+  /** Dezent zeigen, was als Nächstes zu tun ist: erste offene Pflichtauswahl, sonst «Weiter». */
+  function naechstesMarkieren() {
+    document.querySelectorAll('.naechstes').forEach((e) => e.classList.remove('naechstes'));
+    if (ui.route.name !== 'probe') return;
+    const p = probeById(ui.route.id); const w = $('#main .wizard');
+    if (!p || !w || readOnly(p)) return;
+    let ziel = null;
+    const bez = w.querySelector('[data-k="kopf.bez"]');
+    if (bez && !bez.value.trim()) ziel = bez;
+    if (!ziel) {
+      const namen = [];
+      w.querySelectorAll('[data-set]').forEach((b) => { if (!namen.includes(b.dataset.set) && b.dataset.set !== 'leitpflanze') namen.push(b.dataset.set); });
+      for (const n of namen) {
+        const bs = [...w.querySelectorAll('[data-set]')].filter((b) => b.dataset.set === n);
+        if (!bs.some((b) => b.getAttribute('aria-pressed') === 'true')) { ziel = bs[0].closest('.opts, .seg') || bs[0]; break; }
+      }
+    }
+    if (!ziel) {
+      const steps = stepsFor(p); const st = steps.find((x) => x.id === ui.route.step) || steps[0];
+      if (stepDone(p, st.id)) ziel = document.querySelector('.actionbar .btn.primary');
+    }
+    if (ziel) ziel.classList.add('naechstes');
+  }
+
   function rerenderDetail(keepScroll) {
     const m = $('#main'); const st = m.scrollTop; const ws = window.scrollY;
     const p = currentProbe(); if (!p) return render();
@@ -1196,6 +1221,7 @@
     fotosEinsetzen();
     if (window.Assistent) window.Assistent.update();
     Rad.animieren($('#radbox'));
+    naechstesMarkieren();
   }
 
   function choose(p, set, val) {

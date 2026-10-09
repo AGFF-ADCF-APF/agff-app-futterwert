@@ -402,3 +402,16 @@ table.tbl { width: 100%; border-collapse: collapse; font-variant-numeric: tabula
 .sw-klassen { display: flex; height: 10px; border-radius: 6px; overflow: hidden; margin-top: 10px; gap: 2px; }
 .sw-zonen { display: grid; gap: 10px; margin-top: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
 .sw .seg.sm { width: auto; flex-wrap: wrap; }
+
+/* Was ist als Nächstes zu tun? – dezent: drei sanfte Pulse, danach feiner Rahmen */
+.naechstes { outline: 2px solid rgb(15 127 116 / .45); outline-offset: 3px; border-radius: 14px; animation: naechst 1.8s ease-in-out .5s 3; }
+.btn.naechstes { border-radius: var(--radius-s); }
+@keyframes naechst { 0%, 100% { box-shadow: 0 0 0 0 rgb(15 127 116 / 0); } 50% { box-shadow: 0 0 0 7px rgb(15 127 116 / .2); } }
+:root[data-theme="dark"] .naechstes { outline-color: rgb(63 184 168 / .55); }
+@media (prefers-reduced-motion: reduce) { .naechstes { animation: none; } }
+.assist-praxis { background: var(--surface-2); border-radius: 12px; padding: 8px 10px; margin: 0 0 8px; font-size: .9rem; }
+.assist-praxis b { display: block; font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-2); margin-bottom: 2px; }
+.assist-praxis p { margin: 0; }
+.assist-praxis ol, .assist-liste { margin: 0; padding-left: 1.2em; }
+.assist-praxis li + li, .assist-liste li + li { margin-top: 3px; }
+.assist-riechen { margin-bottom: 8px; }

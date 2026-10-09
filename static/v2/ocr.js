@@ -221,7 +221,75 @@
     }
     const weitere = Object.keys(lab).filter((k) => !z.find((x) => x.k === k));
     if (weitere.length) h += '<p class="small muted" style="margin:10px 0 0">Weitere Laborwerte: ' + weitere.map((k) => { const f = FELDER.find((x) => x[0] === k); return (f ? f[1] : k) + ' ' + A.fmt(lab[k], f ? f[3] : 1) + (f && f[2] ? ' ' + f[2] : ''); }).join(' · ') + '</p>';
-    return h + '</div>';
+    return h + '</div>' + tabelleHtml(p, res);
+  }
+
+  // ---------- Labor im Vergleich zur AGFF-Tabelle ----------
+  // Spalten: Schlüssel, Bezeichnung, Einheit, Dezimalen, Massstab für die «Passt das Stadium?»-Suche (null = nicht verwenden)
+  const TAB = [['nel', 'NEL', 'MJ', 2, 0.3], ['nev', 'NEV', 'MJ', 2, null], ['apde', 'APDE', 'g', 0, 12], ['apdn', 'APDN', 'g', 0, null], ['rp', 'Rohprotein', 'g', 0, 20],
+    ['rf', 'Rohfaser', 'g', 0, 25], ['ndf', 'NDF', 'g', 0, 40], ['adf', 'ADF', 'g', 0, 25], ['zucker', 'Zucker', 'g', 0, null], ['ra', 'Rohasche', 'g', 0, null]];
+  /** Erwartete Gehalte gemäss AGFF für die gewählten Angaben (Bestand, Aufwuchs, Stadium bzw. Mais-Bedingungen). */
+  function tabellenwert(p, res) {
+    const K3 = global.K3;
+    if (p.typ === 'mais') {
+      const w = (K3.K3C_AUSGANG[0] || {}).w; if (!w) return null;
+      const o = {}; K3.K3C_METRIKEN.forEach((m, i) => { if (w[i] != null) o[m] = (res.korrIds || []).reduce((v, id) => v + K3.K3C_KORR[id].w[i], w[i]); });
+      return o;
+    }
+    const tab = app().basisTabelle && app().basisTabelle();
+    return tab ? K3.pickBasis(tab, p) : null;
+  }
+  /** Welche Kombination aus Bestand und Stadium passt am besten zu den Laborwerten? (gleicher Aufwuchs) */
+  function bestePassung(p) {
+    const K3 = global.K3; const tab = app().basisTabelle && app().basisTabelle(); const lab = p.labor || {};
+    const typ = K3.TYPEN[p.typ]; const a = p.antworten || {};
+    if (!tab || !typ.basisKons || !a.aufwuchs || !tab[typ.basisKons] || !tab[typ.basisKons][a.aufwuchs]) return null;
+    const keys = TAB.filter((t) => t[4] && lab[t[0]] != null);
+    if (!keys.some((t) => t[0] === 'nel' || t[0] === 'rf' || t[0] === 'ndf')) return null;
+    const liste = [];
+    Object.entries(tab[typ.basisKons][a.aufwuchs]).forEach(([bestand, stadien]) => Object.entries(stadien).forEach(([st, w]) => {
+      let d = 0; let n = 0; keys.forEach(([k, , , , sk]) => { if (w[k] != null) { d += ((lab[k] - w[k]) / sk) ** 2; n++; } });
+      if (n) liste.push({ bestand, stadium: st, d: Math.sqrt(d / n) });
+    }));
+    liste.sort((x, y) => x.d - y.d);
+    const gewaehlt = liste.find((x) => x.bestand === a.bestand && String(x.stadium) === String(a.stadium));
+    const gleicherBestand = liste.filter((x) => x.bestand === a.bestand)[0];
+    return { beste: liste[0], gewaehlt, gleicherBestand, schluessel: keys.map((t) => t[1]) };
+  }
+  function tabelleHtml(p, res) {
+    const A = app(); const lab = p.labor || {}; const K3 = global.K3;
+    const t = tabellenwert(p, res);
+    if (!t) return '';
+    const zeilen = TAB.filter(([k]) => lab[k] != null && t[k] != null).map(([k, l, u, d]) => ({ k, l, u, d, t: t[k], lab: lab[k], pz: t[k] ? ((lab[k] - t[k]) / t[k]) * 100 : 0 }));
+    if (!zeilen.length) return '';
+    const silageZucker = (k) => k === 'zucker' && p.typ !== 'heu';
+    const ton = (z) => (silageZucker(z.k) ? '' : Math.abs(z.pz) <= 8 ? 'gut' : Math.abs(z.pz) <= 15 ? 'mittel' : 'schlecht');
+    const a = p.antworten || {};
+    const angaben = p.typ === 'mais' ? 'Maissilage einwandfrei, ' + ({ gt55: 'Kolben > 55 %', 45: 'Kolben 45–55 %', lt45: 'Kolben < 45 %' }[a.kolben] || '') :
+      (K3.BESTAND_PLAIN[a.bestand] || a.bestand) + ', ' + (a.aufwuchs === '1' ? '1. Aufwuchs' : 'Folgeaufwuchs') + ', Stadium ' + a.stadium;
+    let h = '<div class="card" style="margin-top:12px"><b>Labor im Vergleich zur AGFF-Tabelle</b><p class="small muted" style="margin:4px 0 8px">Erwartet für: ' + A.esc(angaben) + ' (Tabellenwert vor Abzügen für Konservierungsmängel).</p>' +
+      '<div class="tbl-wrap"><table class="tbl"><thead><tr><th></th><th>Tabelle</th><th>Labor</th><th>Abw.</th></tr></thead><tbody>' +
+      zeilen.map((z) => '<tr><td><strong>' + z.l + '</strong> <span class="muted">' + z.u + '</span></td><td>' + A.fmt(z.t, z.d) + '</td><td><strong>' + A.fmt(z.lab, z.d) + '</strong></td><td>' +
+        (silageZucker(z.k) ? '<span class="small muted">in Silage vergoren</span>' : '<span class="chip ' + ton(z) + '">' + (z.pz > 0 ? '+' : '') + A.fmt(z.pz, 0) + ' %</span>') + '</td></tr>').join('') + '</tbody></table></div>';
+    const tipps = [];
+    const g = (k) => zeilen.find((z) => z.k === k);
+    const faser = g('rf') || g('ndf') || g('adf');
+    if (faser && faser.pz > 10) tipps.push('Mehr Faser als erwartet: Das Futter war vermutlich älter (späteres Stadium) oder hat Blätter verloren (Bröckelverluste, Regen).');
+    if (faser && faser.pz < -10) tipps.push('Weniger Faser als erwartet: eher jüngeres Stadium oder blattreicher Bestand.');
+    if (g('rp') && g('rp').pz > 12) tipps.push('Mehr Rohprotein als erwartet: kleereicher Bestand oder starke Stickstoffdüngung.');
+    if (g('rp') && g('rp').pz < -12) tipps.push('Weniger Rohprotein als erwartet: gräserreicher, älter oder Blattverluste.');
+    if (g('ra') && g('ra').t && lab.ra > 100) tipps.push('Rohasche über 100 g/kg TS: Hinweis auf Verschmutzung mit Erde.');
+    if (g('nel') && g('nel').pz < -6 && !(faser && faser.pz > 10)) tipps.push('Weniger Energie als erwartet, ohne höhere Faser: eher Konservierungsverluste (Erwärmung, Fehlgärung, Regen) als ein späteres Stadium.');
+    const bp = p.typ !== 'mais' ? bestePassung(p) : null;
+    if (bp && bp.beste) {
+      const name = (x) => (K3.BESTAND_PLAIN[x.bestand] || x.bestand) + ', Stadium ' + x.stadium;
+      const passt = bp.gewaehlt && bp.gewaehlt.d <= bp.beste.d + 0.35;
+      h += '<p class="small" style="margin:10px 0 0"><b>Passen Bestand und Stadium?</b> ' + (passt ? '✓ Die Laborwerte passen zu Ihren Angaben' + (bp.beste.bestand !== a.bestand || String(bp.beste.stadium) !== String(a.stadium) ? ' (am besten zu ' + A.esc(name(bp.beste)) + ').' : '.')
+        : 'Die Laborwerte passen besser zu <b>' + A.esc(name(bp.beste)) + '</b>' + (bp.beste.bestand !== a.bestand && bp.gleicherBestand && String(bp.gleicherBestand.stadium) !== String(a.stadium) ? ' – beim gewählten Bestand am ehesten zu Stadium ' + bp.gleicherBestand.stadium : '') + '.') +
+        ' <span class="muted">Verglichen: ' + bp.schluessel.join(', ') + '.</span></p>';
+    }
+    h += tipps.map((x) => '<p class="small" style="margin:8px 0 0">💡 ' + A.esc(x) + '</p>').join('');
+    return h + '<p class="small muted" style="margin:8px 0 0">Grün ±8 %, gelb ±15 %. Laborwerte streuen auch innerhalb eines Stadiums; die Tabelle gibt typische Werte.</p></div>';
   }
 
   // ---------- Zeilen mit Position (für automatisches Schwärzen) ----------
@@ -251,5 +319,5 @@
     return /\d/.test(z) && (PARAM.some(([, rx]) => rx.test(z)) || NAEHRSTOFF.test(z));
   }
 
-  global.LaborOCR = { zeilen, istWertzeile, dialog, parse, vergleich, vergleichHtml, FELDER, OCR_CONSENT };
+  global.LaborOCR = { tabelleHtml, bestePassung, zeilen, istWertzeile, dialog, parse, vergleich, vergleichHtml, FELDER, OCR_CONSENT };
 })(window);

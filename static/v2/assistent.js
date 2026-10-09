@@ -174,6 +174,57 @@
     },
   };
 
+  // ---------- Praxis: «Erinnert an …» und «So gehst du vor» (beide Sprachstufen) ----------
+  const P = {
+    riechen: { vorgehen: [
+      'Probe aus dem Inneren nehmen (Stock, Ballen, Anschnitt 20–30 cm tief) – nicht die Randschicht.',
+      'Eine Handvoll locker in der hohlen Hand halten, leicht zusammendrücken und mit kurzen Zügen schnuppern – nicht tief einatmen.',
+      'Von fein zu stark: zuerst Essig und Alkohol, dann Erwärmung, zuletzt Buttersäure und Schimmel – starke Gerüche überdecken feine.',
+      'Nach 3–4 Proben die Nase lüften (an der Jacke oder frischer Luft riechen). Rauch, Parfum und Stallgeruch verfälschen.',
+      'Bei schimmligem oder staubigem Futter nicht direkt einatmen – im Zweifel Staubmaske tragen.'] },
+    'rad.heu.geruch': { wie: 'Gutes Heu: wie Kräutertee, frisch gemähte Wiese. Leicht erwärmt: Brotkruste, Zwieback, Malz, Karamell. Stark erwärmt: Tabak, Rauch, angebrannt. Muffig: nasser Karton, Kellerluft, alte Kartoffeln.',
+      vorgehen: ['Handvoll aus dem Stockinneren aufschütteln und auseinanderziehen.', 'Erst aus etwa 20 cm, dann näher riechen.', 'Bei «muffig»: Probe vorsichtig auf Schimmelflecken und Staub prüfen.'] },
+    'rad.heu.farbe': { wie: 'Grün wie getrocknete Küchenkräuter; verbleicht wie altes Stroh; braun wie Tabak; Schimmel als weisser, grauer oder rosa Belag.',
+      vorgehen: ['Bei Tageslicht ansehen, nicht unter der Stalllampe.', 'Auf die Blätter achten, nicht auf die Stängel – Stängel sind oft heller.', 'Probe auseinanderziehen: Schimmel sitzt oft innen.'] },
+    'rad.heu.regen': { vorgehen: ['Bewirtschafter fragen oder im Feldkalender nachsehen.', 'Hinweise am Futter: ausgebleichte Blätter, wenig Blattanteil, «strohiger» Eindruck.'] },
+    'rad.heu.blaetter': { vorgehen: ['Ein paar Stängel von Klee oder Kräutern herausziehen: Hängen die Blätter noch dran?', 'Am Boden des Probensacks liegen viele Blattkrümel? Dann sind sie abgebröckelt.'] },
+    'rad.heu.mist': { vorgehen: ['Probe auf einer hellen Unterlage ausbreiten.', 'Auf dunkle, verkrustete Stellen an Blättern und Stängeln achten – oft mit Stallgeruch.'] },
+    'rad.heu.erde': { vorgehen: ['Probe über einem weissen Blatt Papier kräftig schütteln.', 'Bleiben Krümel oder glänzende Sandkörner liegen? Ein paar Halme kauen: Knirscht es?'] },
+    'rad.heu.staub': { wie: 'Blütenstaub: gelblich, wie Pollen auf dem Auto. Schimmelstaub: grau-weiss, riecht muffig, reizt zum Husten.',
+      vorgehen: ['Eine Handvoll vor dunklem Hintergrund (z. B. Jacke) schütteln – im Gegenlicht sieht man den Staub gut.', 'Nicht einatmen.'] },
+    'rad.gras.essig': { wie: 'Wie ein offenes Essiggurkenglas oder Salatsauce – sticht kurz in der Nase.',
+      vorgehen: ['Probe kurz an der Nase vorbeiführen, nicht hineinschnüffeln.', 'Sticht es sofort? Dann «deutlich». Nur bei genauem Hinriechen? Dann «schwach».'] },
+    'rad.gras.alkohol': { wie: 'Wie vergorener Most, Apfelwein, überreife Früchte, manchmal Nagellackentferner (Ester).',
+      vorgehen: ['Probe in der Hand leicht erwärmen (einige Sekunden halten), dann riechen – Alkohol verdunstet dann stärker.'] },
+    'rad.gras.erwaermung': { wie: 'Leicht: Brotkruste, Karamell, Malz. Stark: Röstkaffee, Tabak, Rauch, Grill.',
+      vorgehen: ['Hand flach in die Anschnittfläche legen: Fühlt sie sich warm an?', 'Probe aus 30 cm Tiefe mit einer Probe vom Rand vergleichen.'] },
+    'rad.gras.butter': { wie: 'Wie ranzige Butter, alter Käse, Schweiss oder Erbrochenes – unangenehm und klebt an den Händen.',
+      vorgehen: ['Fingerprobe: Silage kräftig zwischen den Handflächen reiben, die Hände 1 Minute weg vom Gesicht halten, dann an den Handflächen riechen.', 'Haftet der Geruch nach dem Händewaschen noch? Dann ist viel Buttersäure da.', 'Diese Prüfung zuletzt machen – der Geruch überdeckt alles andere.'] },
+    'rad.gras.schimmel': { wie: 'Wie feuchter Keller, nasser Karton, alte Kartoffeln, Champignons.',
+      vorgehen: ['Probe auseinanderziehen und auf weisse, grüne, blaue oder rote Stellen achten.', 'Verdächtige Stellen nicht direkt beriechen – Sporen nicht einatmen.'] },
+    'rad.gras.farbe': { wie: 'Gut: olivgrün bis gelbbraun wie Tabakblätter. Erwärmt: dunkelbraun. Buttersäure: schmutzig grau-grün. Schimmel: Flecken.',
+      vorgehen: ['Bei Tageslicht ansehen, frische Probe aus dem Inneren.', 'Farbe mit dem Geruch abgleichen: passt sie zu dem, was Sie gerochen haben?'] },
+    'rad.gras.ph': { vorgehen: ['Eine Handvoll Silage in ein sauberes Glas, gleich viel destilliertes Wasser dazu.', '10 Minuten ziehen lassen, ab und zu umrühren.', 'Teststreifen in die Flüssigkeit halten oder mit pH-Meter messen (vorher kalibrieren).'] },
+    'rad.mais.essig': { wie: 'Wie Essiggurkenglas; bei Propionsäure-Siliermitteln stechend-säuerlich, ähnlich wie Schweizer Käse.',
+      vorgehen: ['Kurz an der Nase vorbeiführen, nicht hineinschnüffeln.'] },
+    'rad.mais.alkohol': { wie: 'Wie saurer Most, Apfelwein, überreife Bananen oder Äpfel.',
+      vorgehen: ['Probe kurz in der Hand erwärmen, dann riechen.'] },
+    'rad.mais.erwaermung': { wie: 'Leicht: Popcorn, Brotkruste. Stark: Grill, Rauch, angebranntes Popcorn.',
+      vorgehen: ['Hand in die Anschnittfläche legen oder Thermometer 50 cm tief stecken: mehr als 5 °C wärmer als die Luft = Nacherwärmung.'] },
+    'rad.mais.butter': { wie: 'Ranzige Butter, Erbrochenes – bei Mais selten.',
+      vorgehen: ['Fingerprobe: kräftig zwischen den Handflächen reiben, 1 Minute warten, an den Händen riechen.'] },
+    'rad.mais.schimmel': { wie: 'Wie feuchter Keller, alte Socken, Pilze.',
+      vorgehen: ['Besonders Randschichten und die Zone unter der Folie prüfen.', 'Verschimmelte Stellen grosszügig entfernen.'] },
+    'rad.mais.farbe': { wie: 'Gut: gelbgrün bis hell bräunlich-gelb. Erwärmt: braun bis dunkelbraun. Schimmel: weisse, blaue, rote Flecken.',
+      vorgehen: ['Bei Tageslicht ansehen, frische Probe aus dem Inneren.'] },
+    'rad.mais.ph': { vorgehen: ['Silage mit gleich viel destilliertem Wasser übergiessen, 10 Minuten warten.', 'Flüssigkeit mit Teststreifen oder pH-Meter messen.'] },
+    stadium: { vorgehen: ['Im 1. Aufwuchs 10–20 Halme der Leitpflanze (z. B. Knaulgras) anschauen und das häufigste Stadium wählen – nicht die weitesten.', 'Ähre/Rispe sichtbar? Dann mindestens Stadium 3. Staubbeutel sichtbar? Dann Blüte (6).', 'In Konserven: Rispen und Blütenstände im Futter suchen und mit den Bildern vergleichen.'] },
+    bestand: { vorgehen: ['Probe auf dem Tisch ausbreiten und grob in Gräser, Klee und Kräuter sortieren.', 'Anteile nach Volumen schätzen – auf 10 % genau reicht.'] },
+    'ts.gras': { vorgehen: ['Faustgrosse Probe nehmen, wie ein Waschlappen auswinden (zweimal kräftig).', 'Hände ansehen: Saft tropft? Hände nass, feucht oder trocken?', 'Sehr nasse Silage nur als Kugel drücken, nicht winden.'] },
+    'ts.mais': { vorgehen: ['Eine Handvoll fest zusammendrücken und 30 Sekunden halten, nicht auswinden.', 'Hand öffnen: Fliesst Saft, bleibt eine feuchte Kugel oder fällt sie auseinander?'] },
+    haecksel: { vorgehen: ['Auswaschmethode: 1 Liter Silage in einem Kessel mit Wasser umrühren; Körner setzen sich ab.', 'Ganze, unbeschädigte Körner zählen bzw. schätzen.', 'Häcksellänge: eine Handvoll ausbreiten und die Partikel mit einem Massstab abschätzen.'] },
+  };
+
   // ---------- Darstellung ----------
   const TRAKTOR = '<svg viewBox="0 0 64 56" width="58" height="51" aria-hidden="true">' +
     '<rect x="4" y="22" width="34" height="16" rx="4" fill="#2f9e5f"/><rect x="30" y="8" width="20" height="24" rx="4" fill="#1f7a49"/>' +
@@ -210,6 +261,9 @@
     const fach = Z.stufe === 'fachlich';
     return '<div class="assist-head"><b>' + A.esc(t.titel) + '</b><button type="button" class="assist-x" data-as="zu" aria-label="Schliessen">×</button></div>' +
       '<div class="assist-text">' + (fach ? t.fachlich : t.einfach) + '</div>' +
+      (P[key] && P[key].wie ? '<div class="assist-praxis"><b>Erinnert an</b><p>' + A.esc(P[key].wie) + '</p></div>' : '') +
+      (P[key] && P[key].vorgehen ? '<div class="assist-praxis"><b>So gehst du vor</b><ol>' + P[key].vorgehen.map((x) => '<li>' + A.esc(x) + '</li>').join('') + '</ol></div>' : '') +
+      (key.startsWith('rad.') && !/\.(regen|blaetter|mist|erde|ph)$/.test(key) ? '<button type="button" class="btn sm block assist-riechen" data-as="riechen">👃 So riechst du richtig</button>' : '') +
       (t.bilder ? '<div class="assist-bilder">' + t.bilder.map((b, i) => '<button type="button" data-as="bild" data-i="' + i + '"><img alt="' + A.esc(b.cap) + '" src="' + b.src + '" loading="lazy"><span>' + A.esc(b.cap) + '</span></button>').join('') + '</div>' : '') +
       '<div class="assist-foot"><div class="seg sm" role="group" aria-label="Sprache"><button type="button" data-as="stufe" data-v="einfach" aria-pressed="' + !fach + '">Einfach</button><button type="button" data-as="stufe" data-v="fachlich" aria-pressed="' + fach + '">Fachlich</button></div>' +
       '<button type="button" class="btn ghost sm" data-as="ruhe">Ruhe, bitte</button></div>';
@@ -245,6 +299,10 @@
     if (a === 'mehr') zeigen(aktKey);
     if (a === 'stufe') { Z.stufe = t.dataset.v; merken(); zeigen(aktKey); }
     if (a === 'ruhe') { Z.ruhe = true; merken(); schliessen(); el.classList.add('schlaeft'); app().toast('Der Traktor schläft. Antippen weckt ihn wieder.'); }
+    if (a === 'riechen') {
+      app().sheet('<h2>So riechst du richtig</h2><ol class="assist-liste">' + P.riechen.vorgehen.map((x) => '<li>' + app().esc(x) + '</li>').join('') + '</ol><button class="btn primary block" data-close style="margin-top:12px">Verstanden</button>');
+      return;
+    }
     if (a === 'bild') {
       const b = T[aktKey].bilder[Number(t.dataset.i)];
       app().sheet('<h2>' + app().esc(b.cap) + '</h2><img class="foto-gross" alt="' + app().esc(b.cap) + '" src="' + b.src + '"><p class="small muted">Quelle: AGFF / AGRIDEA</p><button class="btn ghost block" data-close style="margin-top:10px">Schliessen</button>');
