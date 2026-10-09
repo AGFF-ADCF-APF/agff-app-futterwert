@@ -42,12 +42,12 @@
   const dsLink = () => '<a href="' + app().esc((global.AGFF_V2 || {}).privacyUrl || 'datenschutz') + '" target="_blank" rel="noopener">Datenschutzerklärung</a>';
 
   function consentHtml(leitung) {
-    return '<div class="consent"><ul>' +
-      (leitung
-        ? '<li>Für die Kursleitung wird Ihre <b>E-Mail-Adresse verschlüsselt gespeichert</b> (Anmeldung per Code). Sie sehen die Adressen von Teilnehmenden, die eine angegeben haben – nur für diesen Kurs verwenden.</li>'
-        : '<li>Für die Teilnahme genügt ein <b>Anzeigename</b> (z. B. Vorname und Initiale). Eine E-Mail-Adresse ist freiwillig – damit sehen Sie Ihre Proben später auch auf anderen Geräten.</li>') +
-      '<li>Ihr Name, die von Ihnen erfassten Proben und Ihre <b>abgegebenen Beurteilungen</b> sind für alle im Kurs sichtbar. Beurteilungen der anderen sehen Sie erst nach Ihrer eigenen Abgabe.</li>' +
-      '<li>Namen, Probenangaben, Standort, Notizen und Fotos sind <b>Ende-zu-Ende verschlüsselt</b> (Schlüssel im Kurs-Link bzw. auf dem Etikett). Die Beurteilungsdaten selbst sind auf dem Server lesbar und können anonym ausgewertet werden.</li>' +
+    return '<div class="consent"><p class="small" style="margin-top:0"><b>Im Kurs wird alles auf dem Server gespeichert</b>, damit die Gruppe gemeinsam beurteilen und vergleichen kann:</p><ul>' +
+      '<li>Ihr <b>Vorname</b> (Anzeigename) und – falls angegeben – Ihre <b>E-Mail-Adresse</b>' + (leitung ? ' (für die Kursleitung Pflicht, Anmeldung per Code)' : ' (freiwillig, damit Sie Ihre Proben auch auf anderen Geräten sehen)') + '.</li>' +
+      '<li>Alle <b>Angaben zu den Proben</b>: Bezeichnung, Schnitt, Notizen, <b>Standort</b> (PLZ, Ort, Höhe, ungefähre Position), <b>Fotos vom Futter</b>, <b>Fotos von Laborberichten</b> und Laborwerte.</li>' +
+      '<li>Ihre <b>Beurteilungen</b> inklusive Fotos und Laborimport.</li>' +
+      '<li><b>Wer sieht was:</b> Die Kursleitung sieht alles, auch die vollständigen E-Mail-Adressen. Kursmitglieder sehen Namen, Proben und Beurteilungen der anderen – Beurteilungen und Laborwerte erst nach der eigenen Abgabe; E-Mail-Adressen nur gekürzt.</li>' +
+      '<li>Die Daten sind auf dem Server mit dem Kursschlüssel (im Kurs-Link bzw. auf dem QR-Etikett) verschlüsselt; die Beurteilungsdaten ohne Namen sind lesbar und können anonym ausgewertet werden. Laborberichte: Adresse vor dem Fotografieren abdecken oder schwärzen.</li>' +
       '<li>Sie können jederzeit austreten – Ihre Daten werden gelöscht. Kurse werden ' + monate() + ' Monate nach der letzten Änderung gelöscht.</li>' +
       '</ul><p class="small">' + dsLink() + '</p></div>';
   }
@@ -431,7 +431,11 @@
     let url = gross ? await F().bildUrl(fid) : await F().thumbUrl(fid);
     if (!url && a && a.kurs) {
       const st = cache.get(a.id); const kp = st && st.proben.find((x) => x.id === kpId);
-      const meta = kp && (kp.fotos || []).find((f) => f.id === fid);
+      let meta = kp && (kp.fotos || []).find((f) => f.id === fid);
+      if (!meta) { // Foto aus einer abgegebenen Beurteilung
+        const v = vergleichCache.get(kpId);
+        meta = v && v.liste.map((x) => (x.probe.fotos || []).find((f) => f.id === fid)).find(Boolean);
+      }
       if (!meta) return null;
       const r = await fetch('api/kurse/' + a.kurs.id + '/fotos/' + fid, { headers: H(a), cache: 'no-store', credentials: 'omit' });
       if (!r.ok) return null;
@@ -480,6 +484,7 @@
       '<form id="etForm" class="stack"><label class="field"><span>Etikettenformat</span><select class="input" name="format">' + Object.entries(FORMATE).map(([id, x]) => '<option value="' + id + '"' + (id === fmtId ? ' selected' : '') + '>' + x.titel + '</option>').join('') + '</select></label>' +
       '<div class="grid2"><label class="field"><span>Anzahl Bögen</span><input class="input" type="number" name="boegen" min="1" max="5" value="1"></label>' +
       '<label class="field"><span>Inhalt</span><select class="input" name="welche"><option value="neu">Neue leere Etiketten</option>' + (leer ? '<option value="leer">Vorhandene leere (' + leer + ') nochmals</option>' : '') + '<option value="erfasst">Bereits erfasste Proben</option></select></label></div>' +
+      '<label class="field"><span>Exemplare pro Probe</span><select class="input" name="exemplare">' + [1, 2, 3, 4, 5, 6].map((n) => '<option value="' + n + '">' + n + (n === 1 ? ' Etikett' : ' Etiketten (z. B. für Probe, Beutel, Laborauftrag)') + '</option>').join('') + '</select></label>' +
       '<details><summary style="font-weight:650;cursor:pointer">Ränder anpassen (Testdruck auf Normalpapier)</summary><div class="grid2" style="margin-top:8px">' +
       ['oben', 'links', 'dx', 'dy'].map((k) => '<label class="field"><span>' + ({ oben: 'Rand oben', links: 'Rand links', dx: 'Spaltenabstand (Anfang–Anfang)', dy: 'Zeilenabstand (Anfang–Anfang)' })[k] + ' mm</span><input class="input" name="' + k + '" inputmode="decimal" value="' + f()[k] + '"></label>').join('') +
       '</div><label class="toggle" style="margin-top:8px"><input type="checkbox" name="linien"> Hilfslinien drucken (für Normalpapier)</label></details>' +
@@ -495,16 +500,19 @@
         const layout = Object.assign({}, f(), { oben: num('oben'), links: num('links'), dx: num('dx'), dy: num('dy'), linien: fd.get('linien') === 'on' });
         const boegen = Math.max(1, Math.min(5, parseInt(fd.get('boegen'), 10) || 1));
         const pro = layout.cols * layout.rows;
+        const ex = Math.max(1, Math.min(6, parseInt(fd.get('exemplare'), 10) || 1));
         try {
           let liste;
           const welche = fd.get('welche');
-          if (welche === 'neu') liste = (await api(a.kurs.id + '/etiketten', { method: 'POST', headers: H(a), body: { anzahl: pro * boegen } })).proben;
+          if (welche === 'neu') liste = (await api(a.kurs.id + '/etiketten', { method: 'POST', headers: H(a), body: { anzahl: Math.max(1, Math.floor(pro * boegen / ex)) } })).proben;
           else { await laden(a); liste = cache.get(a.id).proben.filter((p) => p.status === (welche === 'leer' ? 'leer' : 'erfasst')).map((p) => ({ id: p.id, nr: p.nr, bez: p.bez })); }
           if (!liste.length) { A.toast('Keine Etiketten für diese Auswahl.'); btn.disabled = false; return; }
+          const proben = liste.length;
+          liste = liste.flatMap((p) => Array(ex).fill(p)); // Exemplare einer Probe nebeneinander
           const blob = await etikettenPdf(a, liste, layout);
           const url = URL.createObjectURL(blob); const l = document.createElement('a'); l.href = url; l.download = 'Kurs-Etiketten_' + (a.titel || 'Kurs').replace(/[^\w-]+/g, '_').slice(0, 40) + '.pdf'; document.body.appendChild(l); l.click(); l.remove();
           setTimeout(() => URL.revokeObjectURL(url), 4000);
-          await laden(a).catch(() => {}); A.closeSheet(); A.toast(liste.length + ' Etiketten erstellt.');
+          await laden(a).catch(() => {}); A.closeSheet(); A.toast(liste.length + ' Etiketten erstellt' + (ex > 1 ? ' (' + proben + ' Proben × ' + ex + ')' : '') + '.');
         } catch (er) { btn.disabled = false; A.toast(fehlerText(er)); }
       });
     });
@@ -577,8 +585,8 @@
         const lp = lokale.find((p) => p.kursProbeId === kp.id);
         const abg = !!(kp.meineAbgabe || (lp && lp.abgegebenAt));
         const status = abg ? '<span class="chip gut">abgegeben ✓</span>' : lp ? '<span class="chip mittel">in Arbeit</span>' : kp.eigene ? '<span class="chip">von mir erfasst</span>' : '<span class="chip">offen</span>';
-        h += '<li><a class="item" href="#" data-act="kurs-probe" data-id="' + a.id + '" data-kp="' + esc(kp.id) + '" aria-current="' + (activeId === kp.id) + '"><span class="avatar">' + kp.nr + '</span>' +
-          '<span style="min-width:0"><span class="t">' + esc(kp.bez || ('Probe Nr. ' + kp.nr)) + '</span><span class="s">' + esc(global.K3.TYPEN[kp.typ] ? global.K3.TYPEN[kp.typ].titel : '') + (kp.eigene ? ' · von mir erfasst' : '') + '</span></span>' +
+        h += '<li><a class="item typ-' + kp.typ + '" href="#" data-act="kurs-probe" data-id="' + a.id + '" data-kp="' + esc(kp.id) + '" aria-current="' + (activeId === kp.id) + '"><span class="avatar typ-avatar">' + kp.nr + '</span>' +
+          '<span style="min-width:0"><span class="t">' + esc(kp.bez || ('Probe Nr. ' + kp.nr)) + '</span><span class="s">' + (global.K3.TYPEN[kp.typ] ? A.typBadge(kp.typ) + ' ' : '') + esc(global.K3.TYPEN[kp.typ] ? global.K3.TYPEN[kp.typ].titel : '') + (kp.eigene ? ' · von mir erfasst' : '') + '</span></span>' +
           '<span class="meta">' + status + '<br><span class="small muted">' + kp.abgaben + ' Abgabe' + (kp.abgaben === 1 ? '' : 'n') + '</span></span></a>' +
           ((leitung || kp.eigene) ? '<span class="row" style="margin:0 0 6px 60px;gap:6px">' + (kp.poolId ? '<span class="chip">aus Pool</span>' : '<button class="btn sm ghost" data-act="kurs-erfassen" data-id="' + a.id + '" data-kp="' + esc(kp.id) + '">Angaben bearbeiten</button>') +
             (leitung && !kp.poolId ? '<button class="btn sm ghost" data-act="kurs-in-pool" data-id="' + a.id + '" data-kp="' + esc(kp.id) + '">In Pool stellen</button>' : '') + '</span>' : '') + '</li>';
@@ -636,7 +644,15 @@
     try {
       const k = await kk(a.kurs.secret);
       const { analyse, privat } = global.Model.split(p, 'probe');
-      delete analyse.anlassId; delete privat.fotos; delete privat.labor; // Fotos und Laborimport der Beurteilung bleiben lokal
+      delete analyse.anlassId;
+      // Im Kurs wird alles gespeichert: auch Fotos und Laborimport der Beurteilung (verschlüsselt mit dem Kursschlüssel)
+      for (const f of (privat.fotos || [])) {
+        const b = await F().blob(f.id).catch(() => null);
+        if (!b) continue;
+        const r = await fetch('api/kurse/' + a.kurs.id + '/fotos/' + f.id + '?probe=' + encodeURIComponent(p.kursProbeId) + '&art=' + (f.art === 'labor' ? 'labor' : 'futter') + '&zu=beurteilung',
+          { method: 'PUT', headers: Object.assign({ 'Content-Type': 'application/octet-stream' }, H(a)), body: await F().verschluesseln(f, b), credentials: 'omit' });
+        if (!r.ok) { let j = {}; try { j = await r.json(); } catch (er) { /* leer */ } throw new Error(j.error || 'Foto-Upload ' + r.status); }
+      }
       const box = Object.keys(privat).length ? await C.encryptJSON(k.key, privat, C.kursAad(a.kurs.id, 'beurteilung|' + p.kursProbeId + '|' + p.id)) : null;
       await api(a.kurs.id + '/proben/' + p.kursProbeId + '/beurteilung', { method: 'PUT', headers: H(a), body: { data: { analyse, privat: box } } });
       p.abgegebenAt = A.now(); A.save(); vergleichCache.delete(p.kursProbeId);
@@ -707,6 +723,11 @@
         f.optionen.filter((o) => zaehl[o.id]).map((o) => '<span class="chip' + (o.id === mein ? ' gut' : '') + '" title="' + esc(o.text) + '">' + esc(o.kurz === '!' ? '⚠' : o.kurz) + ' · ' + esc(o.text.split(/: | – |,/)[0].slice(0, 28)) + ' <b>×' + zaehl[o.id] + '</b></span>').join('') + '</div></div>';
     }).join('') + '</div><p class="hint">Grün = Ihre Antwort.</p></div>';
     h += '<div class="section-title">Räder aller Abgaben</div><div class="wheels">' + rows.map(({ x, res }) => '<div class="card" style="padding:8px;text-align:center' + (x.ich ? ';border-color:var(--brand)' : '') + '">' + A.wheelSvg(x.probe, res) + '<div class="small" style="font-weight:600">' + esc(x.name) + '</div></div>').join('') + '</div>';
+    const mitFotos = rows.filter(({ x }) => !x.referenz && (x.probe.fotos || []).length);
+    if (mitFotos.length) {
+      h += '<div class="section-title">Fotos aus den Beurteilungen</div><div class="card"><div class="stack">' + mitFotos.map(({ x }) => '<div><div class="small" style="font-weight:700;margin-bottom:4px">' + esc(x.name) + (x.ich ? ' (ich)' : '') + '</div><div class="fotos">' +
+        x.probe.fotos.map((f) => '<button type="button" class="foto-thumb" data-act="kurs-foto" data-id="' + a.id + '" data-kp="' + esc(p.kursProbeId) + '" data-foto="' + esc(f.id) + '"><img alt="" data-kfoto="' + esc(f.id) + '" data-kprobe="' + esc(p.kursProbeId) + '" data-kanlass="' + a.id + '"><span class="foto-art">' + (f.art === 'labor' ? 'Labor' : 'Futter') + '</span></button>').join('') + '</div></div>').join('') + '</div></div>';
+    }
     return h;
   }
 

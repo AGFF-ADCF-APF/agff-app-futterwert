@@ -262,12 +262,15 @@
       '</ul>';
   }
 
+  /** Farbiges Merkblatt-Kürzel (K3a/K3b/K3c) zur schnellen Unterscheidung der Futterart. */
+  const typBadge = (typ) => '<span class="typ-badge typ-' + typ + '">' + K3.TYPEN[typ].merkblatt + '</span>';
+
   function probeItem(p, active) {
     const res = auswertung(p);
     const w = res.werte;
     const ton = tonOf(res);
-    return '<li><a class="item" href="#/p/' + p.id + '" aria-current="' + active + '">' + wheelSvg(p, res, { mini: true }).replace('class="rad rad-mini"', 'class="rad rad-mini mini"') +
-      '<span style="min-width:0"><span class="t">' + esc(titelOf(p)) + '</span><span class="s">' + esc(K3.TYPEN[p.typ].kurz + (bestandStadium(p) ? ' · ' + bestandStadium(p) : '')) + '</span></span>' +
+    return '<li><a class="item typ-' + p.typ + '" href="#/p/' + p.id + '" aria-current="' + active + '">' + wheelSvg(p, res, { mini: true }).replace('class="rad rad-mini"', 'class="rad rad-mini mini"') +
+      '<span style="min-width:0"><span class="t">' + esc(titelOf(p)) + '</span><span class="s">' + typBadge(p.typ) + ' ' + esc(K3.TYPEN[p.typ].kurz + (bestandStadium(p) ? ' · ' + bestandStadium(p) : '')) + '</span></span>' +
       '<span class="meta"><span class="num">' + (w && w.nel ? fmt(w.nel, 2) : '–') + '</span><br><span class="chip ' + ton + '" style="padding:0 7px;font-size:.7rem">' + esc(res.sperre.length ? 'Sperre' : res.vollstaendig ? res.klasse.label.replace(' Silage', '') : 'offen') + '</span></span></a></li>';
   }
 
@@ -712,7 +715,7 @@
     const { k, dir } = ui.sort;
     rows.sort((x, y) => { const A = x[k], B = y[k]; if (A == null) return 1; if (B == null) return -1; return (A > B ? 1 : A < B ? -1 : 0) * dir; });
     h += '<div class="section-title">Alle Werte</div><div class="tbl-wrap"><table class="tbl"><thead><tr>' + cols.map(([c, t]) => '<th><button data-sort="' + c + '">' + t + (k === c ? (dir > 0 ? ' ▲' : ' ▼') : '') + '</button></th>').join('') + '</tr></thead><tbody>' +
-      rows.map((r) => '<tr class="click" data-go="#/p/' + r.p.id + '/ergebnis"><td><strong>' + esc(r.titel) + '</strong></td><td>' + esc(r.typ) + '</td><td>' + esc(r.bs) + '</td><td><span class="chip ' + tonOf(r.res) + '">' + esc(r.klasse || 'offen') + '</span></td><td>' +
+      rows.map((r) => '<tr class="click typ-' + r.p.typ + '" data-go="#/p/' + r.p.id + '/ergebnis"><td><strong>' + esc(r.titel) + '</strong></td><td>' + typBadge(r.p.typ) + ' ' + esc(r.typ) + '</td><td>' + esc(r.bs) + '</td><td><span class="chip ' + tonOf(r.res) + '">' + esc(r.klasse || 'offen') + '</span></td><td>' +
         (r.pkt == null ? '–' : r.p.typ === 'heu' ? fmt(r.pkt, 0) + ' %' : r.pkt) + '</td><td><strong>' + fmt(r.nel, 2) + '</strong></td><td>' + fmt(r.apde, 0) + '</td><td>' + fmt(r.apdn, 0) + '</td><td>' + fmt(r.rp, 0) + '</td><td>' + fmt(r.mpp, 1) + '</td><td>' + (r.mast == null ? '–' : r.mast < 0 ? '< Erh.' : fmt(Math.round(r.mast / 10) * 10, 0)) + '</td></tr>').join('') +
       '</tbody></table></div><p class="hint">* Milchbildungspotenzial aus dem Grundfutter allein (kg/Tag, Kuh ' + db.prefs.kuhGewicht + ' kg) – wie im Futterwert-Rechner v1. ** Tageszuwachs Muni ' + mastGewicht() + ' kg in g (Agroscope, Grünes Buch Kap. 10). Grau schraffiert = Tabellenwert vor Abzügen.</p></div>';
     return h;
@@ -766,7 +769,7 @@
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheet(); });
 
   function sheetNewProbe(anlassId) {
-    const colors = { heu: '#5f9e78', gras: '#8fb6d9', mais: '#f6c35b' };
+    const colors = { heu: K3.TYPEN.heu.farbe, gras: K3.TYPEN.gras.farbe, mais: K3.TYPEN.mais.farbe };
     sheet('<h2>Was beurteilen Sie?</h2><p class="muted small" style="margin-top:0">Gewählter Anlass: <b>' + esc(anlassId ? anlassById(anlassId).titel : 'ohne Anlass') + '</b></p><div class="typ-cards">' +
       Object.values(K3.TYPEN).map((t) => '<button class="typ-card" data-act="create-probe" data-typ="' + t.id + '" data-anlass="' + (anlassId || '') + '"><span class="ico" style="background:' + colors[t.id] + ';color:#1d2925">' + t.merkblatt + '</span><span><b>' + t.titel + '</b><span class="small muted">' + esc(t.ziel) + '</span></span></button>').join('') +
       '</div><button class="btn ghost block" data-close style="margin-top:10px">Abbrechen</button>');
@@ -1410,7 +1413,7 @@
   // Schnittstelle für Zusatzmodule (Kurs)
   window.__app = {
     get db() { return db; }, save, render, refreshChrome, rerenderDetail, sheet, closeSheet, toast, go, esc, I, uid, now, fmt,
-    probeById, anlassById, auswertung, wheelSvg, tonOf, bestandStadium, sheetAnlass, sheetConsent, label, dateCH, route: () => ui.route,
+    typBadge, probeById, anlassById, auswertung, wheelSvg, tonOf, bestandStadium, sheetAnlass, sheetConsent, label, dateCH, route: () => ui.route,
   };
   load();
   try { basis = JSON.parse(localStorage.getItem('agffV2Basis')); } catch (e) { basis = null; }

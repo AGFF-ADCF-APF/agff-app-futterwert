@@ -301,3 +301,15 @@ table.tbl { width: 100%; border-collapse: collapse; font-variant-numeric: tabula
 .redact-bar .btn.primary { background: var(--brand); border-color: var(--brand); }
 .redact-stage { flex: 1; display: grid; place-items: center; overflow: hidden; touch-action: none; padding: 8px; }
 .redact-stage canvas { touch-action: none; cursor: crosshair; max-width: 100%; }
+
+/* Futterart-Farben (Merkblatt K3a/K3b/K3c) */
+:root { --typ-heu: #5f9e78; --typ-gras: #6fa3d4; --typ-mais: #e9b43c; }
+.item.typ-heu { box-shadow: inset 5px 0 0 var(--typ-heu); }
+.item.typ-gras { box-shadow: inset 5px 0 0 var(--typ-gras); }
+.item.typ-mais { box-shadow: inset 5px 0 0 var(--typ-mais); }
+.typ-badge { display: inline-block; font-size: .66rem; font-weight: 800; line-height: 1; padding: 3px 6px; border-radius: 6px; color: #10201a; vertical-align: 1px; }
+.typ-badge.typ-heu { background: var(--typ-heu); color: #fff; } .typ-badge.typ-gras { background: var(--typ-gras); color: #fff; } .typ-badge.typ-mais { background: var(--typ-mais); }
+.tbl tr.typ-heu td:first-child { box-shadow: inset 4px 0 0 var(--typ-heu); }
+.tbl tr.typ-gras td:first-child { box-shadow: inset 4px 0 0 var(--typ-gras); }
+.tbl tr.typ-mais td:first-child { box-shadow: inset 4px 0 0 var(--typ-mais); }
+.item.typ-heu .typ-avatar { background: var(--typ-heu); color: #fff; } .item.typ-gras .typ-avatar { background: var(--typ-gras); color: #fff; } .item.typ-mais .typ-avatar { background: var(--typ-mais); color: #10201a; }

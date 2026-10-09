@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Datenschutz – Futterbeurteilung v2</title>
   <meta name="robots" content="noindex">
-  <link rel="stylesheet" href="assets/app.css?v=b1-13">
+  <link rel="stylesheet" href="assets/app.css?v=b1-14">
 </head>
 <body>
 <div class="doc">
@@ -37,13 +37,13 @@
   <p>Erfassen Sie Angaben zu anderen Personen (z. B. Betriebsname) nur, wenn diese damit einverstanden sind.</p>
 
   <h2>4a. Kursmodus (Schulklassen, Gruppen)</h2>
+  <p>Im Kursmodus werden <b>alle Angaben auf dem Server gespeichert</b>, damit eine Gruppe dieselben Proben beurteilen und vergleichen kann. Die Datenschutzhinweise werden beim Beitritt einmalig angezeigt; ohne Zustimmung ist keine Teilnahme möglich.</p>
   <ul>
-    <li><b>Teilnahme:</b> Es genügt ein frei gewählter Anzeigename. Die Teilnahme ist dann an das verwendete Gerät gebunden (Sitzungsschlüssel im Browser). Freiwillig kann eine E-Mail-Adresse bestätigt werden, um sich auf anderen Geräten anzumelden.</li>
-    <li><b>E-Mail-Adressen</b> (Kursleitung immer, Teilnehmende freiwillig) werden mit einem Serverschlüssel verschlüsselt gespeichert und nur für den Versand von Einmal-Codes verwendet. Die Kursleitung sieht die Adressen der Teilnehmenden vollständig, andere nur gekürzt.</li>
-    <li><b>Ende-zu-Ende verschlüsselt</b> (Schlüssel im Kurs-Link bzw. auf dem QR-Etikett): Kurstitel, Anzeigenamen, Probenbezeichnungen, Standortangaben (PLZ, Ort, Höhe, auf ca. 1 km gerundete Position), Notizen und Fotos. Wer ein Etikett oder den Kurs-Link besitzt, kann dem Kurs beitreten.</li>
-    <li><b>Laborwerte</b> einer Probe gibt der Server erst frei, wenn die Kursleitung dies als Hilfestellung erlaubt oder die betreffende Person ihre eigene Beurteilung abgegeben hat.</li>
-    <li><b>Beurteilungen:</b> Abgegebene Beurteilungen sind für Kursmitglieder sichtbar, für Teilnehmende erst nach der eigenen Abgabe. Die Beurteilungsdaten ohne Personenbezug sind auf dem Server lesbar.</li>
-    <li><b>Fotos:</b> höchstens 20 MB je Person und Kurs; Neu-Codierung im Browser entfernt Standort- und Kameradaten.</li>
+    <li><b>Gespeichert werden:</b> Vorname bzw. Anzeigename, E-Mail-Adresse (Kursleitung immer, Teilnehmende freiwillig), Angaben zu den Proben (Bezeichnung, Schnitt, Notizen, Standort mit PLZ, Ort, Höhe und auf ca. 1 km gerundeter Position), Fotos vom Futter, Fotos von Laborberichten, Laborwerte sowie die abgegebenen Beurteilungen inklusive Fotos und Laborimport.</li>
+    <li><b>Sichtbarkeit:</b> Die Kursleitung sieht alle Angaben, auch die vollständigen E-Mail-Adressen. Kursmitglieder sehen Namen, Proben und Beurteilungen der anderen; Beurteilungen, Laborwerte und Fotos aus Beurteilungen erst nach der eigenen Abgabe (ausser die Kursleitung gibt einzelne Angaben als Hilfestellung frei). E-Mail-Adressen sehen sie nur gekürzt.</li>
+    <li><b>Technischer Schutz:</b> E-Mail-Adressen sind mit einem Serverschlüssel verschlüsselt und werden nur für Einmal-Codes verwendet. Namen, Probenangaben, Standort, Notizen, Laborwerte und Fotos sind mit dem Kursschlüssel verschlüsselt (im Kurs-Link bzw. auf dem QR-Etikett). Wer ein Etikett oder den Kurs-Link besitzt, kann dem Kurs beitreten. Die Beurteilungsdaten ohne Personenbezug sind auf dem Server lesbar.</li>
+    <li><b>Laborberichte:</b> Bitte Adresse und Namen vor dem Fotografieren abdecken; in der App kann zusätzlich geschwärzt werden.</li>
+    <li><b>Fotos:</b> höchstens 20 MB je Person und Kurs; Neu-Codierung im Browser entfernt Standort- und Kameradaten aus den Bilddateien.</li>
     <li><b>Löschung:</b> Teilnehmende können jederzeit austreten (Name, Fotos und Abgaben werden gelöscht). Die Kursleitung kann Personen entfernen oder den Kurs löschen. Automatische Löschung {{ (retention_days / 30.4)|round|int }} Monate nach der letzten Änderung.</li>
   </ul>
 

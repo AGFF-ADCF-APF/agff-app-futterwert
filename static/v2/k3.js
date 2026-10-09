@@ -251,11 +251,11 @@
 
   // ---------- Futtertypen ----------
   const TYPEN = {
-    heu: { id: 'heu', merkblatt: 'K3a', titel: 'Dürrfutter', kurz: 'Heu/Emd', rad: RAD_K3A, basisKons: 'heu',
+    heu: { id: 'heu', merkblatt: 'K3a', farbe: '#5f9e78', titel: 'Dürrfutter', kurz: 'Heu/Emd', rad: RAD_K3A, basisKons: 'heu',
       ziel: 'Gutes Dürrfutter für Milchkühe: > 5,5 MJ NEL und > 140 g RP pro kg TS, grün, aromatisch, schmutzfrei.' },
-    gras: { id: 'gras', merkblatt: 'K3b', titel: 'Grassilage', kurz: 'Grassilage', rad: RAD_K3B, basisKons: 'silage',
+    gras: { id: 'gras', merkblatt: 'K3b', farbe: '#6fa3d4', titel: 'Grassilage', kurz: 'Grassilage', rad: RAD_K3B, basisKons: 'silage',
       ziel: 'Eine gute Grassilage hat über 5,8 MJ NEL pro kg TS und keine Konservierungsfehler.' },
-    mais: { id: 'mais', merkblatt: 'K3c', titel: 'Maissilage', kurz: 'Maissilage', rad: RAD_K3C,
+    mais: { id: 'mais', merkblatt: 'K3c', farbe: '#e9b43c', titel: 'Maissilage', kurz: 'Maissilage', rad: RAD_K3C,
       ziel: 'Ausgezeichnet: 32–36 % TS, Kolbenanteil > 55 %, pH < 4,1, keine Fehlgärungen und keine Nacherwärmung.' },
   };
 

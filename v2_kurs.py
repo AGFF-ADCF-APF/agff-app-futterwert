@@ -23,6 +23,7 @@ import os
 import re
 import secrets
 import shutil
+import sqlite3
 import time
 
 from flask import jsonify, request, send_from_directory
@@ -32,7 +33,7 @@ import v2_mail as M
 from v2_api import (v2, _db, _now, _sha, _rate_hit, _check_record, _check_privat, _json_body,
                     ID_RE, HASH_RE, TOKEN_RE, RETENTION_DAYS, MAX_RECORD_BYTES, FOTO_ID_RE)
 
-KURS_CONSENT_VERSION = '2026-10-k2'
+KURS_CONSENT_VERSION = '2026-10-k3'
 SESSION_TTL = 120 * 24 * 3600
 MAX_PROBEN = 400
 MAX_TEILNEHMENDE = 300
@@ -105,6 +106,11 @@ def init_kurs_db():
                 PRIMARY KEY (kurs_id, id)
             );
         ''')
+        if 'zweck' not in [c[1] for c in conn.execute('PRAGMA table_info(kurs_fotos)').fetchall()]:
+            try:  # probe | beurteilung
+                conn.execute("ALTER TABLE kurs_fotos ADD COLUMN zweck TEXT NOT NULL DEFAULT 'probe'")
+            except sqlite3.OperationalError:
+                pass  # parallel startende Worker: Spalte bereits angelegt
         conn.execute('DELETE FROM kurs_sessions WHERE expires_at < ?', (time.time(),))
         conn.execute("DELETE FROM kurse WHERE status = 'pending' AND created_at < ?",
                      (time.strftime('%Y-%m-%dT%H:%M:%S', time.gmtime(time.time() - 86400)),))
@@ -532,7 +538,8 @@ def _foto_loeschen(conn, kurs_id, foto_id):
 @v2.route('/v2/api/kurse/<kurs_id>/fotos/<foto_id>', methods=['PUT'])
 def kurs_foto_put(kurs_id, foto_id):
     probe_id, art = request.args.get('probe', ''), request.args.get('art', '')
-    if not FOTO_ID_RE.match(foto_id) or not ID_RE.match(probe_id) or art not in ('futter', 'labor'):
+    zweck = request.args.get('zu', 'probe')
+    if not FOTO_ID_RE.match(foto_id) or not ID_RE.match(probe_id) or art not in ('futter', 'labor') or zweck not in ('probe', 'beurteilung'):
         return _err('BAD_REQUEST', 400)
     if (request.content_length or 0) > MAX_FOTO_BYTES:
         return _err('TOO_LARGE', 413)
@@ -543,8 +550,13 @@ def kurs_foto_put(kurs_id, foto_id):
         ich = _session(conn, kurs_id)
         if not ich:
             return _err('NOT_FOUND', 404)
-        kp = conn.execute('SELECT owner_id FROM kurs_proben WHERE kurs_id = ? AND id = ?', (kurs_id, probe_id)).fetchone()
-        if not kp or (kp['owner_id'] not in (None, ich['id']) and ich['rolle'] != 'leitung'):
+        kp = conn.execute('SELECT owner_id, status FROM kurs_proben WHERE kurs_id = ? AND id = ?', (kurs_id, probe_id)).fetchone()
+        if not kp:
+            return _err('NOT_FOUND', 404)
+        # Fotos zur Probe: Besitzer/Kursleitung. Fotos zur eigenen Beurteilung: alle Kursmitglieder.
+        if zweck == 'probe' and kp['owner_id'] not in (None, ich['id']) and ich['rolle'] != 'leitung':
+            return _err('NOT_FOUND', 404)
+        if zweck == 'beurteilung' and kp['status'] != 'erfasst':
             return _err('NOT_FOUND', 404)
         alt = conn.execute('SELECT bytes, teilnehmer_id FROM kurs_fotos WHERE kurs_id = ? AND id = ?', (kurs_id, foto_id)).fetchone()
         if alt and alt['teilnehmer_id'] != ich['id']:
@@ -561,15 +573,15 @@ def kurs_foto_put(kurs_id, foto_id):
         fh.write(data)
     os.replace(tmp, _foto_pfad(kurs_id, foto_id))
     with _db() as conn:
-        conn.execute('INSERT INTO kurs_fotos (kurs_id, id, teilnehmer_id, probe_id, art, bytes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?) '
-                     'ON CONFLICT(kurs_id, id) DO UPDATE SET bytes = excluded.bytes', (kurs_id, foto_id, ich['id'], probe_id, art, len(data), _now()))
+        conn.execute('INSERT INTO kurs_fotos (kurs_id, id, teilnehmer_id, probe_id, art, bytes, created_at, zweck) VALUES (?, ?, ?, ?, ?, ?, ?, ?) '
+                     'ON CONFLICT(kurs_id, id) DO UPDATE SET bytes = excluded.bytes', (kurs_id, foto_id, ich['id'], probe_id, art, len(data), _now(), zweck))
         _touch(conn, kurs_id)
     return jsonify({'status': 'ok'})
 
 
 @v2.route('/v2/api/kurse/<kurs_id>/fotos/<foto_id>', methods=['GET'])
 def kurs_foto_get(kurs_id, foto_id):
-    """Sichtbar für: Hochladende, Kursleitung, alle Kursmitglieder falls als Hilfestellung freigegeben,
+    """Sichtbar für: Hochladende, Kursleitung, alle Kursmitglieder falls als Hilfestellung freigegeben (nur Fotos zur Probe, nicht zu Beurteilungen),
     sonst nach eigener Abgabe der betreffenden Probe."""
     if not FOTO_ID_RE.match(foto_id):
         return _err('BAD_REQUEST', 400)
@@ -586,14 +598,14 @@ def kurs_foto_get(kurs_id, foto_id):
                 d = POOL.eintrag(conn, kp['pool_id']) or {}
                 pf = next((x for x in d.get('fotos', []) if x['id'] == foto_id), None)
                 if pf:
-                    f = {'teilnehmer_id': None, 'art': pf['art'], 'probe_id': kp['id']}
+                    f = {'teilnehmer_id': None, 'art': pf['art'], 'probe_id': kp['id'], 'zweck': 'probe'}
                     pool_quelle = kp['pool_id']
                     break
         if not f:
             return _err('NOT_FOUND', 404)
         h = _hinweise(conn, kurs_id)
         frei = (f['teilnehmer_id'] == ich['id'] or ich['rolle'] == 'leitung'
-                or (f['art'] == 'futter' and h.get('foto')) or (f['art'] == 'labor' and h.get('labor'))
+                or (f['zweck'] == 'probe' and ((f['art'] == 'futter' and h.get('foto')) or (f['art'] == 'labor' and h.get('labor'))))
                 or conn.execute('SELECT 1 FROM kurs_beurteilungen WHERE kurs_id = ? AND probe_id = ? AND teilnehmer_id = ?',
                                 (kurs_id, f['probe_id'], ich['id'])).fetchone())
     if not frei:

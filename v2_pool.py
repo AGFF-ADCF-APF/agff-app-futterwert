@@ -12,6 +12,7 @@ import json
 import os
 import re
 import shutil
+import sqlite3
 import time
 
 from flask import jsonify, request, send_from_directory
@@ -43,7 +44,10 @@ def init_pool_db():
         ''')
         cols = {r[1] for r in conn.execute('PRAGMA table_info(kurs_proben)')}
         if cols and 'pool_id' not in cols:
-            conn.execute('ALTER TABLE kurs_proben ADD COLUMN pool_id TEXT')
+            try:
+                conn.execute('ALTER TABLE kurs_proben ADD COLUMN pool_id TEXT')
+            except sqlite3.OperationalError:
+                pass  # parallel startende Worker
 
 
 def _dir(pool_id):
