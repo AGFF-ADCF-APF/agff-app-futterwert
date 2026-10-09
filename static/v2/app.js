@@ -740,6 +740,10 @@
       q('Einstellungen', '', '<div class="grid2"><label class="field"><span>Mein Name (Vorschlag für «Beurteilt von»)</span><input class="input" data-pref="beurteiler" value="' + esc(db.prefs.beurteiler) + '"></label>' +
         '<label class="field"><span>Gewicht Referenzkuh (kg)</span><input class="input" inputmode="numeric" data-pref="kuhGewicht" value="' + esc(db.prefs.kuhGewicht) + '"></label>' +
         '<label class="field"><span>Gewicht Mastmuni (kg, ' + K3.MAST.LG_MIN + '–' + K3.MAST.LG_MAX + ')</span><input class="input" inputmode="numeric" data-pref="mastGewicht" value="' + esc(mastGewicht()) + '"></label></div>' +
+        (window.Assistent ? '<div class="row" style="margin-top:12px;align-items:center"><span class="grow"><b>Traktor-Assistent</b><br><span class="small muted">Hilft bei Stadium, TS und jedem Faktor im Rad</span></span>' +
+          '<div class="seg">' + [['an', 'Aktiv'], ['ruhe', 'Schläft']].map(([v, t]) => '<button data-act="assist-ruhe" data-val="' + v + '" aria-pressed="' + ((window.Assistent.ruhe ? 'ruhe' : 'an') === v) + '">' + t + '</button>').join('') + '</div>' +
+          '<div class="seg">' + [['einfach', 'Einfach'], ['fachlich', 'Fachlich']].map(([v, t]) => '<button data-act="assist-stufe" data-val="' + v + '" aria-pressed="' + (window.Assistent.stufe === v) + '">' + t + '</button>').join('') + '</div>' +
+          '<button class="btn sm ghost" data-act="assist-reset">Alle Hilfen nochmals zeigen</button></div>' : '') +
         '<div class="seg" style="margin-top:12px">' + [['', 'Automatisch'], ['light', 'Hell'], ['dark', 'Dunkel']].map(([v, t]) => '<button data-act="theme" data-val="' + v + '" aria-pressed="' + ((document.documentElement.dataset.theme || '') === v) + '">' + t + '</button>').join('') + '</div>') +
       q('Alles löschen', 'Entfernt alle v2-Daten aus diesem Browser. Auf dem Server gespeicherte Anlässe bleiben bestehen, bis Sie sie dort löschen.', '<button class="btn danger" data-act="wipe">Alle lokalen Daten löschen</button>') +
       '<p class="small muted">Version ' + esc(CFG.version) + ' · Grundlage: AGFF-Merkblätter K3a (2022), K3b (2023), K3c (2021); Nährwerte Agroscope.</p></div>';
@@ -750,6 +754,7 @@
     // Neuer Schritt / neue Seite: oben beginnen
     if (location.hash !== lastHash) { lastHash = location.hash; window.scrollTo(0, 0); $('#main').scrollTop = 0; }
     fotosEinsetzen();
+    if (window.Assistent) window.Assistent.update();
   }
 
   // ---------- Sheets / Toast ----------
@@ -1181,6 +1186,7 @@
     if (keepScroll) { m.scrollTop = st; window.scrollTo(0, ws); }
     $('#r-list').innerHTML = renderList(p.anlassId || null, ui.route);
     fotosEinsetzen();
+    if (window.Assistent) window.Assistent.update();
   }
 
   function choose(p, set, val) {
@@ -1261,6 +1267,9 @@
         try { localStorage.setItem('agffV2Outdoor', on ? '0' : '1'); } catch (er) { /* ignore */ }
         toast(on ? 'Normale Darstellung' : 'Modus «Draussen»: hoher Kontrast, grosse Schaltflächen'); break;
       }
+      case 'assist-ruhe': window.Assistent.ruhe = t.dataset.val === 'ruhe'; render(); break;
+      case 'assist-stufe': window.Assistent.stufe = t.dataset.val; render(); break;
+      case 'assist-reset': window.Assistent.zuruecksetzen(); window.Assistent.ruhe = false; toast('Der Traktor meldet sich bei jedem Schritt wieder einmal.'); render(); break;
       case 'theme': {
         const v = t.dataset.val; if (v) document.documentElement.dataset.theme = v; else delete document.documentElement.dataset.theme;
         try { localStorage.setItem('agffV2Theme', v); } catch (er) { /* ignore */ }
@@ -1413,7 +1422,7 @@
   // Schnittstelle für Zusatzmodule (Kurs)
   window.__app = {
     get db() { return db; }, save, render, refreshChrome, rerenderDetail, sheet, closeSheet, toast, go, esc, I, uid, now, fmt,
-    typBadge, probeById, anlassById, auswertung, wheelSvg, tonOf, bestandStadium, sheetAnlass, sheetConsent, label, dateCH, route: () => ui.route,
+    typBadge, radFokus: (p) => ui.fokus[p.id] || null, probeById, anlassById, auswertung, wheelSvg, tonOf, bestandStadium, sheetAnlass, sheetConsent, label, dateCH, route: () => ui.route,
   };
   load();
   try { basis = JSON.parse(localStorage.getItem('agffV2Basis')); } catch (e) { basis = null; }
@@ -1423,5 +1432,20 @@
   loadBasis().then(() => { render(); window.Statistik.alleAbgleichen(); });
   db.anlaesse.filter((a) => a.space).forEach((a) => syncAnlass(a).then(refreshChrome));
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js', { scope: './' }).catch(() => {});
+  // Offene Tabs auf neue Versionen hinweisen (sonst läuft nach einem Update der alte Code weiter)
+  let updateGezeigt = false;
+  const versionPruefen = () => {
+    if (updateGezeigt || !CFG.build || document.hidden) return;
+    fetch('api/config', { cache: 'no-store', credentials: 'omit' }).then((r) => r.json()).then((c) => {
+      if (!c.build || c.build === CFG.build || updateGezeigt) return;
+      updateGezeigt = true;
+      const b = document.createElement('div'); b.className = 'update-banner';
+      b.innerHTML = '<span>Neue Version verfügbar.</span><button class="btn sm primary" type="button">Neu laden</button>';
+      b.querySelector('button').addEventListener('click', () => location.reload());
+      document.body.appendChild(b);
+    }).catch(() => {});
+  };
+  document.addEventListener('visibilitychange', versionPruefen);
+  setInterval(versionPruefen, 10 * 60 * 1000);
   window.__futterV2 = { get db() { return db; }, auswertung, render };
 })();

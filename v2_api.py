@@ -373,10 +373,15 @@ def v2_basis():
 
 
 # --- Freigabe-Bereiche (nur mit Zustimmung, Ende-zu-Ende verschlüsselt) ----
+ASSET_BUILD = 'b1-20'  # gleich wie ?v= in templates/v2/index.html
+
+
 @v2.route('/v2/api/config')
 def v2_config():
-    return jsonify({'consentVersion': CONSENT_VERSION, 'retentionDays': RETENTION_DAYS,
-                    'privacyUrl': PRIVACY_URL or None})
+    resp = jsonify({'consentVersion': CONSENT_VERSION, 'retentionDays': RETENTION_DAYS,
+                    'privacyUrl': PRIVACY_URL or None, 'build': ASSET_BUILD})
+    resp.headers['Cache-Control'] = 'no-store'
+    return resp
 
 
 def _json_body():

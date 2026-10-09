@@ -1,6 +1,7 @@
 /* Futter v2 – Service Worker: App-Shell offline verfügbar. API-Daten (Server-Freigaben) werden nie gecacht. */
-const VERSION = 'futter-v2-b1-18';
-const SHELL = ['./', 'assets/boot.js?v=b1-18', 'assets/app.css?v=b1-18', 'assets/k3.js?v=b1-18', 'assets/model.js?v=b1-18', 'assets/crypto.js?v=b1-18', 'assets/foto.js?v=b1-18', 'assets/wheel.js?v=b1-18', 'assets/io.js?v=b1-18', 'assets/kurs.js?v=b1-18', 'assets/ocr.js?v=b1-18', 'assets/statistik.js?v=b1-18', 'assets/app.js?v=b1-18',
+const VERSION = 'futter-v2-b1-20';
+const SHELL = ['./', 'assets/boot.js?v=b1-20', 'assets/app.css?v=b1-20', 'assets/k3.js?v=b1-20', 'assets/model.js?v=b1-20', 'assets/crypto.js?v=b1-20', 'assets/foto.js?v=b1-20', 'assets/wheel.js?v=b1-20', 'assets/io.js?v=b1-20', 'assets/kurs.js?v=b1-20', 'assets/ocr.js?v=b1-20', 'assets/statistik.js?v=b1-20', 'assets/assistent.js?v=b1-20', 'assets/app.js?v=b1-20',
+  'assets/bilder/stadien-page-1.webp', 'assets/bilder/knaulgras.webp', 'assets/bilder/rotklee.webp', 'assets/bilder/b2-stadien-1.webp', 'assets/bilder/wringprobe-1.webp',
   'assets/icon.svg', 'manifest.webmanifest', 'api/basis', 'assets/vendor/jspdf.umd.min.js', 'assets/vendor/qrcode.js'];
 
 self.addEventListener('install', (e) => {

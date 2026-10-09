@@ -521,6 +521,11 @@
         ['oben', 'links', 'dx', 'dy'].forEach((k) => { el.querySelector('[name=' + k + ']').value = f()[k]; });
         info();
       });
+      el.querySelector('[name=von]').addEventListener('change', () => {
+        const von = el.querySelector('[name=von]'); const bis = el.querySelector('[name=bis]');
+        if ((parseInt(bis.value, 10) || 0) < (parseInt(von.value, 10) || 1)) bis.value = von.value;
+        info();
+      });
       ['anzahl', 'welche', 'exemplare', 'von', 'bis'].forEach((k) => { el.querySelector('[name=' + k + ']').addEventListener('input', info); el.querySelector('[name=' + k + ']').addEventListener('change', info); });
       info();
       el.querySelector('#etForm').addEventListener('submit', async (e) => {

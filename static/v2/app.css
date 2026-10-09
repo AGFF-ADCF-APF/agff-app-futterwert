@@ -313,3 +313,41 @@ table.tbl { width: 100%; border-collapse: collapse; font-variant-numeric: tabula
 .tbl tr.typ-gras td:first-child { box-shadow: inset 4px 0 0 var(--typ-gras); }
 .tbl tr.typ-mais td:first-child { box-shadow: inset 4px 0 0 var(--typ-mais); }
 .item.typ-heu .typ-avatar { background: var(--typ-heu); color: #fff; } .item.typ-gras .typ-avatar { background: var(--typ-gras); color: #fff; } .item.typ-mais .typ-avatar { background: var(--typ-mais); color: #10201a; }
+
+/* Hinweis auf neue Version */
+.update-banner { position: fixed; left: 50%; top: 12px; transform: translateX(-50%); z-index: 60; display: flex; gap: 12px; align-items: center;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--brand); border-radius: var(--radius); box-shadow: var(--shadow); padding: 8px 10px 8px 14px; max-width: calc(100vw - 32px); }
+
+/* Traktor-Assistent */
+.assist { position: fixed; right: 12px; bottom: calc(78px + var(--safe-b)); z-index: 30; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; pointer-events: none; }
+.assist[hidden] { display: none; }
+.assist > * { pointer-events: auto; }
+.assist-btn { position: relative; width: 66px; height: 60px; border-radius: 22px; border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow); display: grid; place-items: center; cursor: pointer; padding: 0; }
+.assist-btn:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+.assist.offen .assist-btn { border-color: var(--brand); }
+.assist-btn .zz { display: none; position: absolute; top: -6px; right: -2px; font: 700 13px/1 var(--font); color: var(--ink-3); }
+.assist.schlaeft .assist-btn { opacity: .7; }
+.assist.schlaeft .assist-btn .zz { display: block; }
+.assist.schlaeft .aug { transform: scaleY(.2); transform-box: fill-box; transform-origin: center; }
+.assist.schlaeft .mund { opacity: .4; }
+.assist:not(.schlaeft):not(.offen) .assist-btn { animation: assist-wink 6s ease-in-out 1.5s 2; }
+@keyframes assist-wink { 0%, 90%, 100% { transform: rotate(0); } 93% { transform: rotate(-6deg); } 96% { transform: rotate(5deg); } }
+.assist-bubble { position: relative; width: min(380px, calc(100vw - 24px)); max-height: min(62vh, 560px); overflow: auto; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--brand); border-radius: 18px 18px 6px 18px; box-shadow: 0 8px 28px rgb(0 0 0 / .18); padding: 12px 14px; font-size: .95rem; line-height: 1.45; }
+.assist-bubble[hidden] { display: none; }
+.assist-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.assist-head b { flex: 1; font-size: 1.02rem; }
+.assist-x { border: 0; background: none; color: var(--ink-3); font-size: 1.5rem; line-height: 1; width: 36px; height: 36px; border-radius: 10px; cursor: pointer; }
+.assist-x:hover { background: var(--surface-2); }
+.assist-text { margin: 0 0 10px; }
+.assist-bilder { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.assist-bilder button { border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); padding: 4px; cursor: zoom-in; text-align: left; color: var(--ink-2); font-size: .75rem; }
+.assist-bilder img { display: block; width: 100%; height: 72px; object-fit: cover; border-radius: 6px; margin-bottom: 3px; }
+.assist-foot { display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.seg.sm button { padding: 6px 10px; min-height: 34px; font-size: .85rem; }
+@media (prefers-reduced-motion: reduce) { .assist-btn { animation: none !important; } }
+@media print { .assist, .update-banner { display: none !important; } }
+.assist-foot .seg { width: auto; }
+.assist-bubble.kurz { width: auto; max-width: min(260px, calc(100vw - 100px)); padding: 0; border-radius: 16px 16px 4px 16px; }
+.assist-teaser { display: grid; gap: 2px; text-align: left; border: 0; background: none; color: var(--ink); padding: 10px 14px; cursor: pointer; font: inherit; }
+.assist-teaser span { color: var(--ink-2); font-size: .88rem; }
