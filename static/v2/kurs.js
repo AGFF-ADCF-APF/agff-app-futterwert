@@ -644,7 +644,7 @@
         : 'Ihre Teilnahme ist an dieses Gerät gebunden. <b>Mit E-Mail bestätigen</b>, um Ihre Proben später wiederzufinden. <button class="btn sm" data-act="kurs-email" data-id="' + a.id + '">E-Mail angeben</button>') + '</div></div></div>';
     }
     h += '<div class="pad" style="padding-bottom:0"><div class="row"><button class="btn sm grow" data-act="kurs-teilnehmende" data-id="' + a.id + '">Teilnehmende</button>' +
-      (leitung ? '<button class="btn sm grow" data-act="kurs-etiketten" data-id="' + a.id + '">QR-Etiketten</button><button class="btn sm grow" data-act="kurs-hinweise" data-id="' + a.id + '">Hilfestellungen</button><button class="btn sm grow" data-act="kurs-pool" data-id="' + a.id + '">Probenpool</button>' : '') +
+      (leitung ? '<button class="btn sm grow" data-go="#/a/' + a.id + '/sammel">Sammelerfassung</button><button class="btn sm grow" data-act="kurs-etiketten" data-id="' + a.id + '">QR-Etiketten</button><button class="btn sm grow" data-act="kurs-hinweise" data-id="' + a.id + '">Hilfestellungen</button><button class="btn sm grow" data-act="kurs-pool" data-id="' + a.id + '">Probenpool</button>' : '') +
       '<a class="btn sm grow" href="#/a/' + a.id + '/uebersicht">' + A.I.table + ' Übersicht</a></div></div>';
     h += '<div class="section-title" style="padding:0 12px">Proben</div><ul class="list" style="padding:0 8px 8px">';
     if (!st) h += '<li class="empty small">Lade Kurs …</li>';
@@ -1046,5 +1046,34 @@
     if (a && a.kurs && a.kurs.session) { vergleichCache.clear(); aktualisieren(a, true); }
   });
 
-  global.Kurs = { mailLink, renderList, renderUebersicht, ergebnisExtra, hinweisKarte, nachRender, handle, beitreten, anlegen, istAbgegeben: (p) => !!(p && p.abgegebenAt), nameAusEmail, FORMATE };
+  // ---------- Sammelerfassung (Ernterapport) → Kursproben ----------
+  async function sammelAnlegen(a, zeilen) {
+    const A = app(); const k = await kk(a.kurs.secret); const ids = [];
+    try {
+      for (const r of zeilen) {
+        const pid = A.uid();
+        const privat = { bez: r.bez, schnitt: r.schnitt, notiz: [r.herkunft ? 'Betrieb: ' + r.herkunft : '', r.info, r.notiz].filter(Boolean).join(' · ') || undefined,
+          standort: { plz: r.plz, hoehe: r.hoehe != null ? String(r.hoehe) : undefined }, fotos: [] };
+        await api(a.kurs.id + '/proben/' + pid, { method: 'PUT', headers: H(a), body: { analyse: { typ: r.typ }, privat: await C.encryptJSON(k.key, privat, C.kursAad(a.kurs.id, 'probe|' + pid)), labor: null } });
+        ids.push(pid);
+      }
+    } catch (er) { A.toast((ids.length ? ids.length + ' Proben angelegt, dann Fehler: ' : 'Fehler: ') + fehlerText(er)); }
+    await laden(a).catch(() => {});
+    const st = cache.get(a.id) || { proben: [] };
+    const nrs = st.proben.filter((p) => ids.includes(p.id)).map((p) => p.nr).sort((x, y) => x - y);
+    if (ids.length) A.toast(ids.length + ' Kursproben angelegt (Nr. ' + nrs[0] + '–' + nrs[nrs.length - 1] + ').');
+    return nrs;
+  }
+  /** Nach der Sammelerfassung gleich die Etiketten für die neuen Nummern anbieten. */
+  function etikettenNachSammel(a, nrs) {
+    setTimeout(() => {
+      etikettenDialog(a);
+      const el = document.querySelector('#etForm'); if (!el) return;
+      const w = el.querySelector('[name=welche]'); w.value = 'nr';
+      el.querySelector('[name=von]').value = nrs[0]; el.querySelector('[name=bis]').value = nrs[nrs.length - 1];
+      w.dispatchEvent(new Event('change', { bubbles: true }));
+    }, 120);
+  }
+
+  global.Kurs = { sammelAnlegen, etikettenNachSammel, mailLink, renderList, renderUebersicht, ergebnisExtra, hinweisKarte, nachRender, handle, beitreten, anlegen, istAbgegeben: (p) => !!(p && p.abgegebenAt), nameAusEmail, FORMATE };
 })(window);

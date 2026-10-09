@@ -188,7 +188,7 @@
     if (h.startsWith('km=')) return { name: 'kursmail', token: h.slice(3) };
     if (h.startsWith('space=')) return { name: 'join', token: '' }; // Format aus Beta-Test, nicht mehr gültig
     const seg = h.replace(/^\//, '').split('/').filter(Boolean);
-    if (seg[0] === 'a' && seg[1]) return { name: 'anlass', id: seg[1], ov: seg[2] === 'uebersicht' };
+    if (seg[0] === 'a' && seg[1]) return { name: 'anlass', id: seg[1], ov: seg[2] === 'uebersicht', sammel: seg[2] === 'sammel' };
     if (seg[0] === 'e') return { name: 'anlass', id: null, ov: seg[1] === 'uebersicht' };
     if (seg[0] === 'p' && seg[1]) return { name: 'probe', id: seg[1], step: seg[2] || null };
     if (seg[0] === 'daten') return { name: 'daten' };
@@ -213,7 +213,7 @@
     const app = $('#app');
     let depth = 0;
     let anlassId = null;
-    if (r.name === 'anlass') { depth = r.ov ? 2 : 1; anlassId = r.id; }
+    if (r.name === 'anlass') { depth = r.ov || r.sammel ? 2 : 1; anlassId = r.id; }
     if (r.name === 'probe') {
       const p = probeById(r.id);
       if (!p) { ui.route = { name: 'home' }; return render(); }
@@ -225,7 +225,7 @@
     $('#r-nav').innerHTML = renderNav(r);
     $('#r-list').innerHTML = renderList(r.name === 'home' || r.name === 'daten' ? ui.ctxAnlass : anlassId, r);
     $('#main').innerHTML = r.name === 'probe' ? renderProbe(probeById(r.id), r.step)
-      : r.name === 'anlass' ? renderUebersicht(anlassId)
+      : r.name === 'anlass' ? (r.sammel ? window.Sammel.render(anlassId) : renderUebersicht(anlassId))
       : r.name === 'daten' ? renderDaten() : renderWelcome();
     afterRender();
   }
@@ -758,6 +758,7 @@
     if (location.hash !== lastHash) { lastHash = location.hash; window.scrollTo(0, 0); $('#main').scrollTop = 0; }
     fotosEinsetzen();
     if (window.Assistent) window.Assistent.update();
+    if (ui.route.sammel && window.Sammel) window.Sammel.verdrahten();
   }
 
   // ---------- Sheets / Toast ----------
@@ -807,6 +808,7 @@
     const ro = a.space && a.space.mode === 'r';
     sheet('<h2>' + esc(a.titel) + '</h2><div class="stack">' +
       (ro ? '<div class="alert info">' + I.lock + '<div>Geöffnet über einen <b>Nur-Ansehen-Link</b>. Ändern ist nicht möglich.</div></div>' : '<button class="btn block" data-act="edit-anlass" data-id="' + a.id + '">Bearbeiten</button>') +
+      (ro ? '' : '<button class="btn block" data-go="#/a/' + a.id + '/sammel">' + I.table + ' Sammelerfassung (wie Ernterapport)</button>') +
       '<button class="btn block" data-act="pdf-anlass" data-id="' + a.id + '">' + I.pdf + ' PDF aller Proben (mit QR-Codes)</button>' +
       '<button class="btn block" data-act="export-anlass" data-id="' + a.id + '">Als JSON-Datei exportieren</button>' +
       (a.space ? '<button class="btn block" data-act="share-space" data-id="' + a.id + '">' + I.share + ' Freigabe-Links fürs Büro / Team</button><button class="btn block" data-act="sync-now" data-id="' + a.id + '">Jetzt synchronisieren</button>' +
@@ -1425,7 +1427,7 @@
   // Schnittstelle für Zusatzmodule (Kurs)
   window.__app = {
     get db() { return db; }, save, render, refreshChrome, rerenderDetail, sheet, closeSheet, toast, go, esc, I, uid, now, fmt,
-    typBadge, radFokus: (p) => ui.fokus[p.id] || null, probeById, anlassById, auswertung, wheelSvg, tonOf, bestandStadium, sheetAnlass, sheetConsent, label, dateCH, route: () => ui.route,
+    typBadge, touchProbe, basisTabelle: () => basis && basis.tabelle, radFokus: (p) => ui.fokus[p.id] || null, probeById, anlassById, auswertung, wheelSvg, tonOf, bestandStadium, sheetAnlass, sheetConsent, label, dateCH, route: () => ui.route,
   };
   load();
   try { basis = JSON.parse(localStorage.getItem('agffV2Basis')); } catch (e) { basis = null; }
