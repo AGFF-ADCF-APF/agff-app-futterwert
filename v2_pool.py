@@ -90,7 +90,9 @@ def pruefen(d):
         out['schnitt'] = d['schnitt']
     reg = d.get('region')
     if reg:
-        if not isinstance(reg, dict) or not set(reg) <= {'ort', 'hoehe'} or not _text(reg.get('ort'), 80) or not _text(reg.get('hoehe'), 6):
+        if not isinstance(reg, dict) or not set(reg) <= {'plz', 'ort', 'hoehe'} or not _text(reg.get('ort'), 80) or not _text(reg.get('hoehe'), 6):
+            return None
+        if reg.get('plz') and not re.match(r'^[1-9]\d{3}$', str(reg['plz'])):  # PLZ bleibt für nationale Auswertungen
             return None
         out['region'] = {k: v for k, v in reg.items() if v}
     lab = d.get('labor')

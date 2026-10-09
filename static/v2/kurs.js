@@ -778,7 +778,7 @@
     A.sheet('<h2>In den Probenpool stellen</h2><p class="small" style="margin-top:0">Andere freigeschaltete Kursleitende können diese Probe in eigene Kurse übernehmen. <b>Ohne Personennamen</b>: Beurteilungen werden als «Referenz» gespeichert. Pool-Einträge sind für alle Kursleitenden lesbar (nicht Ende-zu-Ende verschlüsselt).</p>' +
       '<form id="poolForm" class="stack"><label class="field"><span>Titel *</span><input class="input" name="titel" required maxlength="120" value="' + esc(kp.bez || ('Probe Nr. ' + kp.nr)) + '"></label>' +
       '<label class="field"><span>Beschreibung (ohne Betriebs- oder Personennamen)</span><textarea class="input" name="beschreibung" maxlength="1000">' + esc(kp.notiz || '') + '</textarea></label>' +
-      (kp.standort && (kp.standort.ort || kp.standort.hoehe) ? '<label class="toggle"><input type="checkbox" name="region" checked> Region übernehmen: ' + esc([kp.standort.ort, kp.standort.hoehe ? kp.standort.hoehe + ' m ü. M.' : ''].filter(Boolean).join(', ')) + ' <span class="small muted">(ohne PLZ und Position)</span></label>' : '') +
+      (kp.standort && (kp.standort.plz || kp.standort.ort || kp.standort.hoehe) ? '<label class="toggle"><input type="checkbox" name="region" checked> Region übernehmen: ' + esc([[kp.standort.plz, kp.standort.ort].filter(Boolean).join(' '), kp.standort.hoehe ? kp.standort.hoehe + ' m ü. M.' : ''].filter(Boolean).join(', ')) + ' <span class="small muted">(ohne genaue Position)</span></label>' : '') +
       (kp.schnitt ? '<label class="toggle"><input type="checkbox" name="schnitt" checked> Schnittdatum (' + A.dateCH(kp.schnitt) + ')</label>' : '') +
       (kp.labor && Object.keys(kp.labor).length ? '<label class="toggle"><input type="checkbox" name="labor" checked> Laborwerte</label>' : '') +
       (fotos.length ? '<div><b class="small">Fotos</b><div class="stack" style="margin-top:6px">' + fotos.map((f, i) => '<label class="toggle"><input type="checkbox" name="foto' + i + '" checked> ' + (f.art === 'labor' ? 'Laborbericht (geschwärzt)' : 'Futterfoto') + ' ' + (i + 1) + '</label>').join('') + '</div></div>' : '') +
@@ -802,7 +802,7 @@
           const refs = zeilen.map((z, i) => fd.get('ref' + i) === 'on' ? { label: String(fd.get('label' + i) || '').trim() || 'Referenz ' + (i + 1), analyse: Object.assign({}, z.analyse, { id: A.uid() }) } : null).filter(Boolean);
           const daten = { typ: kp.typ, titel: String(fd.get('titel')).trim(), beschreibung: String(fd.get('beschreibung') || '').trim(), quelle: a.titel,
             schnitt: fd.get('schnitt') === 'on' ? kp.schnitt : undefined,
-            region: fd.get('region') === 'on' ? { ort: kp.standort.ort || undefined, hoehe: kp.standort.hoehe || undefined } : undefined,
+            region: fd.get('region') === 'on' ? { plz: /^[1-9]\d{3}$/.test(String(kp.standort.plz || '').trim()) ? String(kp.standort.plz).trim() : undefined, ort: kp.standort.ort || undefined, hoehe: kp.standort.hoehe || undefined } : undefined,
             labor: fd.get('labor') === 'on' ? kp.labor : undefined,
             fotos: neueFotos.map((x) => x.meta), referenzen: refs };
           await poolApi('/' + poolId, a, { method: 'PUT', body: { daten } });
@@ -836,7 +836,7 @@
       (liste.length ? '<ul class="list">' + liste.map((e) => {
         const d = e.daten;
         return '<li class="item" style="cursor:default;align-items:flex-start"><span class="foto-thumb" style="width:64px;height:64px;flex:none">' + (d.fotos && d.fotos[0] ? '<img alt="" data-poolfoto="' + esc(e.id) + '|' + esc(d.fotos.find((f) => f.art === 'futter') ? d.fotos.find((f) => f.art === 'futter').id : d.fotos[0].id) + '">' : '') + '</span>' +
-          '<span style="flex:1;min-width:0"><span class="t">' + esc(d.titel) + '</span><span class="s">' + esc((global.K3.TYPEN[d.typ] || {}).titel || '') + (d.region && d.region.ort ? ' · ' + d.region.ort : '') + (d.labor ? ' · Labor' : '') + (d.referenzen.length ? ' · ' + d.referenzen.length + ' Referenz' + (d.referenzen.length === 1 ? '' : 'en') : '') + '</span>' +
+          '<span style="flex:1;min-width:0"><span class="t">' + esc(d.titel) + '</span><span class="s">' + esc((global.K3.TYPEN[d.typ] || {}).titel || '') + (d.region && (d.region.plz || d.region.ort) ? ' · ' + [d.region.plz, d.region.ort].filter(Boolean).join(' ') : '') + (d.labor ? ' · Labor' : '') + (d.referenzen.length ? ' · ' + d.referenzen.length + ' Referenz' + (d.referenzen.length === 1 ? '' : 'en') : '') + '</span>' +
           '<span class="s">' + esc((d.quelle ? 'aus «' + d.quelle + '» · ' : '') + A.dateCH(e.createdAt)) + '</span>' +
           '<span class="row" style="margin-top:6px;gap:6px"><button class="btn sm primary" data-act="pool-uebernehmen" data-id="' + a.id + '" data-pool="' + esc(e.id) + '">Übernehmen</button><button class="btn sm" data-act="pool-pdf" data-id="' + a.id + '" data-pool="' + esc(e.id) + '">PDF</button>' +
           (e.eigen ? '<button class="btn sm danger" data-act="pool-loeschen" data-id="' + a.id + '" data-pool="' + esc(e.id) + '">Löschen</button>' : '') + '</span></span></li>';
@@ -856,7 +856,7 @@
     if (!confirm('«' + d.titel + '» als neue Probe in diesen Kurs übernehmen?')) return;
     try {
       const k = await kk(a.kurs.secret); const pid = A.uid();
-      const privat = { bez: d.titel, notiz: d.beschreibung || undefined, schnitt: d.schnitt, standort: d.region ? { ort: d.region.ort, hoehe: d.region.hoehe } : {}, fotos: d.fotos, poolTitel: d.titel };
+      const privat = { bez: d.titel, notiz: d.beschreibung || undefined, schnitt: d.schnitt, standort: d.region ? { plz: d.region.plz, ort: d.region.ort, hoehe: d.region.hoehe } : {}, fotos: d.fotos, poolTitel: d.titel };
       await api(a.kurs.id + '/proben/' + pid, { method: 'PUT', headers: H(a), body: { analyse: { typ: d.typ }, poolId,
         privat: await C.encryptJSON(k.key, privat, C.kursAad(a.kurs.id, 'probe|' + pid)),
         labor: d.labor ? await C.encryptJSON(k.key, d.labor, C.kursAad(a.kurs.id, 'labor|' + pid)) : null } });
