@@ -491,30 +491,49 @@
     const f = () => FORMATE[fmtId];
     A.sheet('<h2>QR-Etiketten drucken</h2><p class="small" style="margin-top:0">Jedes Etikett ist eine nummerierte, noch leere Probe dieses Kurses. Teilnehmende kleben es auf ihre Probe und scannen es: beim ersten Mal erfassen, danach beurteilen.</p>' +
       '<form id="etForm" class="stack"><label class="field"><span>Etikettenformat</span><select class="input" name="format">' + Object.entries(FORMATE).map(([id, x]) => '<option value="' + id + '"' + (id === fmtId ? ' selected' : '') + '>' + x.titel + '</option>').join('') + '</select></label>' +
-      '<div class="grid2"><label class="field"><span>Anzahl Bögen</span><input class="input" type="number" name="boegen" min="1" max="5" value="1"></label>' +
-      '<label class="field"><span>Inhalt</span><select class="input" name="welche"><option value="neu">Neue leere Etiketten</option>' + (leer ? '<option value="leer">Vorhandene leere (' + leer + ') nochmals</option>' : '') + '<option value="erfasst">Bereits erfasste Proben</option></select></label></div>' +
+      '<div class="grid2"><label class="field"><span>Anzahl Proben</span><input class="input" type="number" name="anzahl" min="1" max="100" value="10" inputmode="numeric"></label>' +
+      '<label class="field"><span>Inhalt</span><select class="input" name="welche"><option value="neu">Neue leere Etiketten</option>' + (leer ? '<option value="leer">Vorhandene leere (' + leer + ') nochmals</option>' : '') + '<option value="erfasst">Bereits erfasste Proben</option>' + (st.proben.length ? '<option value="nr">Bestimmte Nummern nachdrucken</option>' : '') + '</select></label></div>' +
+      '<div class="grid2" id="etNr" hidden><label class="field"><span>Nr. von</span><input class="input" type="number" name="von" min="1" value="1" inputmode="numeric"></label><label class="field"><span>Nr. bis</span><input class="input" type="number" name="bis" min="1" value="' + Math.max(1, ...st.proben.map((p) => p.nr)) + '" inputmode="numeric"></label></div>' +
       '<label class="field"><span>Exemplare pro Probe</span><select class="input" name="exemplare">' + [1, 2, 3, 4, 5, 6].map((n) => '<option value="' + n + '">' + n + (n === 1 ? ' Etikett' : ' Etiketten (z. B. für Probe, Beutel, Laborauftrag)') + '</option>').join('') + '</select></label>' +
+      '<p class="small muted" id="etInfo" style="margin:-4px 0 0"></p>' +
       '<details><summary style="font-weight:650;cursor:pointer">Ränder anpassen (Testdruck auf Normalpapier)</summary><div class="grid2" style="margin-top:8px">' +
       ['oben', 'links', 'dx', 'dy'].map((k) => '<label class="field"><span>' + ({ oben: 'Rand oben', links: 'Rand links', dx: 'Spaltenabstand (Anfang–Anfang)', dy: 'Zeilenabstand (Anfang–Anfang)' })[k] + ' mm</span><input class="input" name="' + k + '" inputmode="decimal" value="' + f()[k] + '"></label>').join('') +
       '</div><label class="toggle" style="margin-top:8px"><input type="checkbox" name="linien"> Hilfslinien drucken (für Normalpapier)</label></details>' +
       '<p class="hint">Im Druckdialog «Tatsächliche Grösse» bzw. 100 % wählen (nicht «an Seite anpassen»).</p>' +
       '<div class="row"><button type="button" class="btn ghost grow" data-close>Abbrechen</button><button class="btn primary grow">PDF erstellen</button></div></form>', (el) => {
+      const auswahl = (welche) => {
+        if (welche === 'nr') {
+          const von = parseInt(el.querySelector('[name=von]').value, 10) || 1; const bis = parseInt(el.querySelector('[name=bis]').value, 10) || von;
+          return st.proben.filter((p) => p.nr >= Math.min(von, bis) && p.nr <= Math.max(von, bis));
+        }
+        return st.proben.filter((p) => p.status === (welche === 'leer' ? 'leer' : 'erfasst'));
+      };
+      const info = () => {
+        const welche = el.querySelector('[name=welche]').value; const feld = el.querySelector('[name=anzahl]');
+        feld.disabled = welche !== 'neu'; el.querySelector('#etNr').hidden = welche !== 'nr';
+        const n = welche === 'neu' ? Math.max(1, Math.min(100, parseInt(feld.value, 10) || 1)) : auswahl(welche).length;
+        const ex = parseInt(el.querySelector('[name=exemplare]').value, 10) || 1; const pro = f().cols * f().rows;
+        const b = Math.ceil(n * ex / pro);
+        el.querySelector('#etInfo').textContent = n + ' Probe' + (n === 1 ? '' : 'n') + (ex > 1 ? ' × ' + ex + ' Exemplare (direkt nacheinander)' : '') + ' = ' + n * ex + ' Etiketten auf ' + b + ' Bogen' + (b === 1 ? '' : 'en') + ' à ' + pro + '.';
+      };
       el.querySelector('[name=format]').addEventListener('change', (e) => {
         fmtId = e.target.value; try { localStorage.setItem('agffV2EtikettFormat', fmtId); } catch (er) { /* egal */ }
         ['oben', 'links', 'dx', 'dy'].forEach((k) => { el.querySelector('[name=' + k + ']').value = f()[k]; });
+        info();
       });
+      ['anzahl', 'welche', 'exemplare', 'von', 'bis'].forEach((k) => { el.querySelector('[name=' + k + ']').addEventListener('input', info); el.querySelector('[name=' + k + ']').addEventListener('change', info); });
+      info();
       el.querySelector('#etForm').addEventListener('submit', async (e) => {
         e.preventDefault(); const fd = new FormData(e.target); const btn = e.target.querySelector('.primary'); btn.disabled = true;
         const num = (k) => Number(String(fd.get(k)).replace(',', '.'));
         const layout = Object.assign({}, f(), { oben: num('oben'), links: num('links'), dx: num('dx'), dy: num('dy'), linien: fd.get('linien') === 'on' });
-        const boegen = Math.max(1, Math.min(5, parseInt(fd.get('boegen'), 10) || 1));
-        const pro = layout.cols * layout.rows;
+        const anzahl = Math.max(1, Math.min(100, parseInt(fd.get('anzahl'), 10) || 1));
         const ex = Math.max(1, Math.min(6, parseInt(fd.get('exemplare'), 10) || 1));
         try {
           let liste;
           const welche = fd.get('welche');
-          if (welche === 'neu') liste = (await api(a.kurs.id + '/etiketten', { method: 'POST', headers: H(a), body: { anzahl: Math.max(1, Math.floor(pro * boegen / ex)) } })).proben;
-          else { await laden(a); liste = cache.get(a.id).proben.filter((p) => p.status === (welche === 'leer' ? 'leer' : 'erfasst')).map((p) => ({ id: p.id, nr: p.nr, bez: p.bez })); }
+          if (welche === 'neu') liste = (await api(a.kurs.id + '/etiketten', { method: 'POST', headers: H(a), body: { anzahl } })).proben;
+          else { await laden(a); st.proben = cache.get(a.id).proben; liste = auswahl(welche).sort((x, y) => x.nr - y.nr).map((p) => ({ id: p.id, nr: p.nr, bez: p.bez })); }
           if (!liste.length) { A.toast('Keine Etiketten für diese Auswahl.'); btn.disabled = false; return; }
           const proben = liste.length;
           liste = liste.flatMap((p) => Array(ex).fill(p)); // Exemplare einer Probe nebeneinander
