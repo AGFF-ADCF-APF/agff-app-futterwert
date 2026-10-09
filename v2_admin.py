@@ -205,7 +205,9 @@ def admin_entscheid(eh):
     email = M.email_dec(r['email_enc'])
     if email and status == 'frei':
         M.senden(email, 'Freigeschaltet: Kurse anlegen', 'Ihr Antrag wurde angenommen. Sie können jetzt in der Futterbeurteilung Kurse anlegen:\n'
-                 'https://apps.graswachstum.ch/futter/v2/\n')
+                 'https://apps.graswachstum.ch/futter/v2/\n\n'
+                 'Ein Kurs, den Sie vor der Freischaltung angelegt haben, wurde noch nicht gespeichert. '
+                 'Bitte unter «Neuer Anlass» → «Kurs» nochmals anlegen – auf demselben Gerät sind Ihre Angaben bereits ausgefüllt.\n')
     elif email and status == 'abgelehnt':
         M.senden(email, 'Ihr Antrag Kursleitung', 'Ihr Antrag, Kurse anzulegen, wurde leider nicht angenommen.\n')
     return jsonify({'status': 'ok'})

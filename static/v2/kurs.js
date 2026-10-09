@@ -136,8 +136,16 @@
   }
 
   // ---------- Kurs anlegen (freigeschaltete Kursleitung) ----------
+  // Entwurf merken, falls die Kursleitung erst freigeschaltet werden muss (nur auf diesem Gerät)
+  const ENTWURF = 'agffV2KursEntwurf';
+  const entwurf = {
+    lesen() { try { return JSON.parse(localStorage.getItem(ENTWURF) || 'null'); } catch (e) { return null; } },
+    merken(d) { try { localStorage.setItem(ENTWURF, JSON.stringify({ titel: d.titel, datum: d.datum, ort: d.ort, email: d.email })); } catch (e) { /* egal */ } },
+    weg() { try { localStorage.removeItem(ENTWURF); } catch (e) { /* egal */ } },
+  };
+
   function anlegen(vorher) {
-    const A = app(); const v = vorher || {};
+    const A = app(); const v = vorher || entwurf.lesen() || {};
     A.sheet('<h2>Kurs anlegen</h2><p class="small" style="margin-top:0">Für Schulklassen und Gruppen: Teilnehmende erfassen Proben per QR-Etikett und beurteilen sie gegenseitig. Kurse anlegen können freigeschaltete Kursleitende.</p>' +
       '<form id="kursForm" class="stack"><label class="field"><span>Kurstitel *</span><input class="input" name="titel" required maxlength="200" value="' + A.esc(v.titel || '') + '" placeholder="z. B. Silagekurs BZ Rütti, Klasse 2b"></label>' +
       '<div class="grid2"><label class="field"><span>Datum</span><input class="input" type="date" name="datum" value="' + A.esc(v.datum || new Date().toISOString().slice(0, 10)) + '"></label><label class="field"><span>Ort</span><input class="input" name="ort" maxlength="200" value="' + A.esc(v.ort || '') + '"></label></div>' +
@@ -163,13 +171,14 @@
     codeSchritt('E-Mail bestätigen', d.email, async (code) => {
       const v = await api(r.id + '/aktivieren', { method: 'POST', body: { email: d.email, code } });
       const a = { id: A.uid(), titel: d.titel, datum: d.datum, ort: d.ort, createdAt: A.now(), updatedAt: A.now(), kurs: { id: r.id, secret, email: d.email, session: v.session, ichId: v.ich.id, rolle: 'leitung' } };
+      entwurf.weg();
       A.db.anlaesse.push(a); A.save();
       await metaSpeichern(a, null); await laden(a);
       nameSchritt(a, nameAusEmail(d.email), () => { A.go('#/a/' + a.id); setTimeout(() => etikettenDialog(a), 80); });
     }, () => A.toast('Bitte das Formular erneut absenden, um einen neuen Code zu erhalten.'));
   }
   function freischalten(d) {
-    const A = app();
+    const A = app(); entwurf.merken(d);
     A.sheet('<h2>Noch nicht freigeschaltet</h2><p class="small" style="margin-top:0"><b>' + A.esc(d.email) + '</b> ist noch nicht als Kursleitung freigeschaltet. Sie haben zwei Möglichkeiten:</p>' +
       '<div class="stack"><form id="invForm" class="card stack"><b>Einladungscode eingeben</b><input class="input" name="einladung" required placeholder="XXXX-XXXX-XXXX" autocapitalize="characters"><button class="btn primary">Mit Code fortfahren</button></form>' +
       '<div class="card stack"><b>Antrag stellen</b><p class="small muted" style="margin:0">Der Betreiber prüft Ihren Antrag und schaltet Sie per E-Mail frei.</p><button class="btn" id="antragBtn">Antrag stellen …</button></div>' +
