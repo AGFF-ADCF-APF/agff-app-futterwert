@@ -32,7 +32,7 @@
 
   /** Felder je Schutzklasse (Pfade relativ zur Probe bzw. zum Anlass). */
   const PRIVAT = {
-    probe: ['kopf.bez', 'kopf.herkunft', 'kopf.beurteiler', 'kopf.notiz', 'kopf.v1ProbeNr', 'fotos'],
+    probe: ['kopf.bez', 'kopf.herkunft', 'kopf.beurteiler', 'kopf.notiz', 'kopf.v1ProbeNr', 'fotos', 'labor'],
     anlass: ['titel', 'ort', 'notiz'],
   };
 
@@ -63,6 +63,13 @@
     return out;
   }
 
+  const LABOR_KEYS = { nel: [0, 15], nev: [0, 15], apde: [0, 400], apdn: [0, 600], rp: [0, 600], ts: [0, 100], rf: [0, 800], ndf: [0, 1000], adf: [0, 800],
+    zucker: [0, 600], ra: [0, 400], ph: [0, 14], milchsaeure: [0, 400], essigsaeure: [0, 300], buttersaeure: [0, 200] };
+  function cleanLabor(l) {
+    if (!isObj(l)) return undefined;
+    const o = {}; Object.keys(LABOR_KEYS).forEach((k) => { const v = num(l[k], LABOR_KEYS[k][0], LABOR_KEYS[k][1]); if (v !== undefined) o[k] = v; });
+    return Object.keys(o).length ? o : undefined;
+  }
   const FOTO_ID_RE = /^[A-Za-z0-9_-]{16}$/;
   function cleanFotos(list) {
     if (!Array.isArray(list)) return undefined;
@@ -86,6 +93,7 @@
       antworten: cleanAntworten(p.antworten, p.typ),
       rad: cleanRad(p.rad, p.typ),
       fotos: cleanFotos(p.fotos),
+      labor: cleanLabor(p.labor),
       kursProbeId: typeof p.kursProbeId === 'string' && ID_RE.test(p.kursProbeId) ? p.kursProbeId : undefined,
       abgegebenAt: iso(p.abgegebenAt),
       // nur lokal geführte Sync-Felder
@@ -119,7 +127,7 @@
 
   function cleanPrefs(p) {
     p = isObj(p) ? p : {};
-    return { email: typeof p.email === 'string' && /^[^@\s]{1,64}@[^@\s]{1,190}$/.test(p.email) ? p.email : undefined, beurteiler: str(p.beurteiler, 120) || '', kuhGewicht: num(p.kuhGewicht, 300, 1200) || 630, mastGewicht: num(p.mastGewicht, K3.MAST.LG_MIN, K3.MAST.LG_MAX) || 400 };
+    return { email: typeof p.email === 'string' && /^[^@\s]{1,64}@[^@\s]{1,190}$/.test(p.email) ? p.email : undefined, beurteiler: str(p.beurteiler, 120) || '', kuhGewicht: num(p.kuhGewicht, 300, 1200) || 630, ocrConsent: typeof p.ocrConsent === 'string' ? p.ocrConsent.slice(0, 20) : undefined, mastGewicht: num(p.mastGewicht, K3.MAST.LG_MIN, K3.MAST.LG_MAX) || 400 };
   }
 
   /** Bereinigt eine komplette lokale Datenbank (beim Laden und beim Wiederherstellen einer Sicherung). */

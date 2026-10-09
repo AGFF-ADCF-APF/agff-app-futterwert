@@ -310,11 +310,12 @@
   }
 
   // ---------- Ersterfassung einer Probe ----------
-  function erfassen(a, pid, kp, nr) {
+  function erfassen(a, pid, kp, nr, opts) {
     const A = app(); const esc = A.esc; const K3 = global.K3;
+    const istNeu = (opts && opts.neu) || !kp;
     const d = kp ? JSON.parse(JSON.stringify(kp)) : { typ: null, fotos: [], standort: {}, labor: null };
     d.fotos = (d.fotos || []).map((f) => Object.assign({}, f)); d.standort = d.standort || {}; d.labor = d.labor || {};
-    const titel = 'Nr. ' + (kp ? kp.nr : (nr || 'neu')) + ' erfassen';
+    const titel = 'Nr. ' + (kp && kp.nr ? kp.nr : (nr || 'neu')) + ' erfassen';
     const fotosHtml = () => '<div class="fotos">' + d.fotos.map((f) => '<div class="foto-thumb"><img alt="" data-kfoto="' + esc(f.id) + '" data-kprobe="' + esc(pid) + '" data-kanlass="' + a.id + '"><span class="foto-art">' + (f.art === 'labor' ? 'Labor' : 'Futter') + '</span></div>').join('') +
       '<button type="button" class="foto-add" data-ef-foto="futter">' + A.I.plus + '<span>Futter</span></button><button type="button" class="foto-add" data-ef-foto="labor">' + A.I.plus + '<span>Laborbericht</span></button></div>';
     const lw = (k, l, u) => '<label class="field"><span>' + l + ' <span class="muted">' + u + '</span></span><input class="input" name="lab_' + k + '" inputmode="decimal" value="' + esc(d.labor[k] != null ? String(d.labor[k]).replace('.', ',') : '') + '"></label>';
@@ -328,11 +329,22 @@
       '<div class="grid2"><label class="field"><span>Höhe (m ü. M.)</span><input class="input" name="hoehe" inputmode="numeric" maxlength="5" value="' + esc(d.standort.hoehe || '') + '"></label><div>' + lbl('Position') + '<button type="button" class="btn block" id="efGeo">' + (d.standort.lat ? 'Position gespeichert ✓' : 'Ungefähre Position') + '</button></div></div>' +
       '<p class="hint" style="margin-top:-4px">Die Position wird auf ca. 1 km gerundet.</p>' +
       '<div>' + lbl('Fotos') + '<div id="efFotos">' + fotosHtml() + '</div><p class="hint">Laborbericht: Adresse vor dem Fotografieren abdecken – danach können Sie zusätzlich schwärzen.</p></div>' +
-      '<details' + (Object.keys(d.labor).length ? ' open' : '') + '><summary style="font-weight:650;cursor:pointer">Laborwerte (falls vorhanden)</summary><div class="grid2" style="margin-top:8px">' +
+      '<details' + (Object.keys(d.labor).length ? ' open' : '') + '><summary style="font-weight:650;cursor:pointer">Laborwerte (falls vorhanden)</summary><button type="button" class="btn sm block" id="efOcr" style="margin-top:8px">Aus Laborbericht lesen (PDF/Foto)</button><div class="grid2" style="margin-top:8px">' +
       lw('ts', 'TS', '%') + lw('nel', 'NEL', 'MJ/kg TS') + lw('apde', 'APDE', 'g/kg TS') + lw('apdn', 'APDN', 'g/kg TS') + lw('rp', 'Rohprotein', 'g/kg TS') + lw('ph', 'pH', '') + '</div></details>' +
       '<label class="field"><span>Notiz</span><textarea class="input" name="notiz" maxlength="1000" placeholder="Lagerung, Besonderheiten …">' + esc(d.notiz || '') + '</textarea></label>' +
       '<p class="hint" id="efMsg"></p><div class="row"><button type="button" class="btn ghost grow" data-close>Abbrechen</button><button class="btn primary grow">Speichern</button></div></form>', (el) => {
       nachRender();
+      el.querySelector('#efOcr').addEventListener('click', async () => {
+        const vorher = Object.fromEntries(new FormData(el.querySelector('#efForm')));
+        const fotos = [];
+        for (const f of d.fotos.filter((x) => x.art === 'labor')) { const b = await F().blob(f.id).catch(() => null); if (b) fotos.push({ id: f.id, blob: b }); }
+        const r = await global.LaborOCR.dialog({ fotos });
+        // Dialog ersetzt das Formular: mit gemerkten Eingaben und erkannten Laborwerten neu öffnen
+        Object.assign(d, { typ: vorher.typ || d.typ, bez: vorher.bez, schnitt: vorher.schnitt, notiz: vorher.notiz });
+        d.standort = Object.assign({}, d.standort, { plz: vorher.plz, ort: vorher.ortname, hoehe: vorher.hoehe });
+        if (r) Object.keys(r.werte).forEach((k) => { if (['ts', 'nel', 'apde', 'apdn', 'rp', 'ph'].includes(k)) d.labor[k] = r.werte[k]; });
+        erfassen(a, pid, Object.assign({}, kp || {}, d, { nr: kp ? kp.nr : nr, abgaben: kp ? kp.abgaben : 0 }), nr, { neu: istNeu });
+      });
       el.querySelector('#efGeo').addEventListener('click', () => {
         if (!navigator.geolocation) return A.toast('Position nicht verfügbar.');
         navigator.geolocation.getCurrentPosition((pos) => {
@@ -382,7 +394,7 @@
           await laden(a); A.closeSheet(); A.refreshChrome();
           const neu = (cache.get(a.id) || { proben: [] }).proben.find((x) => x.id === pid);
           A.toast('Probe gespeichert.');
-          if (!kp && neu) eigeneProbeDialog(a, neu);
+          if (istNeu && neu) eigeneProbeDialog(a, neu);
         } catch (er) { btn.disabled = false; msg.textContent = fehlerText(er); }
       });
     });
@@ -624,7 +636,7 @@
     try {
       const k = await kk(a.kurs.secret);
       const { analyse, privat } = global.Model.split(p, 'probe');
-      delete analyse.anlassId; delete privat.fotos; // eigene Fotos der Beurteilung bleiben lokal
+      delete analyse.anlassId; delete privat.fotos; delete privat.labor; // Fotos und Laborimport der Beurteilung bleiben lokal
       const box = Object.keys(privat).length ? await C.encryptJSON(k.key, privat, C.kursAad(a.kurs.id, 'beurteilung|' + p.kursProbeId + '|' + p.id)) : null;
       await api(a.kurs.id + '/proben/' + p.kursProbeId + '/beurteilung', { method: 'PUT', headers: H(a), body: { data: { analyse, privat: box } } });
       p.abgegebenAt = A.now(); A.save(); vergleichCache.delete(p.kursProbeId);

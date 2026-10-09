@@ -159,6 +159,10 @@
       else v2 = o.p == null ? '' : o.p + ' Pkt.';
       befunde.push({ k: f.gruppe.replace(/-/g, '') + (f.optionen[0].mitte && p.typ === 'heu' && f.gruppe !== 'Geruch' && f.gruppe !== 'Farbe' ? ' – ' + f.optionen[0].mitte : ''), v: o.text, v2, ton: o.block || (o.p && o.p >= 4) ? 'kritisch' : (o.p || (o.k && o.k.nel < 0) ? 'mittel' : 'gut') });
     });
+    if (p.labor && Object.keys(p.labor).length) {
+      const lb = p.labor; const tx = [['nel', 'NEL', 2, ' MJ'], ['apde', 'APDE', 0, ' g'], ['rp', 'RP', 0, ' g'], ['ts', 'TS', 1, ' %']].filter(([k]) => lb[k] != null).map(([k, l, d, u]) => l + ' ' + fmt(lb[k], d) + u + (w[k] != null && k !== 'ts' ? ' (Schätzung ' + fmt(w[k], d) + ')' : '')).join(' · ');
+      if (tx) befunde.push({ k: 'Laborbericht', v: tx });
+    }
     let klasseSub = '';
     if (p.typ === 'heu' && res.korr) klasseSub = 'Korrektur NEL ' + fmt(res.korr.nel, 0) + ' % · APDE ' + fmt(res.korr.apde, 0) + ' % · APDN ' + fmt(res.korr.apdn, 0) + ' %';
     if (p.typ !== 'heu' && res.punkte != null) klasseSub = res.punkte + ' Punkte ' + (res.mitPh ? '(inkl. pH)' : '(ohne pH)');
@@ -654,6 +658,11 @@
         '<p class="hint">Nährwerte: Agroscope; Schlüssel AGFF ' + K3.TYPEN[p.typ].merkblatt + '. Sensorische Schätzung – ersetzt keine Laboranalyse.</p>';
     }
     if ((p.fotos || []).length || !readOnly(p)) h += '<div class="section-title">Fotos</div>' + fotosHtml(p);
+    // Laborbericht: Import erst nach vollständiger eigener Beurteilung (keine Beeinflussung)
+    h += '<div class="section-title">Laborbericht</div>';
+    if (p.labor && Object.keys(p.labor).length && (res.vollstaendig || readOnly(p))) h += window.LaborOCR.vergleichHtml(p, res);
+    else if (!res.vollstaendig) h += '<div class="alert info">' + I.lock + '<div>Laborwerte können Sie importieren, sobald Ihre eigene Beurteilung vollständig ist – so vergleichen Sie unbeeinflusst.</div></div>';
+    else if (!readOnly(p)) h += '<div class="card"><div class="row"><span class="grow small">Haben Sie einen Laborbericht? Lesen Sie ihn ein (PDF oder Foto) und vergleichen Sie Ihre Schätzung.</span><button class="btn primary" data-act="labor-import" data-id="' + p.id + '">Laborwerte importieren</button></div></div>';
     h += window.Kurs.ergebnisExtra(p);
     h += '<div class="row" style="margin-top:18px"><button class="btn primary" data-act="pdf-probe" data-id="' + p.id + '">' + I.pdf + ' PDF mit QR-Code</button><button class="btn" data-act="qr-probe" data-id="' + p.id + '">' + I.share + ' QR / Link</button><button class="btn ghost" data-act="dup-probe" data-id="' + p.id + '">Kopie als neue Probe</button></div>';
     return h;
@@ -1306,6 +1315,16 @@
       case 'v1-server': sheetV1Server(); break;
       case 'wipe': if (confirm('Wirklich alle lokalen v2-Daten inkl. Fotos löschen? Das kann nicht rückgängig gemacht werden.')) { db = emptyDb(); flush(); F.aufraeumen([]).catch(() => {}); fotoUrls.clear(); go('#/'); } break;
       case 'foto-neu': fotoNeu(probeById(id), t.dataset.art); break;
+      case 'labor-import': {
+        const pr = probeById(id); if (guardRO(pr)) break;
+        if (!auswertung(pr).vollstaendig) { toast('Bitte zuerst die eigene Beurteilung abschliessen.'); break; }
+        closeSheet();
+        const fotos = [];
+        for (const f of (pr.fotos || []).filter((x) => x.art === 'labor')) { const b = await F.blob(f.id).catch(() => null); if (b) fotos.push({ id: f.id, blob: b }); }
+        const r = await window.LaborOCR.dialog({ fotos });
+        if (r) { pr.labor = r.werte; touchProbe(pr); rerenderDetail(true); toast(Object.keys(r.werte).length + ' Laborwerte übernommen.'); }
+        break;
+      }
       case 'foto-zeigen': await fotoZeigen(probeById(id), t.dataset.foto); break;
       case 'foto-loeschen': await fotoLoeschen(probeById(id), t.dataset.foto); break;
       case 'foto-schwaerzen': {

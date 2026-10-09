@@ -239,7 +239,7 @@ def _check_record(record_id, data):
 # style-src-attr erlaubt style="..."-Attribute (Layout), aber keine fremden Stylesheets.
 CSP = '; '.join([
     "default-src 'self'",
-    "script-src 'self'",
+    "script-src 'self' 'wasm-unsafe-eval'",  # WebAssembly für Texterkennung auf dem Gerät (kein JS-eval)
     "style-src 'self' 'unsafe-inline'",
     "style-src-elem 'self'",
     "style-src-attr 'unsafe-inline'",
@@ -303,7 +303,14 @@ def v2_manifest():
 
 @v2.route('/v2/assets/<path:filename>')
 def v2_assets(filename):
-    resp = send_from_directory(V2_STATIC_DIR, filename)
+    if filename.endswith('.mjs'):
+        resp = send_from_directory(V2_STATIC_DIR, filename, mimetype='text/javascript')
+    elif filename.endswith('.traineddata.gz'):
+        # Roh ausliefern (nicht als Content-Encoding), Tesseract.js entpackt selbst
+        resp = send_from_directory(V2_STATIC_DIR, filename, mimetype='application/octet-stream')
+        resp.headers.pop('Content-Encoding', None)
+    else:
+        resp = send_from_directory(V2_STATIC_DIR, filename)
     resp.headers['Cache-Control'] = 'no-cache'
     return resp
 
