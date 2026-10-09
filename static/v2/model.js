@@ -32,7 +32,7 @@
 
   /** Felder je Schutzklasse (Pfade relativ zur Probe bzw. zum Anlass). */
   const PRIVAT = {
-    probe: ['kopf.bez', 'kopf.herkunft', 'kopf.beurteiler', 'kopf.notiz', 'kopf.v1ProbeNr', 'fotos', 'labor'],
+    probe: ['kopf.bez', 'kopf.herkunft', 'kopf.beurteiler', 'kopf.notiz', 'kopf.v1ProbeNr', 'kopf.plz', 'kopf.hoehe', 'fotos', 'labor', 'teilen', 'beitrag'],
     anlass: ['titel', 'ort', 'notiz'],
   };
 
@@ -89,7 +89,10 @@
       anlassId: typeof p.anlassId === 'string' && ID_RE.test(p.anlassId) ? p.anlassId : null,
       createdAt: iso(p.createdAt) || now, updatedAt: iso(p.updatedAt) || now,
       quelle: oneOf(p.quelle, ['v1']),
-      kopf: compact({ bez: str(k.bez, 120), herkunft: str(k.herkunft, 200), beurteiler: str(k.beurteiler, 120), schnitt: date(k.schnitt), notiz: str(k.notiz, 4000), v1ProbeNr: str(k.v1ProbeNr, 120) }),
+      kopf: compact({ bez: str(k.bez, 120), herkunft: str(k.herkunft, 200), beurteiler: str(k.beurteiler, 120), schnitt: date(k.schnitt), notiz: str(k.notiz, 4000), v1ProbeNr: str(k.v1ProbeNr, 120),
+        plz: typeof k.plz === 'string' && /^\d{4}$/.test(k.plz) ? k.plz : undefined, hoehe: num(k.hoehe, 0, 4000) }),
+      teilen: bool(p.teilen),
+      beitrag: isObj(p.beitrag) && ID_RE.test(p.beitrag.id || '') && SECRET_RE.test(p.beitrag.token || '') ? compact({ id: p.beitrag.id, token: p.beitrag.token, stand: str(p.beitrag.stand, 20000) }) : undefined,
       antworten: cleanAntworten(p.antworten, p.typ),
       rad: cleanRad(p.rad, p.typ),
       fotos: cleanFotos(p.fotos),
@@ -118,7 +121,7 @@
     const now = new Date().toISOString();
     return compact({
       id: a.id, titel: str(a.titel, 200) || 'Ohne Titel', datum: date(a.datum), ort: str(a.ort, 200), notiz: str(a.notiz, 4000),
-      createdAt: iso(a.createdAt) || now, updatedAt: iso(a.updatedAt), quelle: oneOf(a.quelle, ['v1']),
+      createdAt: iso(a.createdAt) || now, updatedAt: iso(a.updatedAt), quelle: oneOf(a.quelle, ['v1']), nudgeBis: iso(a.nudgeBis),
       // Server-Zugang nur aus eigener Sicherung/eigenem Speicher übernehmen, nie aus fremden Exporten
       space: opts && opts.mitSpace ? cleanSpace(a.space) : undefined,
       kurs: opts && opts.mitSpace ? cleanKurs(a.kurs) : undefined,
@@ -127,7 +130,8 @@
 
   function cleanPrefs(p) {
     p = isObj(p) ? p : {};
-    return { email: typeof p.email === 'string' && /^[^@\s]{1,64}@[^@\s]{1,190}$/.test(p.email) ? p.email : undefined, beurteiler: str(p.beurteiler, 120) || '', kuhGewicht: num(p.kuhGewicht, 300, 1200) || 630, ocrConsent: typeof p.ocrConsent === 'string' ? p.ocrConsent.slice(0, 20) : undefined, mastGewicht: num(p.mastGewicht, K3.MAST.LG_MIN, K3.MAST.LG_MAX) || 400 };
+    return { email: typeof p.email === 'string' && /^[^@\s]{1,64}@[^@\s]{1,190}$/.test(p.email) ? p.email : undefined, beurteiler: str(p.beurteiler, 120) || '', kuhGewicht: num(p.kuhGewicht, 300, 1200) || 630, ocrConsent: typeof p.ocrConsent === 'string' ? p.ocrConsent.slice(0, 20) : undefined,
+      beitragen: bool(p.beitragen), beitragConsent: typeof p.beitragConsent === 'string' ? p.beitragConsent.slice(0, 20) : undefined, nudgeNie: bool(p.nudgeNie), nudgeEinzelBis: iso(p.nudgeEinzelBis), mastGewicht: num(p.mastGewicht, K3.MAST.LG_MIN, K3.MAST.LG_MAX) || 400 };
   }
 
   /** Bereinigt eine komplette lokale Datenbank (beim Laden und beim Wiederherstellen einer Sicherung). */

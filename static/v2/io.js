@@ -42,7 +42,7 @@
   /** Exportpaket ohne Server-Schlüssel und interne Felder. */
   function bundle(anlass, proben) {
     // Fotos reisen nicht über PDF/QR/JSON-Export (zu gross, Schlüssel bleiben privat)
-    const clean = (p) => { const c = JSON.parse(JSON.stringify(p)); delete c.syncedAt; delete c.dirty; delete c.fotos; delete c.kursProbeId; delete c.abgegebenAt; return c; };
+    const clean = (p) => { const c = JSON.parse(JSON.stringify(p)); delete c.syncedAt; delete c.dirty; delete c.fotos; delete c.kursProbeId; delete c.abgegebenAt; delete c.beitrag; delete c.teilen; return c; };
     const a = anlass ? { id: anlass.id, titel: anlass.titel, datum: anlass.datum, ort: anlass.ort, notiz: anlass.notiz, updatedAt: anlass.updatedAt } : null;
     return { f: FORMAT, v: 2, exportiert: new Date().toISOString(), anlass: a, proben: proben.map(clean) };
   }

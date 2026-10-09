@@ -1,6 +1,6 @@
 /* Futter v2 – Service Worker: App-Shell offline verfügbar. API-Daten (Server-Freigaben) werden nie gecacht. */
-const VERSION = 'futter-v2-b1-12';
-const SHELL = ['./', 'assets/boot.js?v=b1-12', 'assets/app.css?v=b1-12', 'assets/k3.js?v=b1-12', 'assets/model.js?v=b1-12', 'assets/crypto.js?v=b1-12', 'assets/foto.js?v=b1-12', 'assets/wheel.js?v=b1-12', 'assets/io.js?v=b1-12', 'assets/kurs.js?v=b1-12', 'assets/ocr.js?v=b1-12', 'assets/app.js?v=b1-12',
+const VERSION = 'futter-v2-b1-13';
+const SHELL = ['./', 'assets/boot.js?v=b1-13', 'assets/app.css?v=b1-13', 'assets/k3.js?v=b1-13', 'assets/model.js?v=b1-13', 'assets/crypto.js?v=b1-13', 'assets/foto.js?v=b1-13', 'assets/wheel.js?v=b1-13', 'assets/io.js?v=b1-13', 'assets/kurs.js?v=b1-13', 'assets/ocr.js?v=b1-13', 'assets/statistik.js?v=b1-13', 'assets/app.js?v=b1-13',
   'assets/icon.svg', 'manifest.webmanifest', 'api/basis', 'assets/vendor/jspdf.umd.min.js', 'assets/vendor/qrcode.js'];
 
 self.addEventListener('install', (e) => {

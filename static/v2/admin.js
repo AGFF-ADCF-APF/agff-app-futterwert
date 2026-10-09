@@ -26,10 +26,17 @@
       '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Name</th><th>E-Mail</th><th>Status</th><th>via</th><th></th></tr></thead><tbody>' + frei.map((k) => '<tr><td>' + esc(k.name || '–') + '</td><td>' + esc(k.email) + '</td><td>' + esc(k.status) + '</td><td>' + esc(k.via) + '</td><td><button class="btn sm danger" data-e="' + k.id + '" data-s="loeschen">Entfernen</button></td></tr>').join('') + '</tbody></table></div>' +
       '<h2>Einladungscodes</h2><form id="inv" class="row"><input class="input" name="notiz" placeholder="Notiz (z. B. Lehrpersonen BZ Rütti)" style="flex:2"><input class="input" name="max" type="number" min="1" max="500" value="10" style="max-width:90px" title="Anzahl Verwendungen"><input class="input" name="tage" type="number" min="1" max="365" value="30" style="max-width:90px" title="Gültig (Tage)"><button class="btn primary">Code erzeugen</button></form><p id="neuerCode" class="alert info" hidden></p>' +
       '<div class="tbl-wrap" style="margin-top:8px"><table class="tbl"><thead><tr><th>Code …</th><th>Notiz</th><th>Verwendet</th><th>gültig bis</th><th></th></tr></thead><tbody>' + u.einladungen.map((i) => '<tr><td>…' + esc(i.hinweis) + '</td><td>' + esc(i.notiz) + '</td><td>' + i.uses + ' / ' + i.max + '</td><td>' + (i.revoked ? 'gesperrt' : datum(i.expiresAt)) + '</td><td>' + (i.revoked ? '' : '<button class="btn sm danger" data-inv="' + i.id + '">Sperren</button>') + '</td></tr>').join('') + '</tbody></table></div>' +
+      '<h2>Anonyme Beiträge</h2><p class="small muted">Für Auswertungen und Publikationen (ohne Namen, Betriebe, Parzellen).</p><button class="btn" id="csvExport">CSV herunterladen</button>' +
       '<h2>Probenpool (' + pool.eintraege.length + ')</h2><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Titel</th><th>Futter</th><th>Quelle</th><th>Datum</th><th></th></tr></thead><tbody>' + pool.eintraege.map((p) => '<tr><td>' + esc(p.daten.titel) + '</td><td>' + esc(p.daten.typ) + '</td><td>' + esc(p.daten.quelle) + '</td><td>' + datum(p.createdAt) + '</td><td><button class="btn sm danger" data-pool="' + p.id + '">Löschen</button></td></tr>').join('') + '</tbody></table></div>';
     $('#inhalt').hidden = false; $('#login').hidden = true;
   }
   document.addEventListener('click', async (e) => {
+    if (e.target.id === 'csvExport') {
+      const r = await fetch('api/admin/statistik.csv', { headers: { 'X-Admin-Pass': pw }, cache: 'no-store' });
+      if (!r.ok) { alert('Fehler ' + r.status); return; }
+      const url = URL.createObjectURL(await r.blob()); const l = document.createElement('a'); l.href = url; l.download = 'futter_beitraege_' + new Date().toISOString().slice(0, 10) + '.csv'; document.body.appendChild(l); l.click(); l.remove();
+      return;
+    }
     const b = e.target.closest('[data-e],[data-inv],[data-pool]'); if (!b) return;
     try {
       if (b.dataset.e) { if (b.dataset.s !== 'frei' && !confirm('Wirklich?')) return; await api('admin/kursleitung/' + b.dataset.e, { method: 'POST', body: JSON.stringify({ status: b.dataset.s }) }); }

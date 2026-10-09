@@ -65,6 +65,7 @@
 
   function touchProbe(p) {
     p.updatedAt = now();
+    if (window.Statistik) window.Statistik.planen(p);
     const a = p.anlassId && anlassById(p.anlassId);
     if (a) { a.updatedAt = p.updatedAt; if (a.space) { p.dirty = true; scheduleSync(a); } }
     save();
@@ -286,6 +287,7 @@
     return '<div class="bar"><a class="icon-btn back-btn hide-wide" href="#/" aria-label="Zurück">' + I.back + '</a><h2>' + esc(a ? a.titel : 'Einzelproben') +
       '<span class="sub">' + esc(a ? [dateCH(a.datum), a.ort, list.length + ' Proben'].filter(Boolean).join(' · ') : list.length + ' Proben ohne Anlass') + '</span></h2>' +
       (a ? '<button class="icon-btn" data-act="anlass-menu" data-id="' + a.id + '" aria-label="Anlass-Aktionen">' + I.more + '</button>' : '') + '</div>' +
+      window.Statistik.speicherHinweis(a, list.length) +
       (a ? '<div class="pad" style="padding-bottom:0"><button class="btn sm block ' + (a.space ? 'ghost' : '') + '" data-act="' + (a.space ? 'share-space' : 'consent') + '" data-id="' + a.id + '">' + (a.space ? s.ico + ' ' + esc(s.t) : I.phone + ' Nur auf diesem Gerät · Teilen …') + '</button></div>' : '') +
       '<div class="pad" style="padding-bottom:0"><div class="seg" role="tablist"><button aria-pressed="true">Proben</button><a class="btn ghost sm" style="flex:1;min-height:42px" href="#/' + (a ? 'a/' + a.id : 'e') + '/uebersicht">' + I.table + ' Übersicht</a></div></div>' +
       '<ul class="list" style="padding:8px">' + (list.length ? list.map((p) => probeItem(p, p.id === activeId)).join('') : '<li class="empty small">Noch keine Proben. Tippen Sie auf «Probe hinzufügen».</li>') + '</ul>' +
@@ -481,6 +483,9 @@
       '<label class="field"><span>Beurteilt von</span><input class="input" data-k="kopf.beurteiler" value="' + esc(k.beurteiler) + '" placeholder="Name" autocomplete="name"></label></div>' +
       '<div class="grid2"><label class="field"><span>Schnittdatum</span><input class="input" type="date" data-k="kopf.schnitt" value="' + esc(k.schnitt) + '"></label>' +
       '<label class="field"><span>Anlass</span><select class="input" data-k="anlassId"><option value="">– ohne Anlass –</option>' + an.filter((a) => !(a.space && a.space.mode === 'r') || a.id === p.anlassId).map((a) => '<option value="' + a.id + '"' + (a.id === p.anlassId ? ' selected' : '') + '>' + esc(a.titel) + '</option>').join('') + '</select></label></div>' +
+      '<div class="grid2"><label class="field"><span>PLZ (für den Vergleich mit der Region)</span><input class="input" data-k="kopf.plz" inputmode="numeric" maxlength="4" value="' + esc(k.plz) + '" placeholder="z. B. 3052"></label>' +
+      '<label class="field"><span>Höhe (m ü. M.)</span><input class="input" data-k="kopf.hoehe" inputmode="numeric" maxlength="4" value="' + esc(k.hoehe) + '"></label></div>' +
+      (db.prefs.beitragConsent && !p.kursProbeId ? '<label class="toggle"><input type="checkbox" data-k="teilen"' + ((p.teilen != null ? p.teilen : db.prefs.beitragen) ? ' checked' : '') + '> <span>Diese Probe anonym für Auswertungen beitragen <span class="small muted">(ohne Namen, Betrieb, Parzelle, Notizen, Fotos)</span></span></label>' : '') +
       '<label class="field"><span>Notiz</span><textarea class="input" data-k="kopf.notiz" placeholder="Beobachtungen, Lagerung, Fütterung …">' + esc(k.notiz) + '</textarea></label>' +
       '<p class="hint">Personenbezogene Angaben (Betrieb, Name) nur erfassen, wenn die betroffene Person einverstanden ist.</p></div>') +
       q('Fotos', 'Futter und Laborbericht – bleiben auf diesem Gerät, ohne Standortdaten.', fotosHtml(p)) +
@@ -663,6 +668,7 @@
     if (p.labor && Object.keys(p.labor).length && (res.vollstaendig || readOnly(p))) h += window.LaborOCR.vergleichHtml(p, res);
     else if (!res.vollstaendig) h += '<div class="alert info">' + I.lock + '<div>Laborwerte können Sie importieren, sobald Ihre eigene Beurteilung vollständig ist – so vergleichen Sie unbeeinflusst.</div></div>';
     else if (!readOnly(p)) h += '<div class="card"><div class="row"><span class="grow small">Haben Sie einen Laborbericht? Lesen Sie ihn ein (PDF oder Foto) und vergleichen Sie Ihre Schätzung.</span><button class="btn primary" data-act="labor-import" data-id="' + p.id + '">Laborwerte importieren</button></div></div>';
+    h += window.Statistik.vergleichHtml(p);
     h += window.Kurs.ergebnisExtra(p);
     h += '<div class="row" style="margin-top:18px"><button class="btn primary" data-act="pdf-probe" data-id="' + p.id + '">' + I.pdf + ' PDF mit QR-Code</button><button class="btn" data-act="qr-probe" data-id="' + p.id + '">' + I.share + ' QR / Link</button><button class="btn ghost" data-act="dup-probe" data-id="' + p.id + '">Kopie als neue Probe</button></div>';
     return h;
@@ -723,6 +729,9 @@
         (spaces.length ? '<p class="small" style="margin:0"><b>' + spaces.length + ' Anlass/Anlässe</b> haben Sie mit Ihrer Zustimmung zusätzlich auf dem Server gespeichert: ' + spaces.map((a) => esc(a.titel)).join(', ') + '. Löschen über das Menü des Anlasses.</p>' : '') +
         '<a href="' + esc(CFG.privacyUrl) + '" target="_blank" rel="noopener">Datenschutzerklärung</a></div>') +
       q('Sicherung', 'Komplette Sicherung aller Daten als Datei – z. B. für den Gerätewechsel.', '<div class="row"><button class="btn" data-act="backup">Sicherung herunterladen (JSON)</button><button class="btn" data-act="import">' + I.upload + ' PDF/JSON importieren</button></div>') +
+      q('Anonym beitragen und vergleichen', 'Proben mit PLZ anonym für Auswertungen und Publikationen beitragen – und im Gegenzug sehen, wie Ihre Proben im Vergleich zur Region abschneiden. Ohne Namen, Betrieb, Parzelle, Notizen und Fotos; jederzeit widerrufbar.',
+        db.prefs.beitragen && db.prefs.beitragConsent ? '<div class="row"><span class="chip gut">eingeschaltet</span><span class="small muted grow">' + db.proben.filter((x) => x.beitrag).length + ' Proben beigetragen</span><button class="btn danger sm" data-act="beitrag-aus">Ausschalten und alle zurückziehen</button></div>'
+          : '<button class="btn" data-act="beitrag-ein">Anonym beitragen einschalten …</button>') +
       q('Daten aus der bisherigen Version (v1)', 'Wiesenfutter-Beurteilungen (Grassilage/Dürrfutter) und Silomais werden übernommen; die Sensorik von v1 hatte teilweise andere Skalen und wird als «bitte prüfen» markiert. Die v1-Daten selbst bleiben unverändert.',
         '<div class="row"><button class="btn" data-act="v1-local"' + (v1local ? '' : ' disabled') + '>' + v1local + ' lokal gespeicherte v1-Proben übernehmen</button><button class="btn" data-act="v1-server">Meine Proben vom v1-Server laden …</button></div>') +
       q('Einstellungen', '', '<div class="grid2"><label class="field"><span>Mein Name (Vorschlag für «Beurteilt von»)</span><input class="input" data-pref="beurteiler" value="' + esc(db.prefs.beurteiler) + '"></label>' +
@@ -969,6 +978,7 @@
       ' Der Schlüssel steckt im Link selbst; der Server kann die persönlichen Angaben nicht lesen.</p>' +
       '<div class="qr-box" id="shareQr"></div><div class="copy-field" style="margin-top:12px"><input class="input" readonly value="' + esc(link) + '" id="shareLink"><button class="btn" data-act="copy" data-target="#shareLink">Kopieren</button></div>' +
       (navigator.share ? '<button class="btn block" style="margin-top:10px" data-act="native-share" data-url="' + esc(link) + '" data-title="' + esc(a.titel) + '">Teilen …</button>' : '') +
+      '<a class="btn block" style="margin-top:10px" href="mailto:' + encodeURIComponent(db.prefs.email || '') + '?subject=' + encodeURIComponent('Futterbeurteilung: ' + a.titel) + '&body=' + encodeURIComponent('Link zum Wiederöffnen (' + (tab === 'w' ? 'Bearbeiten' : 'nur ansehen') + '):\n' + link + '\n\nWer diesen Link hat, kann die Daten öffnen. Vertraulich aufbewahren.') + '">Link an mich mailen (später wieder abrufen)</a>' +
       '<p class="hint">' + esc(syncState(a).t) + '. Gespeichert seit ' + dateCH(a.space.consentAt) + '.' + (links.w ? ' Link gelangt in falsche Hände? → Menü › «Links erneuern».' : '') + '</p><button class="btn ghost block" data-close>Schliessen</button>');
     const svg = await IO.qrSvg(link); if (svg) el.querySelector('#shareQr').innerHTML = svg;
   }
@@ -1286,6 +1296,7 @@
         const pr = probeById(id);
         if (guardRO(pr)) return;
         if (!confirm('Probe «' + titelOf(pr) + '» löschen?')) return;
+        window.Statistik.zurueckziehen(pr).catch(() => {});
         db.proben = db.proben.filter((x) => x.id !== id);
         const a = pr.anlassId && anlassById(pr.anlassId);
         (pr.fotos || []).forEach((f) => { F.del(f.id).catch(() => {}); if (a && a.space && f.up !== false) db.fotoTombstones = (db.fotoTombstones || []).concat({ sid: a.space.id, id: f.id }); });
@@ -1335,7 +1346,10 @@
         if (neu) { pr.fotos[i] = neu; fotoUrls.delete(neu.id); touchProbe(pr); rerenderDetail(true); toast('Geschwärzte Fassung gespeichert.'); }
         break;
       }
-      default: if (act && (act.startsWith('kurs-') || act.startsWith('pool-'))) await window.Kurs.handle(act, t); break;
+      default:
+        if (act && (act.startsWith('kurs-') || act.startsWith('pool-'))) await window.Kurs.handle(act, t);
+        else if (act && (act.startsWith('beitrag-') || act.startsWith('nudge-'))) await window.Statistik.handle(act, t);
+        break;
     }
   });
 
@@ -1354,6 +1368,8 @@
     let v = el.type === 'checkbox' ? el.checked : el.value;
     if (k === 'antworten.phWert') { v = v === '' ? null : Number(String(v).replace(',', '.')); if (v != null && !isFinite(v)) return; delete p.rad.ph; }
     if (k === 'antworten.wochen') { v = v === '' ? null : Number(v); }
+    if (k === 'kopf.hoehe') { v = v === '' ? undefined : Number(v); if (v !== undefined && !isFinite(v)) return; }
+    if (k === 'kopf.plz') { v = String(v).replace(/\D/g, '').slice(0, 4); }
     if (k === 'anlassId') {
       const old = p.anlassId && anlassById(p.anlassId);
       if (old && old.space && p.syncedAt) { db.tombstones = (db.tombstones || []).concat(p.id); scheduleSync(old); }
@@ -1394,14 +1410,14 @@
   // Schnittstelle für Zusatzmodule (Kurs)
   window.__app = {
     get db() { return db; }, save, render, refreshChrome, rerenderDetail, sheet, closeSheet, toast, go, esc, I, uid, now, fmt,
-    probeById, anlassById, auswertung, wheelSvg, tonOf, bestandStadium, sheetAnlass, label, dateCH, route: () => ui.route,
+    probeById, anlassById, auswertung, wheelSvg, tonOf, bestandStadium, sheetAnlass, sheetConsent, label, dateCH, route: () => ui.route,
   };
   load();
   try { basis = JSON.parse(localStorage.getItem('agffV2Basis')); } catch (e) { basis = null; }
   route();
   // Verwaiste Fotos (gelöschte Proben) aus IndexedDB entfernen
   F.aufraeumen(db.proben.flatMap((p) => (p.fotos || []).map((f) => f.id))).catch(() => {});
-  loadBasis().then(() => render());
+  loadBasis().then(() => { render(); window.Statistik.alleAbgleichen(); });
   db.anlaesse.filter((a) => a.space).forEach((a) => syncAnlass(a).then(refreshChrome));
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js', { scope: './' }).catch(() => {});
   window.__futterV2 = { get db() { return db; }, auswertung, render };
