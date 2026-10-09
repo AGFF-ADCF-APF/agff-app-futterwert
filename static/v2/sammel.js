@@ -115,18 +115,20 @@
     const A = app(); const esc = A.esc; const K = K3();
     const sel = (name, opts, wert) => '<select class="input sm" name="' + name + '">' + opts.map(([v, t]) => '<option value="' + esc(v) + '"' + (String(wert || '') === v ? ' selected' : '') + '>' + esc(t) + '</option>').join('') + '</select>';
     const inp = (name, wert, extra) => '<input class="input sm" name="' + name + '" value="' + esc(wert || '') + '"' + (extra || '') + '>';
-    return '<tr data-i="' + i + '"><td class="nr">' + (i + 1) + '</td>' +
-      '<td>' + inp('parzelle', z.parzelle, ' maxlength="120" placeholder="z. B. Silage 1"') + '</td>' +
-      '<td>' + inp('schnitt', z.schnitt, ' maxlength="10" inputmode="decimal" placeholder="TT.MM" style="width:6.5em"') + '</td>' +
-      '<td>' + sel('nutzung', [['', '–']].concat([1, 2, 3, 4, 5, 6].map((n) => [String(n), String(n)])), z.nutzung) + '</td>' +
-      '<td>' + sel('bestand', [['', '–']].concat(K.BESTAENDE.map((b) => [b.id, b.kurz + ' ' + b.titel])), z.bestand) + '</td>' +
-      '<td>' + inp('stadium', z.stadium, ' maxlength="8" placeholder="3 / 6w" style="width:5.5em"') + '</td>' +
-      '<td>' + sel('kons', [['', '–']].concat(KONS.map((k) => [k.id, k.t])), z.kons) + '</td>' +
-      '<td>' + inp('lager', z.lager, ' maxlength="60" placeholder="Stock, Silo, Ballen"') + '</td>' +
-      '<td>' + inp('regen', z.regen, ' inputmode="numeric" maxlength="2" style="width:4em"') + '</td>' +
-      '<td>' + inp('ts', z.ts, ' inputmode="decimal" maxlength="4" style="width:4.5em"') + '</td>' +
-      '<td>' + inp('bem', z.bem, ' maxlength="200" placeholder="Gärung, Nacherwärmung …"') + '</td>' +
-      '<td>' + inp('hoehe', z.hoehe, ' inputmode="numeric" maxlength="4" placeholder="' + esc(kopf.hoehe || '') + '" style="width:5em"') + '</td>' +
+    const td = (l, html, cls) => '<td data-l="' + l + '"' + (cls ? ' class="' + cls + '"' : '') + '>' + html + '</td>';
+    const art = (KONS.find((k) => k.id === z.kons) || {}).typ || '';
+    return '<tr data-i="' + i + '" data-art="' + art + '"><td class="nr">' + (i + 1) + '</td>' +
+      td('Parzelle *', inp('parzelle', z.parzelle, ' maxlength="120" placeholder="z. B. Silage 1"'), 'parz') +
+      td('Schnitt', inp('schnitt', z.schnitt, ' maxlength="10" inputmode="decimal" placeholder="TT.MM"'), 'sm') +
+      td('Nutzung', sel('nutzung', [['', '–']].concat([1, 2, 3, 4, 5, 6].map((n) => [String(n), String(n)])), z.nutzung), 'sm') +
+      td('Bestand', sel('bestand', [['', '–']].concat(K.BESTAENDE.map((b) => [b.id, b.kurz + ' ' + b.titel])), z.bestand)) +
+      td('Stadium', inp('stadium', z.stadium, ' maxlength="8" placeholder="3 / 6w"'), 'sm') +
+      td('Konservierung *', sel('kons', [['', '–']].concat(KONS.map((k) => [k.id, k.t])), z.kons)) +
+      td('Lager', inp('lager', z.lager, ' maxlength="60" placeholder="Stock, Silo, Ballen"')) +
+      td('Regentage', inp('regen', z.regen, ' inputmode="numeric" maxlength="2" placeholder="Heu"'), 'sm regen') +
+      td('Anwelkgrad % TS', inp('ts', z.ts, ' inputmode="decimal" maxlength="4" placeholder="Silage"'), 'sm ts') +
+      td('Gärung, Bemerkung', inp('bem', z.bem, ' maxlength="200" placeholder="Gärung, Nacherwärmung …"'), 'breit') +
+      td('Höhe', inp('hoehe', z.hoehe, ' inputmode="numeric" maxlength="4" placeholder="' + esc(kopf.hoehe || '') + '"'), 'sm') +
       '<td class="info">' + kurzInfo(auswerten(z, kopf)) + '</td></tr>';
   }
 
@@ -168,6 +170,7 @@
       if (t.dataset.kopf) { e.kopf[t.dataset.kopf] = t.value; el.querySelectorAll('tbody tr').forEach(zeileAktualisieren); zaehlen(el, e); return; }
       const tr = t.closest('tr[data-i]'); if (!tr || !t.name) return;
       e.zeilen[Number(tr.dataset.i)][t.name] = t.value; zeileAktualisieren(tr); zaehlen(el, e);
+      if (t.name === 'kons') tr.dataset.art = (KONS.find((k) => k.id === t.value) || {}).typ || '';
     });
     el.addEventListener('click', async (ev) => {
       const b = ev.target.closest('[data-sammel-act]'); if (!b) return;

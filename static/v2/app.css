@@ -358,7 +358,32 @@ table.tbl { width: 100%; border-collapse: collapse; font-variant-numeric: tabula
 .input.sm { min-height: 38px; padding: 6px 8px; font-size: .92rem; border-radius: 8px; }
 .sammel-tbl td { padding: 4px; vertical-align: middle; }
 .sammel-tbl td .input { width: 100%; min-width: 7em; }
+.sammel-tbl td.sm .input { min-width: 4.5em; width: 6em; }
 .sammel-tbl td select.input { min-width: 6.5em; }
+.sammel { container-type: inline-size; }
+/* Schmal (Handy): jede Zeile als Karte mit beschrifteten Feldern */
+@container (max-width: 720px) {
+  .sammel .tbl-wrap { overflow: visible; border: 0; background: none; }
+  .sammel-tbl, .sammel-tbl tbody { display: block; }
+  .sammel-tbl thead { display: none; }
+  .sammel-tbl tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 10px; background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 10px 12px 12px; margin-bottom: 12px; box-shadow: var(--shadow); }
+  .sammel-tbl td { display: block; padding: 0; border: 0; min-width: 0; text-align: left; }
+  .sammel-tbl td.parz { order: 1; } .sammel-tbl td.nr { order: 0; }
+  .sammel-tbl td[data-l="Schnitt"] { order: 2; } .sammel-tbl td[data-l="Nutzung"] { order: 3; }
+  .sammel-tbl td[data-l="Bestand"] { order: 4; } .sammel-tbl td[data-l="Stadium"] { order: 5; }
+  .sammel-tbl td[data-l^="Konservierung"] { order: 6; } .sammel-tbl td[data-l="Lager"] { order: 7; }
+  .sammel-tbl td.regen, .sammel-tbl td.ts { order: 8; } .sammel-tbl td[data-l="Höhe"] { order: 9; }
+  .sammel-tbl td.breit { order: 10; } .sammel-tbl td.info { order: 11; }
+  .sammel-tbl tr[data-art="heu"] td.ts, .sammel-tbl tr[data-art="gras"] td.regen, .sammel-tbl tr[data-art="mais"] td.regen { display: none; }
+  .sammel-tbl tr[data-art="mais"] td[data-l="Bestand"], .sammel-tbl tr[data-art="mais"] td[data-l="Stadium"], .sammel-tbl tr[data-art="mais"] td[data-l="Nutzung"] { display: none; }
+  .sammel-tbl td[data-l]::before { content: attr(data-l); display: block; font-size: .78rem; font-weight: 650; color: var(--ink-3); margin-bottom: 3px; }
+  .sammel-tbl td .input, .sammel-tbl td.sm .input, .sammel-tbl td select.input { width: 100%; min-width: 0; min-height: 44px; font-size: 1rem; }
+  .sammel-tbl td.nr { grid-column: 1 / -1; font-weight: 750; color: var(--ink); font-size: 1rem; text-align: left; }
+  .sammel-tbl td.nr::before { content: "Probe "; }
+  .sammel-tbl td.parz, .sammel-tbl td.breit, .sammel-tbl td.info { grid-column: 1 / -1; }
+  .sammel-tbl td.info:empty { display: none; }
+}
 .sammel-tbl td.nr { color: var(--ink-3); font-size: .85rem; text-align: right; }
 .sammel-tbl td.info { min-width: 12em; }
 .sammel .actionbar { margin-top: 16px; }
