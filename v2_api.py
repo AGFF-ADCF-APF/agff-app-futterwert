@@ -13,6 +13,7 @@ import csv
 import hashlib
 import hmac
 import json
+import mimetypes
 import os
 import re
 import secrets
@@ -373,6 +374,7 @@ def v2_basis():
 
 
 # --- Freigabe-Bereiche (nur mit Zustimmung, Ende-zu-Ende verschlüsselt) ----
+mimetypes.add_type("image/webp", ".webp")  # fehlt in python:slim
 ASSET_BUILD = 'b1-20'  # gleich wie ?v= in templates/v2/index.html
 
 
