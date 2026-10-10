@@ -27,6 +27,7 @@
     wheel: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/><path d="M12 3v5.5M12 15.5V21M3 12h5.5M15.5 12H21"/></svg>',
     sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
     gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+    camera: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
     table: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></svg>',
   };
 
@@ -63,6 +64,12 @@
   const anlassReadOnly = (aid) => { const a = aid && anlassById(aid); return !!(a && a.space && a.space.mode === 'r'); };
   function guardRO(p) { if (readOnly(p)) { toast(p.abgegebenAt ? 'Abgegeben – die Beurteilung ist gesperrt.' : 'Nur-Ansehen-Link: Änderungen sind nicht möglich.'); return true; } return false; }
 
+  function neueProbe(typ, aid, antworten) {
+    const n = probenOf(aid).length + 1;
+    const pr = { id: uid(), typ, anlassId: aid, createdAt: now(), updatedAt: now(), kopf: { bez: 'Probe ' + n, beurteiler: db.prefs.beurteiler || '' }, antworten: antworten || {}, rad: {} };
+    db.proben.push(pr); touchProbe(pr);
+    return pr;
+  }
   function touchProbe(p) {
     p.updatedAt = now();
     if (window.Statistik) window.Statistik.planen(p);
@@ -218,6 +225,9 @@
     if (seg[0] === 'daten') return { name: 'daten' };
     if (seg[0] === 'schweiz') return { name: 'schweiz' };
     if (seg[0] === 'bilanz') return { name: 'bilanz' };
+    if (seg[0] === 'wiese') return { name: 'wiese' };
+    if (seg[0] === 'fotopunkte') return { name: 'fotopunkte', id: seg[1] || null };
+    if (seg[0] === 'pflanzen') return { name: 'pflanzen' };
     return { name: 'home' };
   }
   const go = (hash) => { if (location.hash === hash) route(); else location.hash = hash; };
@@ -245,14 +255,16 @@
       if (!p) { ui.route = { name: 'home' }; return render(); }
       depth = 2; anlassId = p.anlassId || null;
     }
-    if (r.name === 'daten' || r.name === 'schweiz' || r.name === 'bilanz') depth = 2;
-    ui.ctxAnlass = ['home', 'daten', 'schweiz', 'bilanz'].includes(r.name) ? (ui.ctxAnlass !== undefined ? ui.ctxAnlass : undefined) : anlassId;
+    const SEITEN = ['home', 'daten', 'schweiz', 'bilanz', 'wiese', 'fotopunkte', 'pflanzen'];
+    if (SEITEN.includes(r.name) && r.name !== 'home') depth = 2;
+    ui.ctxAnlass = SEITEN.includes(r.name) ? (ui.ctxAnlass !== undefined ? ui.ctxAnlass : undefined) : anlassId;
     app.dataset.depth = depth;
     $('#r-nav').innerHTML = renderNav(r);
-    $('#r-list').innerHTML = renderList(['home', 'daten', 'schweiz', 'bilanz'].includes(r.name) ? ui.ctxAnlass : anlassId, r);
+    $('#r-list').innerHTML = renderList(SEITEN.includes(r.name) ? ui.ctxAnlass : anlassId, r);
     $('#main').innerHTML = r.name === 'probe' ? renderProbe(probeById(r.id), r.step)
       : r.name === 'anlass' ? (r.sammel ? window.Sammel.render(anlassId) : renderUebersicht(anlassId))
-      : r.name === 'daten' ? renderDaten() : r.name === 'schweiz' ? window.Schweiz.render() : r.name === 'bilanz' ? window.Bilanz.render() : renderWelcome();
+      : r.name === 'daten' ? renderDaten() : r.name === 'schweiz' ? window.Schweiz.render() : r.name === 'bilanz' ? window.Bilanz.render()
+      : r.name === 'wiese' ? window.Wiese.render() : r.name === 'fotopunkte' ? window.Wiese.renderFotopunkte(r.id) : r.name === 'pflanzen' ? window.Pflanzen.render() : renderWelcome();
     afterRender();
   }
   let lastHash = null;
@@ -286,6 +298,7 @@
       '</ul>' +
       '<div class="section-title" style="padding:0 12px">Daten & Datenschutz</div><ul class="list" style="padding:0 8px 24px">' +
       '<li><a class="item" href="#/daten" aria-current="' + (r.name === 'daten') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.lock.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Speicherort, Sicherung, v1-Daten</span><span class="s">' + (storageOk ? 'Daten liegen nur in diesem Browser' : 'Browserspeicher nicht verfügbar!') + '</span></span></a></li>' +
+      '<li><a class="item" href="#/wiese" aria-current="' + (['wiese', 'fotopunkte', 'pflanzen'].includes(r.name)) + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.camera.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Wiese mit Kamera</span><span class="s">Bestand, Stadium, Höhe, Fotopunkte</span></span></a></li>' +
       '<li><a class="item" href="#/bilanz" aria-current="' + (r.name === 'bilanz') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.table.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Rationscheck</span><span class="s">Energie & Protein der Ration</span></span></a></li>' +
       '<li><a class="item" href="#/schweiz" aria-current="' + (r.name === 'schweiz') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">CH</span><span><span class="t">Auswertung Schweiz</span><span class="s">Karte nach PLZ und Höhenzone</span></span></a></li>' +
       '<li><a class="item" href="../"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">v1</span><span><span class="t">Zur bisherigen Version</span><span class="s">Futterwert-Rechner v1</span></span></a></li>' +
@@ -459,6 +472,7 @@
         try {
           let c = await F.vorbereiten(file, art);
           let ger;
+          if (art === 'futter' && window.Wiese.farbabgleich(c)) toast('Farben mit der Messkarte abgeglichen.');
           if (art === 'labor') { const r = await F.laborSchwaerzen(c, toast); if (!r) { toast('Abgebrochen – kein Foto gespeichert.'); return; } c = r.canvas; ger = r.ger; }
           const meta = await F.speichern(c, art, p.id);
           meta.up = false; if (ger) meta.ger = ger;
@@ -536,7 +550,7 @@
     const a = p.antworten;
     const groups = [['> 70 % Gräser', ['G', 'GR']], ['50–70 % Gräser', ['A', 'AR']], ['> 50 % Klee oder Kräuter', ['L', 'KF', 'KG']], ['Reinbestände', ['ITRG', 'LUZ']]];
     return q('Botanische Zusammensetzung', 'Bestimmen Sie den Anteil Gräser, Klee und Kräuter sowie den Raigras-Anteil und wählen Sie den passenden Wiesentyp.',
-      groups.map(([g, ids]) => '<div class="section-title" style="margin-left:0">' + g + '</div><div class="opts cols-wide">' +
+      (readOnly(p) ? '' : window.Wiese.bestandKnopf(p)) + groups.map(([g, ids]) => '<div class="section-title" style="margin-left:0">' + g + '</div><div class="opts cols-wide">' +
         ids.map((id) => { const b = K3.BESTAENDE.find((x) => x.id === id); const nl = window.LaborOCR.nelMitLabor(p, { bestand: id }); return opt({ set: 'bestand', val: id, on: a.bestand === id, lead: b.kurz, t: b.titel, s: b.text + (nl ? ' · ' + nl : '') }); }).join('') + '</div>').join('') +
       (window.LaborOCR.nelMitLabor(p, {}) ? '<p class="hint">Mit Laborgehalten (Rohprotein, Rohfaser/ADF) zeigt jede Option, welches NEL sich nach Grünem Buch ergäbe – so sehen Sie, wie stark die Deklaration wirkt.</p>' : ''));
   }
@@ -545,7 +559,7 @@
     const a = p.antworten;
     const avail = K3.verfuegbareStadien(basis && basis.tabelle, p.typ, a.aufwuchs || '1', a.bestand);
     let inner = '<div class="seg" style="margin-bottom:16px">' + [['1', '1. Aufwuchs'], ['f', 'Folgeaufwuchs']].map(([v, t]) => '<button data-set="aufwuchs" data-val="' + v + '" aria-pressed="' + (a.aufwuchs === v) + '">' + t + '</button>').join('') + '</div>';
-    if (!a.aufwuchs) return q('Aufwuchs und Entwicklungsstadium', 'Zuerst den Aufwuchs wählen.', inner);
+    if (!a.aufwuchs) return q('Aufwuchs und Entwicklungsstadium', 'Zuerst den Aufwuchs wählen.', (readOnly(p) ? '' : window.Wiese.stadiumKnopf(p)) + inner);
     if (a.aufwuchs === '1') {
       const lp = Number(a.leitpflanze || 0);
       inner += '<p class="qhint">Stadium anhand der Haupt- bzw. Referenzpflanze bestimmen. Welche Pflanze dominiert?</p><div class="plant-chips">' +
@@ -569,6 +583,7 @@
         }).join('') + '</div>';
     }
     if (!a.bestand) inner += '<p class="hint">Hinweis: Bestand noch nicht gewählt.</p>';
+    if (!readOnly(p)) inner = window.Wiese.stadiumKnopf(p) + inner;
     return q('Aufwuchs und Entwicklungsstadium', '', inner);
   }
 
@@ -808,6 +823,7 @@
     // Neuer Schritt / neue Seite: oben beginnen
     if (location.hash !== lastHash) { lastHash = location.hash; window.scrollTo(0, 0); $('#main').scrollTop = 0; }
     fotosEinsetzen();
+    if (['wiese', 'fotopunkte'].includes(ui.route.name)) window.Wiese.nachRender();
     if (window.Assistent) window.Assistent.update();
     if (ui.route.sammel && window.Sammel) window.Sammel.verdrahten();
     Rad.animieren($('#radbox'));
@@ -1104,6 +1120,7 @@
             try { const bin = Uint8Array.from(atob(f.data), (ch) => ch.charCodeAt(0)); await F.ablegen(f.id, f.probeId, new Blob([bin], { type: f.mime })); nf++; } catch (er) { /* defektes Foto überspringen */ }
           }
           if (nf) toast(nf + ' Fotos wiederhergestellt.');
+          window.Wiese.wiederherstellen(obj.wiese);
           obj.db.anlaesse.forEach((a) => { const l = anlassById(a.id); if (!l) db.anlaesse.push(a); else if ((a.updatedAt || '') > (l.updatedAt || '')) Object.assign(l, a); });
           obj.db.proben.forEach((p) => { const l = probeById(p.id); if (!l) db.proben.push(p); else if ((p.updatedAt || '') > (l.updatedAt || '')) Object.assign(l, p); });
           save(); closeSheet(); render(); toast('Sicherung wiederhergestellt.');
@@ -1303,6 +1320,8 @@
   document.addEventListener('click', async (e) => {
     if (ui.route.name === 'schweiz' && e.target.closest('[data-sw],[data-sw-region]') && window.Schweiz.handle(e.target)) return;
     if (e.target.closest('[data-bl]') && window.Bilanz.handle(e)) return;
+    if (e.target.closest('[data-wi]') && window.Wiese.handle(e)) return;
+    if (e.target.closest('[data-pf]') && window.Pflanzen.handle(e)) return;
     const t = e.target.closest('[data-close],[data-act],[data-set],[data-go],[data-fokus],[data-step],[data-sort],[data-o],[data-f]');
     if (!t) return;
     if (t.tagName === 'A' && t.dataset.act) e.preventDefault();
@@ -1336,10 +1355,7 @@
         sheetNewProbe(aid || null); break;
       }
       case 'create-probe': {
-        const aid = t.dataset.anlass || null;
-        const n = probenOf(aid).length + 1;
-        const pr = { id: uid(), typ: t.dataset.typ, anlassId: aid, createdAt: now(), updatedAt: now(), kopf: { bez: 'Probe ' + n, beurteiler: db.prefs.beurteiler || '' }, antworten: {}, rad: {} };
-        db.proben.push(pr); touchProbe(pr); closeSheet();
+        const pr = neueProbe(t.dataset.typ, t.dataset.anlass || null); closeSheet();
         go('#/p/' + pr.id + '/' + (pr.typ === 'mais' ? 'haecksel' : pr.typ === 'gps' ? 'kultur' : 'bestand')); break;
       }
       case 'new-anlass':
@@ -1378,7 +1394,12 @@
           const b = await F.blob(f.id).catch(() => null);
           if (b) fotos.push({ id: f.id, probeId: p.id, mime: b.type, data: await new Promise((res) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.readAsDataURL(b); }) });
         }
-        download(new Blob([JSON.stringify({ f: 'agff-futter-backup', v: 2, exportiert: now(), db: copy, fotos })], { type: 'application/json' }), 'Futterbeurteilung_Sicherung_' + new Date().toISOString().slice(0, 10) + '.json');
+        const wiese = window.Wiese.sicherung();
+        for (const fid of window.Wiese.fotoIds()) {
+          const b = await F.blob(fid).catch(() => null);
+          if (b) fotos.push({ id: fid, probeId: 'wiese', mime: b.type, data: await new Promise((res) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.readAsDataURL(b); }) });
+        }
+        download(new Blob([JSON.stringify({ f: 'agff-futter-backup', v: 2, exportiert: now(), db: copy, fotos, wiese })], { type: 'application/json' }), 'Futterbeurteilung_Sicherung_' + new Date().toISOString().slice(0, 10) + '.json');
         toast('Enthält die Schlüssel Ihrer Freigabe-Links – vertraulich aufbewahren!'); break;
       }
       case 'qr-probe': {
@@ -1429,7 +1450,7 @@
       }
       case 'v1-local': { let arr = []; try { arr = JSON.parse(localStorage.getItem('agffLocalSavedProbes') || '[]'); } catch (er) { /* leer */ } importV1(arr.map((x) => Object.assign({ probeNr: x.meta && x.meta.probeNr, beurteiler: x.meta && x.meta.beurteiler }, x))); break; }
       case 'v1-server': sheetV1Server(); break;
-      case 'wipe': if (confirm('Wirklich alle lokalen v2-Daten inkl. Fotos löschen? Das kann nicht rückgängig gemacht werden.')) { db = emptyDb(); flush(); F.aufraeumen([]).catch(() => {}); fotoUrls.clear(); go('#/'); } break;
+      case 'wipe': if (confirm('Wirklich alle lokalen v2-Daten inkl. Fotos löschen? Das kann nicht rückgängig gemacht werden.')) { db = emptyDb(); flush(); window.Wiese.allesLoeschen(); F.aufraeumen([]).catch(() => {}); fotoUrls.clear(); go('#/'); } break;
       case 'foto-neu': fotoNeu(probeById(id), t.dataset.art); break;
       case 'labor-import': {
         const pr = probeById(id); if (guardRO(pr)) break;
@@ -1516,13 +1537,13 @@
   // Schnittstelle für Zusatzmodule (Kurs)
   window.__app = {
     get db() { return db; }, save, render, refreshChrome, rerenderDetail, sheet, closeSheet, toast, go, esc, I, uid, now, fmt,
-    typBadge, touchProbe, basisTabelle: () => basis && basis.tabelle, radFokus: (p) => ui.fokus[p.id] || null, probeById, anlassById, auswertung, wheelSvg, tonOf, bestandStadium, sheetAnlass, sheetConsent, label, dateCH, route: () => ui.route,
+    typBadge, touchProbe, neueProbe, basisTabelle: () => basis && basis.tabelle, radFokus: (p) => ui.fokus[p.id] || null, probeById, anlassById, auswertung, wheelSvg, tonOf, bestandStadium, sheetAnlass, sheetConsent, label, dateCH, route: () => ui.route,
   };
   load();
   try { basis = JSON.parse(localStorage.getItem('agffV2Basis')); } catch (e) { basis = null; }
   route();
   // Verwaiste Fotos (gelöschte Proben) aus IndexedDB entfernen
-  F.aufraeumen(db.proben.flatMap((p) => (p.fotos || []).map((f) => f.id))).catch(() => {});
+  F.aufraeumen(db.proben.flatMap((p) => (p.fotos || []).map((f) => f.id)).concat(window.Wiese.fotoIds())).catch(() => {});
   loadBasis().then(() => { render(); window.Statistik.alleAbgleichen(); });
   db.anlaesse.filter((a) => a.space).forEach((a) => syncAnlass(a).then(refreshChrome));
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js', { scope: './' }).catch(() => {});

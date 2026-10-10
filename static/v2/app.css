@@ -438,3 +438,115 @@ table.tbl { width: 100%; border-collapse: collapse; font-variant-numeric: tabula
   .sammel-tbl tr[data-art="gruen"] td.ts, .sammel-tbl tr[data-art="gruen"] td.regen, .sammel-tbl tr[data-art="gps"] td.regen { display: none; }
   .sammel-tbl tr[data-art="gps"] td[data-l="Bestand"], .sammel-tbl tr[data-art="gps"] td[data-l="Stadium"], .sammel-tbl tr[data-art="gps"] td[data-l="Nutzung"] { display: none; }
 }
+
+/* Wiese mit Kamera: Vollbild-Kamera und Werkzeuge auf Standbild */
+html.cam-offen, html.cam-offen body { overflow: hidden; }
+.cam { position: fixed; inset: 0; z-index: 35; background: #000; color: #fff; display: flex; flex-direction: column; }
+.cam-buehne { position: relative; flex: 1; min-height: 0; overflow: hidden; touch-action: none; }
+.cam-buehne video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform-origin: center; }
+.cam-ov, .cam-bild { position: absolute; inset: 0; width: 100%; height: 100%; }
+.cam-ghost { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .45; pointer-events: none; }
+.cam-ref { position: absolute; right: 8px; top: 76px; width: min(42%, 260px); max-height: 55%; object-fit: contain; background: #fff; border-radius: 10px; border: 2px solid #fff; box-shadow: 0 4px 18px rgb(0 0 0 / .5); }
+.cam-ref[hidden] { display: none; }
+.cam-top { position: absolute; left: 0; right: 0; top: 0; display: flex; gap: 10px; align-items: flex-start; padding: max(10px, env(safe-area-inset-top)) 12px 18px; background: linear-gradient(rgb(0 0 0 / .7), transparent); pointer-events: none; }
+.cam-top > * { pointer-events: auto; }
+.cam-x { flex: none; width: 44px; height: 44px; border-radius: 50%; border: 0; background: rgb(0 0 0 / .55); color: #fff; font-size: 20px; cursor: pointer; }
+.cam-t { min-width: 0; font-size: .9rem; line-height: 1.35; text-shadow: 0 1px 3px #000; }
+.cam-t > b { display: block; font-size: 1.02rem; }
+.cam-t > span { display: block; opacity: .92; }
+.cam-info { position: absolute; left: 12px; right: 12px; bottom: 8px; pointer-events: none; text-align: center; }
+.cam-info[hidden] { display: none; }
+.cam-info:not(:empty), .cam-werkzeug .cam-info:not([hidden]) { padding: 6px 10px; }
+.cam-info:not(:empty) { background: rgb(0 0 0 / .6); border-radius: 10px; font-size: .88rem; }
+.cam-panel { position: absolute; left: 12px; right: 12px; bottom: 56px; background: rgb(20 20 20 / .92); border-radius: 14px; padding: 12px; display: grid; gap: 8px; }
+.cam-panel[hidden] { display: none; }
+.cam-panel .row { display: flex; flex-wrap: wrap; gap: 8px; }
+.cam-unten { flex: none; background: #111; padding: 8px 10px calc(10px + var(--safe-b)); display: grid; gap: 8px; max-height: 46dvh; overflow-y: auto; }
+.cam-werkzeug .cam-info { position: static; background: none; }
+.cam-ctrl { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: nowrap; }
+.cam-ctrl.wrap { flex-wrap: wrap; gap: 8px; }
+.cam-btn { min-height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid #555; background: #2a2a2a; color: #fff; font-weight: 650; cursor: pointer; }
+.cam-btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+.cam-btn.on { background: #c9a227; border-color: #c9a227; color: #000; }
+.cam-btn:disabled { opacity: .45; cursor: default; }
+.cam-btn[hidden] { display: none; }
+.cam-shot { flex: none; width: 70px; height: 70px; border-radius: 50%; border: 5px solid #fff; background: rgb(255 255 255 / .25); cursor: pointer; }
+.cam-shot:active { background: #fff; }
+.cam-shot.on { background: #c9a227; }
+.cam-shot[hidden] { display: none; }
+.cam-regler { display: flex; align-items: center; gap: 10px; font-size: .85rem; }
+.cam-regler[hidden] { display: none; }
+.cam-regler input[type=range] { flex: 1; min-width: 0; }
+.cam-regler .input { background: #222; color: #fff; border-color: #555; }
+.cam-wert { font-size: 1.4rem; font-weight: 800; min-width: 90px; text-align: center; }
+.cam-palette { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.cam-kl { display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 4px 8px; border-radius: 10px; border: 2px solid #444; background: #222; color: #fff; font-size: .82rem; text-align: left; cursor: pointer; }
+.cam-kl i { flex: none; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font: 700 12px/1 var(--font); color: #fff; border: 2px solid #fff; }
+.cam-kl b { margin-left: auto; }
+.cam-kl.on { border-color: #fff; background: #3a3a3a; }
+.cam-chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x mandatory; }
+.cam-chip { flex: none; width: 112px; scroll-snap-align: start; display: grid; gap: 4px; padding: 4px; border-radius: 10px; border: 2px solid #444; background: #222; color: #fff; font-size: .72rem; line-height: 1.2; text-align: left; cursor: pointer; }
+.cam-chip img, .cam-chip .ohne { width: 100%; height: 72px; object-fit: contain; border-radius: 6px; background: #fff; }
+.cam-chip .ohne { display: grid; place-items: center; background: #333; color: #aaa; }
+.cam-chip.on { border-color: #c9a227; }
+.cmp img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.cmp-linie { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1px; background: #fff; box-shadow: 0 0 6px #000; pointer-events: none; }
+.cmp-regler { width: 100%; }
+.cam select.input { background: #222; color: #fff; border-color: #555; }
+@media (max-width: 400px) { .cam-palette { grid-template-columns: repeat(2, minmax(0, 1fr)); } .cam-shot { width: 62px; height: 62px; } }
+
+.wiese .wi-karten { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 10px; }
+.wi-karte { display: grid; gap: 4px; text-align: left; padding: 14px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow); cursor: pointer; color: var(--ink); }
+.wi-karte span { font-size: .86rem; color: var(--ink-2); }
+.wi-karte:hover { border-color: var(--brand); }
+.wi-inline { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin: 0 0 14px; }
+.wi-inline .btn svg { width: 20px; height: 20px; }
+.wi-balken { display: flex; height: 22px; border-radius: 8px; overflow: hidden; margin: 6px 0; background: var(--surface-2); }
+.wi-legende { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: .78rem; color: var(--ink-2); margin-bottom: 10px; }
+.wi-legende i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+.wi-vorschlag { display: flex; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--brand-soft); margin: 8px 0; }
+.wi-vorschlag .lead { font-size: 1.4rem; font-weight: 800; min-width: 44px; text-align: center; }
+.wi-tab { width: 100%; border-collapse: collapse; font-size: .9rem; margin-bottom: 8px; }
+.wi-tab td { padding: 4px 0; border-bottom: 1px solid var(--line); }
+.wi-tab td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+.alert.warn { background: var(--mittel-soft); color: var(--ink); font-weight: 500; }
+.wi-gross { font-size: 2.2rem; font-weight: 800; margin: 4px 0; }
+.fp-mini { width: 44px; height: 44px; border-radius: 10px; object-fit: cover; flex: none; }
+
+.pflanzen .pf-m { margin-bottom: 14px; }
+.pf-kopf { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.pf-w { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 132px), 1fr)); gap: 6px; }
+.pf-opt { display: grid; justify-items: center; gap: 2px; padding: 8px 6px; min-height: 48px; border-radius: 12px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); font-size: .84rem; text-align: center; cursor: pointer; position: relative; }
+.pf-opt small { position: absolute; top: 4px; right: 7px; font-size: .7rem; color: var(--ink-3); }
+.pf-opt[aria-pressed="true"] { border: 2px solid var(--brand); background: var(--brand-soft); }
+.pf-opt:disabled { opacity: .38; cursor: default; }
+.pf-opt svg { color: var(--brand-ink); }
+.pf-treffer { border-top: 2px solid var(--line); padding-top: 10px; display: grid; gap: 8px; }
+.pf-art { padding: 10px 12px; border-radius: 12px; background: var(--surface-2); display: grid; gap: 4px; }
+.pf-art .chip { margin-left: 6px; }
+.pf-art .btn { justify-self: start; margin-top: 4px; }
+.cam-werkzeug .cam-top { position: static; order: -1; background: #111; padding-bottom: 8px; }
+.cam-werkzeug .cam-t { text-shadow: none; }
+.pf-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-bottom: 10px; }
+@media (min-width: 640px) { .pf-tabs { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.pf-tabs button { min-height: 44px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink-2); font-weight: 650; font-size: .88rem; cursor: pointer; }
+.pf-tabs button[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
+.pf-pfad { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+.pf-krume { border: 0; background: var(--brand-soft); color: var(--brand-ink); border-radius: 99px; padding: 5px 11px; font-size: .8rem; font-weight: 650; cursor: pointer; text-align: left; }
+.pf-krume.start { background: var(--surface-2); color: var(--ink-2); }
+.pf-krume + .pf-krume::before { content: '› '; }
+.pf-pfad .btn { margin-left: auto; }
+.pf-reihe { font-weight: 650; font-size: .9rem; margin: 0 0 10px; }
+.pf-spalten { display: grid; gap: 8px; }
+.pf-spalte { display: flex; gap: 12px; align-items: center; text-align: left; padding: 12px 14px; min-height: 56px; border-radius: 12px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); cursor: pointer; }
+.pf-spalte small { display: block; color: var(--ink-3); font-size: .8rem; margin-top: 2px; }
+.pf-nr { flex: none; min-width: 34px; height: 34px; padding: 0 6px; border-radius: 50%; display: grid; place-items: center; background: var(--brand); color: var(--on-brand); font-weight: 800; font-size: .85rem; }
+.pf-frage { font-weight: 700; margin: 12px 0 6px; }
+.pf-krit { display: grid; gap: 6px; }
+.pf-krit .pf-opt { justify-items: start; text-align: left; padding: 12px 54px 12px 14px; font-size: .92rem; }
+.pf-krit .pf-opt small { top: 50%; transform: translateY(-50%); right: 12px; }
+.pf-art { margin-bottom: 8px; }
+.pf-art-kopf { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pf-art-kopf .chip { margin-left: 0; }
+.pf-sym { color: var(--brand-ink); display: inline-grid; }
+.pf-weg { font-size: .74rem; }

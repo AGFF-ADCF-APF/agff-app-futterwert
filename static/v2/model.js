@@ -36,6 +36,13 @@
     anlass: ['titel', 'ort', 'notiz'],
   };
 
+  /** Punktraster (Wiese mit Kamera): nur Zählwerte. */
+  function cleanRaster(r) {
+    if (!isObj(r)) return undefined;
+    const o = {};
+    for (const k of ['rg', 'gr', 'kl', 'kf', 'kg', 'lu', 'k']) { const v = num(r[k], 0, 10000); if (v === undefined || v !== Math.floor(v)) return undefined; o[k] = v; }
+    return o;
+  }
   function cleanAntworten(a, typ) {
     if (!isObj(a)) return {};
     const o = {
@@ -52,6 +59,8 @@
       kolben: oneOf(a.kolben, ['gt55', '45', 'lt45']),
       hoch: bool(a.hoch), power: bool(a.power),
       kultur: oneOf(a.kultur, K3.GPS_KULTUREN.map((x) => x.id)), gpsStadium: oneOf(a.gpsStadium, K3.GPS_STADIEN.map((x) => x.id)), leguminosen: oneOf(a.leguminosen, K3.GPS_LEGUM.map((x) => x.id)),
+      raster: cleanRaster(a.raster),
+      wuchshoehe: num(a.wuchshoehe, 1, 300), hoeheN: num(a.hoeheN, 1, 100),
     };
     void typ;
     return compact(o);

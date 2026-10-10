@@ -1,7 +1,9 @@
 /* Futter v2 – Service Worker: App-Shell offline verfügbar. API-Daten (Server-Freigaben) werden nie gecacht. */
-const VERSION = 'futter-v2-b1-34';
-const SHELL = ['./', 'assets/boot.js?v=b1-34', 'assets/app.css?v=b1-34', 'assets/k3.js?v=b1-34', 'assets/model.js?v=b1-34', 'assets/crypto.js?v=b1-34', 'assets/foto.js?v=b1-34', 'assets/wheel.js?v=b1-34', 'assets/io.js?v=b1-34', 'assets/kurs.js?v=b1-34', 'assets/naehrwert.js?v=b1-34', 'assets/ocr.js?v=b1-34', 'assets/statistik.js?v=b1-34', 'assets/assistent.js?v=b1-34', 'assets/sammel.js?v=b1-34', 'assets/schweiz.js?v=b1-34', 'assets/einzelfutter.json', 'assets/bilanz.js?v=b1-34', 'assets/app.js?v=b1-34',
+const VERSION = 'futter-v2-b1-35';
+const SHELL = ['./', 'assets/boot.js?v=b1-35', 'assets/app.css?v=b1-35', 'assets/k3.js?v=b1-35', 'assets/model.js?v=b1-35', 'assets/crypto.js?v=b1-35', 'assets/foto.js?v=b1-35', 'assets/wheel.js?v=b1-35', 'assets/io.js?v=b1-35', 'assets/kurs.js?v=b1-35', 'assets/naehrwert.js?v=b1-35', 'assets/ocr.js?v=b1-35', 'assets/statistik.js?v=b1-35', 'assets/assistent.js?v=b1-35', 'assets/sammel.js?v=b1-35', 'assets/schweiz.js?v=b1-35', 'assets/einzelfutter.json', 'assets/bilanz.js?v=b1-35', 'assets/wiese.js?v=b1-35', 'assets/pflanzen.js?v=b1-35', 'assets/app.js?v=b1-35',
   'assets/bilder/stadien-page-1.webp', 'assets/bilder/knaulgras.webp', 'assets/bilder/rotklee.webp', 'assets/bilder/b2-stadien-1.webp', 'assets/bilder/wringprobe-1.webp', 'assets/bilder/gps-harvey.webp',
+  'assets/bilder/ref-st1.webp', 'assets/bilder/ref-st2.webp', 'assets/bilder/ref-st3.webp', 'assets/bilder/ref-st4.webp', 'assets/bilder/ref-st5.webp', 'assets/bilder/ref-st6.webp', 'assets/bilder/ref-st7.webp',
+  'assets/bilder/ref-kg3.webp', 'assets/bilder/ref-kg4.webp', 'assets/bilder/ref-kg6.webp', 'assets/bilder/ref-rk3.webp', 'assets/bilder/ref-rk5.webp', 'assets/bilder/ref-rk6.webp',
   'assets/icon.svg', 'manifest.webmanifest', 'api/basis', 'assets/vendor/jspdf.umd.min.js', 'assets/vendor/qrcode.js'];
 
 self.addEventListener('install', (e) => {
