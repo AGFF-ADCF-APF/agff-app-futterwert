@@ -51,6 +51,7 @@
       laenge: oneOf(a.laenge, k3cIds('laenge')), schnitt: oneOf(a.schnitt, k3cIds('schnitt')), koerner: oneOf(a.koerner, k3cIds('koerner')),
       kolben: oneOf(a.kolben, ['gt55', '45', 'lt45']),
       hoch: bool(a.hoch), power: bool(a.power),
+      kultur: oneOf(a.kultur, K3.GPS_KULTUREN.map((x) => x.id)), gpsStadium: oneOf(a.gpsStadium, K3.GPS_STADIEN.map((x) => x.id)), leguminosen: oneOf(a.leguminosen, K3.GPS_LEGUM.map((x) => x.id)),
     };
     void typ;
     return compact(o);

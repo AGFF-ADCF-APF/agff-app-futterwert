@@ -230,7 +230,7 @@
     const res = ctx.auswertung(probe);
     const L = ctx.label(probe, res);
     const typ = global.K3.TYPEN[probe.typ];
-    band(doc, 'Futterbeurteilung – ' + typ.titel, 'nach AGFF-Merkblatt ' + typ.merkblatt + (ctx.anlass ? ' · Anlass: ' + ctx.anlass.titel : ''));
+    band(doc, 'Futterbeurteilung – ' + typ.titel, (typ.quelle ? 'nach ' + typ.quelle : 'nach AGFF-Merkblatt ' + typ.merkblatt) + (ctx.anlass ? ' · Anlass: ' + ctx.anlass.titel : ''));
     doc.setTextColor(20); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
     doc.text(pdfText(L.titel), 14, 35);
     let y = metaLine(doc, L.meta, 14, 41, 182);
@@ -243,12 +243,12 @@
     const kl = res.klasse || { label: 'Unvollständig', ton: 'offen' };
     chipBox(doc, xr, y, wr, 15, res.sperre.length ? 'kritisch' : kl.ton, res.sperre.length ? 'Nicht verfüttern' : kl.label, L.klasseSub);
     let ky = y + 19;
-    const w = res.werte || {}; const b = res.basis || {};
-    const kp = probe.typ === 'mais' ? ['nel', 'nev', 'apde', 'staerke'] : ['nel', 'apde', 'apdn', 'nev'];
+    const w = res.werte || {}; const b = (probe.typ === 'gps' ? res.erwartet : res.basis) || {};
+    const kp = probe.typ === 'mais' || probe.typ === 'gps' ? ['nel', 'nev', 'apde', 'staerke'] : ['nel', 'apde', 'apdn', 'nev'];
     kp.forEach((m, i) => {
       const [lab, unit] = global.K3.METRIK_LABEL[m];
       const sub = res.werte && b[m] != null && Math.abs((w[m] || 0) - b[m]) > 0.004
-        ? (probe.typ === 'mais' ? 'Ausgang ' + fmt(b[m], dig(m)) : 'Tabelle ' + fmt(b[m], dig(m)) + ' · ' + (res.korr[m] > 0 ? '+' : '') + fmt(res.korr[m], 0) + ' %') : (res.werte ? 'ohne Korrektur' : '');
+        ? (probe.typ === 'mais' ? 'Ausgang ' + fmt(b[m], dig(m)) : probe.typ === 'gps' ? 'Richtwert ' + fmt(b[m], dig(m)) : 'Tabelle ' + fmt(b[m], dig(m)) + ' · ' + (res.korr && res.korr[m] > 0 ? '+' : '') + fmt(res.korr ? res.korr[m] : 0, 0) + ' %') : (res.werte ? 'ohne Korrektur' : '');
       kpi(doc, xr + (i % 2) * (wr / 2 + 1), ky + Math.floor(i / 2) * 21, wr / 2 - 1, lab, fmt(w[m], dig(m)), unit + '/kg TS', sub, (w[m] < b[m]) ? 'kritisch' : null);
     });
     ky += 46;
@@ -308,7 +308,7 @@
     const single = global.FutterIO.bundle(ctx.anlass, [probe]);
     const url = appUrl() + '#import=' + (await pack(single));
     const ok = await drawQr(doc, url, 160, 252, 36);
-    footer(doc, ok, 'Nährwerte: Agroscope (Fütterungsempfehlungen); Beurteilungsschlüssel AGFF ' + typ.merkblatt + '. Sensorische Schätzung – ersetzt keine Laboranalyse.');
+    footer(doc, ok, 'Nährwerte: Agroscope (Fütterungsempfehlungen); ' + (typ.quelle || 'Beurteilungsschlüssel AGFF ' + typ.merkblatt) + '. Sensorische Schätzung – ersetzt keine Laboranalyse.');
   }
 
   /** Fotoseite(n) einer Probe: Raster, Seitenverhältnis bleibt erhalten. */
@@ -457,6 +457,8 @@
     const futterart = ein.futterart || 'Wiesenfutter';
     let typ = null;
     if (/silomais/i.test(futterart) || erg.mode === 'silomais') typ = 'mais';
+    else if (/ganzpflanzen|gps/i.test(futterart) || erg.mode === 'gps') typ = 'gps';
+    else if (ein.konservierung === 'greenfeed') typ = 'gruen';
     else if (ein.konservierung === 'silage') typ = 'gras';
     else if (ein.konservierung === 'hay') typ = 'heu';
     if (!typ) return null;
@@ -469,7 +471,12 @@
       antworten: {}, rad: {},
     };
     const a = p.antworten;
-    if (typ !== 'mais') {
+    if (typ === 'gps') {
+      a.kultur = ein.gps_crop_type || undefined; a.gpsStadium = ein.gps_stage_class || undefined; a.leguminosen = ein.gps_legume_share || undefined;
+      a.ts = { lt30: '25', '30_40': '35', gt40: '45' }[ein.gps_ts_class];
+      if (ein.gps_conservation_class) p.kopf.notiz = [p.kopf.notiz, 'v1-Konservierung: ' + ({ sehr_gut: 'sehr gut', normal: 'normal', kritisch: 'kritisch', schlecht: 'schlecht' }[ein.gps_conservation_class] || ein.gps_conservation_class) + ' (in v2 über das Gärqualität-Rad)'].filter(Boolean).join(' · ');
+    }
+    if (typ !== 'mais' && typ !== 'gps') {
       a.aufwuchs = ein.aufwuchs === 'erster' ? '1' : ein.aufwuchs === 'folge' ? 'f' : undefined;
       a.bestand = ein.bestand ? String(ein.bestand).toUpperCase() : undefined;
       a.stadium = ein.stadium ? String(ein.stadium) : undefined;

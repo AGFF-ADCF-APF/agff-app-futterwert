@@ -18,7 +18,7 @@ import time
 from flask import jsonify, request, send_from_directory
 
 import v2_mail as M
-from v2_api import v2, _db, _now, _sha, _rate_hit, _check_record, _json_body, ID_RE, TOKEN_RE, FOTO_ID_RE
+from v2_api import v2, _db, _now, _sha, _rate_hit, _check_record, _json_body, ID_RE, TOKEN_RE, FOTO_ID_RE, FUTTERARTEN
 
 FOTO_DIR = os.environ.get('V2_FOTO_DIR', 'data/v2_fotos')
 MAX_FOTO_BYTES = 5 * 1024 * 1024
@@ -79,7 +79,7 @@ def _text(v, n):
 
 def pruefen(d):
     """Whitelist der Pool-Daten. Gibt bereinigte Daten oder None zurück."""
-    if not isinstance(d, dict) or d.get('typ') not in ('heu', 'gras', 'mais'):
+    if not isinstance(d, dict) or d.get('typ') not in FUTTERARTEN:
         return None
     if not all(_text(d.get(k), n) for k, n in (('titel', 120), ('beschreibung', 1000), ('quelle', 200))):
         return None

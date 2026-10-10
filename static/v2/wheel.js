@@ -78,6 +78,12 @@
   function render(faktoren, auswahl, o) {
     o = o || {};
     const mini = !!o.mini;
+    if (!faktoren || !faktoren.length) { // Futter ohne Sensorik-Rad (Grünfutter): Scheibe in der Klassenfarbe
+      const z = o.zentrum || {}; const ton = TON[z.ton] || TON.offen;
+      return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' + (mini ? '-198 -198 396 396' : '-216 -216 432 432') + '" class="rad' + (mini ? ' rad-mini' : '') + '" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif"' + (o.titel ? ' role="img" aria-label="' + esc(o.titel) + '"' : '') + '>' +
+        '<circle r="196" fill="#8cbf4f" opacity=".25"/><circle r="150" fill="#8cbf4f" opacity=".35"/><circle r="100" fill="' + ton + '"/>' +
+        (mini ? '' : '<text y="-8" text-anchor="middle" dominant-baseline="central" font-size="30" font-weight="800" fill="#fff">' + esc(z.wert != null ? z.wert : '–') + '</text><text y="26" text-anchor="middle" font-size="13" font-weight="600" fill="#fff">' + esc(z.label || '') + '</text>') + '</svg>';
+    }
     const R0 = 52, R1 = mini ? 100 : 98, R2 = mini ? 150 : 150, R3 = 194, RT = 204;
     const N = faktoren.reduce((n, f) => n + f.optionen.length, 0);
     const gruppen = [];

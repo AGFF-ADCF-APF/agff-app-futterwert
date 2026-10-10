@@ -257,7 +257,38 @@
       ziel: 'Eine gute Grassilage hat über 5,8 MJ NEL pro kg TS und keine Konservierungsfehler.' },
     mais: { id: 'mais', merkblatt: 'K3c', farbe: '#e9b43c', titel: 'Maissilage', kurz: 'Maissilage', rad: RAD_K3C,
       ziel: 'Ausgezeichnet: 32–36 % TS, Kolbenanteil > 55 %, pH < 4,1, keine Fehlgärungen und keine Nacherwärmung.' },
+    gruen: { id: 'gruen', merkblatt: 'GF', quelle: 'Agroscope-Tabelle', farbe: '#8cbf4f', titel: 'Grünfutter', kurz: 'Grünfutter/Weide', rad: [], basisKons: 'gruen',
+      ziel: 'Nährwert aus der Agroscope-Tabelle für Bestand, Aufwuchs und Stadium; Abzug bei Verschmutzung.' },
+    gps: { id: 'gps', merkblatt: 'GPS', quelle: 'Richtwert-Modell, Rad K3b', farbe: '#c98f5a', titel: 'Ganzpflanzensilage', kurz: 'GPS', rad: RAD_K3B,
+      ziel: 'Richtwert-Modell wie v1: Kultur, Stadium und Leguminosen; Gärqualität mit dem Rad der Grassilage (K3b).' },
   };
+
+  // ---------- Ganzpflanzensilage (GPS): Richtwert-Modell aus v1 (AGFF-Näherung, Silage-Getreide-Referenzen) ----------
+  const GPS_KULTUREN = [
+    { id: 'weizen', titel: 'Weizen', w: { nel: 5.0, nev: 5.3, apde: 55, apdn: 62, rp: 105, rf: 290, ndf: 500, staerke: 170, zucker: 35 } },
+    { id: 'gerste', titel: 'Gerste', w: { nel: 5.0, nev: 5.3, apde: 54, apdn: 60, rp: 100, rf: 300, ndf: 520, staerke: 160, zucker: 30 } },
+    { id: 'triticale', titel: 'Triticale', w: { nel: 5.0, nev: 5.2, apde: 53, apdn: 58, rp: 95, rf: 315, ndf: 540, staerke: 150, zucker: 28 } },
+    { id: 'hafer', titel: 'Hafer', w: { nel: 5.8, nev: 6.0, apde: 58, apdn: 66, rp: 112, rf: 265, ndf: 470, staerke: 200, zucker: 40 } },
+    { id: 'roggen', titel: 'Roggen', w: { nel: 6.0, nev: 6.2, apde: 60, apdn: 68, rp: 115, rf: 250, ndf: 450, staerke: 220, zucker: 45 } },
+    { id: 'wickhafer', titel: 'Wickhafer', w: { nel: 6.1, nev: 6.3, apde: 64, apdn: 74, rp: 135, rf: 240, ndf: 430, staerke: 190, zucker: 50 } },
+    { id: 'mischung', titel: 'Mischung / unbekannt', w: { nel: 5.6, nev: 5.9, apde: 60, apdn: 70, rp: 125, rf: 265, ndf: 470, staerke: 175, zucker: 42 } },
+  ];
+  const GPS_STADIEN = [
+    { id: 'frueh', titel: 'Früh', text: 'Frühe Kornfüllung, hoher Blattanteil', k: { nel: 0.3, nev: 0.3, apde: 6, apdn: 2, rp: 20, rf: -35, ndf: -45, staerke: -30, zucker: 10 } },
+    { id: 'optimal', titel: 'Optimal', text: 'Milchreif bis frühe Teigreife', k: {} },
+    { id: 'spaet', titel: 'Spät', text: 'Teigreif bis überständig', k: { nel: -0.4, nev: -0.4, apde: -8, apdn: -4, rp: -18, rf: 45, ndf: 60, staerke: 35, zucker: -8 } },
+  ];
+  const GPS_LEGUM = [
+    { id: 'none', titel: 'Kein Anteil', k: {} },
+    { id: 'low', titel: 'Gering (< 20 %)', k: { nel: 0.1, nev: 0.1, apde: 2, apdn: 3, rp: 10, rf: -4, ndf: -8, staerke: -8, zucker: 2 } },
+    { id: 'medium', titel: 'Mittel (20–40 %)', k: { nel: 0.2, nev: 0.2, apde: 5, apdn: 7, rp: 22, rf: -10, ndf: -14, staerke: -18, zucker: 4 } },
+    { id: 'high', titel: 'Hoch (> 40 %)', k: { nel: 0.3, nev: 0.3, apde: 8, apdn: 12, rp: 35, rf: -16, ndf: -22, staerke: -30, zucker: 6 } },
+  ];
+  const GPS_TS = { lt30: { nel: -0.1, nev: -0.1, apde: -2, apdn: -1, rp: 0, rf: 8, ndf: 10, staerke: -8, zucker: 2 }, gt40: { nel: -0.2, nev: -0.2, apde: -1, apdn: -2, rp: -2, rf: 12, ndf: 14, staerke: -10, zucker: -2 } };
+  const GPS_KONS = { sehr_gut: { nel: 0.1, nev: 0.1, apde: 1, apdn: 1, rp: 1, rf: -2, ndf: -3, staerke: 2, zucker: 2 }, normal: {},
+    kritisch: { nel: -0.2, nev: -0.2, apde: -3, apdn: -2, rp: -3, rf: 12, ndf: 18, staerke: -8, zucker: -3 },
+    schlecht: { nel: -0.4, nev: -0.4, apde: -5, apdn: -4, rp: -8, rf: 35, ndf: 45, staerke: -15, zucker: -6 } };
+  const addK = (w, k) => { Object.keys(k || {}).forEach((m) => { if (w[m] != null) w[m] = w[m] + k[m]; }); return w; };
 
   const METRIK_LABEL = {
     nel: ['NEL', 'MJ'], nev: ['NEV', 'MJ'], apde: ['APDE', 'g'], apdn: ['APDN', 'g'], rp: ['RP', 'g'], rf: ['RF', 'g'],
@@ -272,7 +303,7 @@
   /** Wählt automatisch pH-Punkte aus dem Messwert, falls vorhanden. */
   function phOptionId(probe) {
     const a = probe.antworten || {};
-    if (probe.typ === 'gras') {
+    if (probe.typ === 'gras' || probe.typ === 'gps') {
       const ts = K3B_TS.find((t) => t.id === a.ts);
       const p = phPunkteK3b(a.phWert, ts ? ts.phSpalte : null);
       return p == null ? null : 'p' + p;
@@ -328,7 +359,7 @@
       if (o && o.block) sperre.push(o.block);
     });
 
-    if (typ.id === 'heu' || typ.id === 'gras') {
+    if (typ.id === 'heu' || typ.id === 'gras' || typ.id === 'gruen') {
       if (!a.bestand) fehlend.unshift('Botanische Zusammensetzung');
       if (!a.aufwuchs || !a.stadium) fehlend.unshift('Aufwuchs / Stadium');
     }
@@ -364,7 +395,44 @@
       if (kl.id === 'problem') sperre.push('Problematische Silage – Verfütterung kritisch prüfen.');
     }
 
-    if (typ.id === 'heu' || typ.id === 'gras') {
+    if (typ.id === 'gruen') {
+      const sb = K3B_SAUBERKEIT.find((x) => x.id === a.sauberkeit);
+      if (!sb) fehlend.push('Sauberkeit');
+      res.punkte = null;
+      res.teilKorr = { sauberkeit: sb ? sb.k : NO };
+      res.korr = sumK([res.teilKorr.sauberkeit]);
+      res.klasse = !sb || sb.id === 'sauber' ? { id: 'gut', label: 'Sauberes Grünfutter', ton: 'gut' }
+        : sb.id === 'leicht' ? { id: 'leicht', label: 'Leicht verschmutzt', ton: 'mittel' } : { id: 'stark', label: 'Stark verschmutzt', ton: 'schlecht' };
+    }
+
+    if (typ.id === 'gps') {
+      const ku = GPS_KULTUREN.find((x) => x.id === a.kultur);
+      const st = GPS_STADIEN.find((x) => x.id === a.gpsStadium);
+      const lg = GPS_LEGUM.find((x) => x.id === (a.leguminosen || 'none'));
+      const sb = K3B_SAUBERKEIT.find((x) => x.id === a.sauberkeit);
+      const ts = K3B_TS.find((x) => x.id === a.ts);
+      if (!ku) fehlend.push('Kultur');
+      if (!st) fehlend.push('Stadium');
+      if (!sb) fehlend.push('Sauberkeit');
+      if (!ts) fehlend.push('TS-Gehalt (Auswringprobe)');
+      let punkte = 0; let mitPh = false;
+      typ.rad.forEach((f) => { const o = sel[f.id] && findOpt(f, sel[f.id]); if (o && o.p != null) { punkte += o.p; if (f.ph) mitPh = true; } });
+      const kl = k3bKlasse(punkte, mitPh);
+      res.punkte = punkte; res.mitPh = mitPh; res.klasse = kl;
+      // Konservierung wie v1: sehr gut (keine Punkte) · normal (gut) · kritisch (leicht) · schlecht (stark/problematisch)
+      res.gpsKons = kl.id === 'gut' ? (punkte === 0 ? 'sehr_gut' : 'normal') : kl.id === 'leicht' ? 'kritisch' : 'schlecht';
+      if (kl.id === 'problem') sperre.push('Problematische Silage – Verfütterung kritisch prüfen.');
+      if (ku && st) {
+        const erwartet = addK(addK(Object.assign({}, ku.w), st.k), lg ? lg.k : null);
+        res.basis = Object.assign({}, ku.w); res.erwartet = Object.assign({}, erwartet);
+        const w = addK(addK(Object.assign({}, erwartet), ts ? GPS_TS[ts.tsWert < 30 ? 'lt30' : ts.tsWert > 40 ? 'gt40' : 'x'] : null), GPS_KONS[res.gpsKons]);
+        if (sb && sb.k) ['nel', 'nev', 'apde', 'apdn'].forEach((m) => { if (w[m] != null && sb.k[m]) w[m] = w[m] * (1 + sb.k[m] / 100); });
+        res.werte = w;
+      }
+      res.ziel = null;
+    }
+
+    if (typ.id === 'heu' || typ.id === 'gras' || typ.id === 'gruen') {
       const b = pickBasis(basis, probe);
       res.basis = b;
       if (b) {
@@ -374,9 +442,11 @@
       } else if (a.bestand && a.stadium) {
         fehlend.push('Keine Tabellenwerte für diese Kombination');
       }
-      const zielNel = typ.id === 'heu' ? 5.5 : 5.8;
-      res.ziel = { nel: zielNel, rp: typ.id === 'heu' ? 140 : null };
-      res.zielErreicht = res.werte ? (res.werte.nel >= zielNel && (typ.id !== 'heu' || res.werte.rp >= 140)) : null;
+      if (typ.id === 'gruen') { res.ziel = null; res.zielErreicht = null; } else {
+        const zielNel = typ.id === 'heu' ? 5.5 : 5.8;
+        res.ziel = { nel: zielNel, rp: typ.id === 'heu' ? 140 : null };
+        res.zielErreicht = res.werte ? (res.werte.nel >= zielNel && (typ.id !== 'heu' || res.werte.rp >= 140)) : null;
+      }
     }
 
     if (typ.id === 'mais') {
@@ -430,7 +500,7 @@
     const kg = Number(o.kuhGewicht) || 630;
     let tsv = Number(o.tsvBasis) > 0 ? Number(o.tsvBasis) : null;
     if (!tsv) {
-      const key = o.typ === 'heu' ? (o.aufwuchs === 'f' ? 'heuf' : 'heu') : 'silage';
+      const key = o.typ === 'heu' ? (o.aufwuchs === 'f' ? 'heuf' : 'heu') : o.typ === 'gruen' ? (o.aufwuchs === 'f' ? 'gruenf' : 'gruen1') : 'silage';
       const [fa, fb] = TSV_MB3[key];
       tsv = Math.round(fa * werte.nel + fb);
     }
@@ -487,6 +557,6 @@
     BESTAENDE, BESTAND_PLAIN, STADIEN_ERSTER, REFERENZPFLANZEN, STADIEN_FOLGE_HINWEIS, stadiumFolge,
     TYPEN, K3B_SAUBERKEIT, K3B_TS, K3B_KLASSEN, K3C_SCHRITTE, K3C_KORR, K3C_AUSGANG, K3C_METRIKEN, METRIK_LABEL,
     phPunkteK3b, phPunkteK3c, k3bKlasse, k3cKoernerRating, radAuswahl, pickBasis, verfuegbareStadien,
-    auswerten, milchPotenzial, mastPotenzial, mastNevBedarf, mastApdBedarf, mastTsv, MAST,
+    GPS_KULTUREN, GPS_STADIEN, GPS_LEGUM, auswerten, milchPotenzial, mastPotenzial, mastNevBedarf, mastApdBedarf, mastTsv, MAST,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

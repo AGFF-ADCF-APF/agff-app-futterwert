@@ -201,7 +201,7 @@
     if (nel && nel.diff < -0.3) t.push('Ihre Energieschätzung liegt unter dem Labor. Eventuell war das Futter jünger, oder die Abzüge (Rad) waren zu streng.');
     if (rf && Math.abs(rf.pz) > 15) t.push('Die Rohfaser weicht stark ab – ein Hinweis, dass das Entwicklungsstadium neu überdacht werden sollte.');
     if (apde && apde.pz < -12) t.push('Das Labor misst mehr APDE als geschätzt – der Bestand war evtl. kleereicher.');
-    if (p.labor && p.labor.ts != null && p.typ === 'gras') {
+    if (p.labor && p.labor.ts != null && (p.typ === 'gras' || p.typ === 'gps')) {
       const kl = (global.K3.K3B_TS.find((x) => x.id === p.antworten.ts) || {}).tsWert;
       if (kl && Math.abs(kl - p.labor.ts) >= 7) t.push('Auswringprobe: geschätzt ca. ' + kl + ' % TS, Labor ' + p.labor.ts + ' % – die Handprobe lohnt sich zu üben.');
     }
@@ -231,6 +231,7 @@
   /** Erwartete Gehalte gemäss AGFF für die gewählten Angaben (Bestand, Aufwuchs, Stadium bzw. Mais-Bedingungen). */
   function tabellenwert(p, res) {
     const K3 = global.K3;
+    if (p.typ === 'gps') return res.erwartet || null;
     if (p.typ === 'mais') {
       const w = (K3.K3C_AUSGANG[0] || {}).w; if (!w) return null;
       const o = {}; K3.K3C_METRIKEN.forEach((m, i) => { if (w[i] != null) o[m] = (res.korrIds || []).reduce((v, id) => v + K3.K3C_KORR[id].w[i], w[i]); });
@@ -262,10 +263,11 @@
     if (!t) return '';
     const zeilen = TAB.filter(([k]) => lab[k] != null && t[k] != null).map(([k, l, u, d]) => ({ k, l, u, d, t: t[k], lab: lab[k], pz: t[k] ? ((lab[k] - t[k]) / t[k]) * 100 : 0 }));
     if (!zeilen.length) return '';
-    const silageZucker = (k) => k === 'zucker' && p.typ !== 'heu';
+    const silageZucker = (k) => k === 'zucker' && ['gras', 'mais', 'gps'].includes(p.typ);
     const ton = (z) => (silageZucker(z.k) ? '' : Math.abs(z.pz) <= 8 ? 'gut' : Math.abs(z.pz) <= 15 ? 'mittel' : 'schlecht');
     const a = p.antworten || {};
-    const angaben = p.typ === 'mais' ? 'Maissilage einwandfrei, ' + ({ gt55: 'Kolben > 55 %', 45: 'Kolben 45–55 %', lt45: 'Kolben < 45 %' }[a.kolben] || '') :
+    const angaben = p.typ === 'gps' ? 'GPS-Richtwert ' + ((K3.GPS_KULTUREN.find((x) => x.id === a.kultur) || {}).titel || '') + ', Stadium ' + ((K3.GPS_STADIEN.find((x) => x.id === a.gpsStadium) || {}).titel || '') :
+      p.typ === 'mais' ? 'Maissilage einwandfrei, ' + ({ gt55: 'Kolben > 55 %', 45: 'Kolben 45–55 %', lt45: 'Kolben < 45 %' }[a.kolben] || '') :
       (K3.BESTAND_PLAIN[a.bestand] || a.bestand) + ', ' + (a.aufwuchs === '1' ? '1. Aufwuchs' : 'Folgeaufwuchs') + ', Stadium ' + a.stadium;
     let h = '<div class="card" style="margin-top:12px"><b>Labor im Vergleich zur AGFF-Tabelle</b><p class="small muted" style="margin:4px 0 8px">Erwartet für: ' + A.esc(angaben) + ' (Tabellenwert vor Abzügen für Konservierungsmängel).</p>' +
       '<div class="tbl-wrap"><table class="tbl"><thead><tr><th></th><th>Tabelle</th><th>Labor</th><th>Abw.</th></tr></thead><tbody>' +
@@ -280,7 +282,7 @@
     if (g('rp') && g('rp').pz < -12) tipps.push('Weniger Rohprotein als erwartet: gräserreicher, älter oder Blattverluste.');
     if (g('ra') && g('ra').t && lab.ra > 100) tipps.push('Rohasche über 100 g/kg TS: Hinweis auf Verschmutzung mit Erde.');
     if (g('nel') && g('nel').pz < -6 && !(faser && faser.pz > 10)) tipps.push('Weniger Energie als erwartet, ohne höhere Faser: eher Konservierungsverluste (Erwärmung, Fehlgärung, Regen) als ein späteres Stadium.');
-    const bp = p.typ !== 'mais' ? bestePassung(p) : null;
+    const bp = p.typ !== 'mais' && p.typ !== 'gps' ? bestePassung(p) : null;
     if (bp && bp.beste) {
       const name = (x) => (K3.BESTAND_PLAIN[x.bestand] || x.bestand) + ', Stadium ' + x.stadium;
       const passt = bp.gewaehlt && bp.gewaehlt.d <= bp.beste.d + 0.35;

@@ -707,7 +707,7 @@
       A.db.proben.push(p); A.save();
     }
     const zumVergleich = p.abgegebenAt || (a.kurs.rolle === 'leitung' && kp.abgaben > 0);
-    A.go('#/p/' + p.id + '/' + (zumVergleich ? 'ergebnis' : (p.typ === 'mais' ? 'haecksel' : 'bestand')));
+    A.go('#/p/' + p.id + '/' + (zumVergleich ? 'ergebnis' : (p.typ === 'mais' ? 'haecksel' : p.typ === 'gps' ? 'kultur' : 'bestand')));
   }
 
   // ---------- Abgabe und Vergleich ----------

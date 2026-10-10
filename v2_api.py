@@ -209,6 +209,9 @@ def _check_privat(pv):
             and isinstance(pv['ct'], str) and 0 < len(pv['ct']) <= MAX_RECORD_BYTES and _B64_RE.match(pv['ct']))
 
 
+FUTTERARTEN = ('heu', 'gras', 'mais', 'gruen', 'gps')
+
+
 def _check_record(record_id, data):
     """Whitelist der lesbaren Analysedaten. Freitext ist nur verschlüsselt (privat) erlaubt."""
     if not isinstance(data, dict) or not set(data) <= {'analyse', 'privat'}:
@@ -218,7 +221,7 @@ def _check_record(record_id, data):
         return False
     if record_id == 'anlassmeta':
         return set(an) <= {'id', 'datum'} and (an.get('datum') in (None, '') or bool(_DATE_RE.match(str(an.get('datum')))))
-    if not set(an) <= PROBE_KEYS or an.get('id') != record_id or an.get('typ') not in ('heu', 'gras', 'mais'):
+    if not set(an) <= PROBE_KEYS or an.get('id') != record_id or an.get('typ') not in FUTTERARTEN:
         return False
     for k in ('createdAt', 'updatedAt'):
         if an.get(k) is not None and not (isinstance(an[k], str) and _ISO_RE.match(an[k])):
@@ -375,7 +378,7 @@ def v2_basis():
 
 # --- Freigabe-Bereiche (nur mit Zustimmung, Ende-zu-Ende verschlüsselt) ----
 mimetypes.add_type("image/webp", ".webp")  # fehlt in python:slim
-ASSET_BUILD = 'b1-30'  # gleich wie ?v= in templates/v2/index.html
+ASSET_BUILD = 'b1-32'  # gleich wie ?v= in templates/v2/index.html
 
 
 @v2.route('/v2/api/config')

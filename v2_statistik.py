@@ -15,7 +15,7 @@ import statistics
 
 from flask import Response, jsonify, request
 
-from v2_api import v2, _db, _now, _sha, _rate_hit, _json_body, ID_RE, TOKEN_RE
+from v2_api import v2, _db, _now, _sha, _rate_hit, _json_body, ID_RE, TOKEN_RE, FUTTERARTEN
 
 BEITRAG_CONSENT_VERSION = '2026-10-s1'
 K_MIN = 5
@@ -47,7 +47,7 @@ def _zahl(v, lo, hi):
 def pruefen(d):
     """Strikte Whitelist. Gibt bereinigte Daten oder None zurück."""
     erlaubt = {'typ', 'plz', 'hoehe', 'jahr', 'monat', 'aufwuchs', 'bestand', 'stadium', 'klasse', 'punkte', 'antworten', 'rad', 'werte', 'labor', 'quelle', 'n'}
-    if not isinstance(d, dict) or d.get('typ') not in ('heu', 'gras', 'mais') or set(d) - erlaubt:
+    if not isinstance(d, dict) or d.get('typ') not in FUTTERARTEN or set(d) - erlaubt:
         return None
     plz = str(d.get('plz') or '')
     if not re.match(r'^[1-9]\d{3}$', plz):
@@ -167,7 +167,7 @@ def _gruppe(rows):
 def vergleich():
     _rate_hit('vergleich', limit=300, window=3600)
     typ, plz, aufwuchs = request.args.get('typ', ''), request.args.get('plz', ''), request.args.get('aufwuchs', '')
-    if typ not in ('heu', 'gras', 'mais') or not re.match(r'^[1-9]\d{3}$', plz):
+    if typ not in FUTTERARTEN or not re.match(r'^[1-9]\d{3}$', plz):
         return jsonify({'error': 'BAD_REQUEST'}), 400
     jahr_min = int(request.args.get('seit', '0') or 0)
     with _db() as conn:
@@ -212,7 +212,7 @@ def schweiz():
     """Übersicht für Karte (PLZ-Region = erste 2 Ziffern) und Höhenzonen. Gruppen unter K_MIN nur als Anzahl."""
     _rate_hit('schweiz', limit=300, window=3600)
     typ = request.args.get('typ', 'alle')
-    if typ not in ('alle', 'heu', 'gras', 'mais'):
+    if typ != 'alle' and typ not in FUTTERARTEN:
         return jsonify({'error': 'BAD_REQUEST'}), 400
     try:
         seit = int(request.args.get('seit', '0') or 0)

@@ -43,7 +43,8 @@
     const lab = p.labor || {};
     if (mitLabor) ['nel', 'nev', 'apde', 'apdn', 'rf'].forEach((k) => { if (lab[k] != null) w[k] = lab[k]; });
     let ts = lab.ts != null ? lab.ts : null;
-    if (ts == null && p.typ === 'gras') ts = (K3().K3B_TS.find((x) => x.id === p.antworten.ts) || {}).tsWert || 35;
+    if (ts == null && p.typ === 'gruen') ts = 18;
+    if (ts == null && (p.typ === 'gras' || p.typ === 'gps')) ts = (K3().K3B_TS.find((x) => x.id === p.antworten.ts) || {}).tsWert || 35;
     if (ts == null && p.typ === 'mais') ts = { lt30: 28, 30: 31, 32: 34, 36: 37, gt38: 40 }[p.antworten.ts] || 33;
     if (ts == null) ts = 88;
     return { w, ts, vollstaendig: res.vollstaendig, labor: mitLabor && lab.nel != null };

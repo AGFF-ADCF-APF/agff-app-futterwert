@@ -1,6 +1,6 @@
 /* Futter v2 – Service Worker: App-Shell offline verfügbar. API-Daten (Server-Freigaben) werden nie gecacht. */
-const VERSION = 'futter-v2-b1-30';
-const SHELL = ['./', 'assets/boot.js?v=b1-30', 'assets/app.css?v=b1-30', 'assets/k3.js?v=b1-30', 'assets/model.js?v=b1-30', 'assets/crypto.js?v=b1-30', 'assets/foto.js?v=b1-30', 'assets/wheel.js?v=b1-30', 'assets/io.js?v=b1-30', 'assets/kurs.js?v=b1-30', 'assets/naehrwert.js?v=b1-30', 'assets/ocr.js?v=b1-30', 'assets/statistik.js?v=b1-30', 'assets/assistent.js?v=b1-30', 'assets/sammel.js?v=b1-30', 'assets/schweiz.js?v=b1-30', 'assets/bilanz.js?v=b1-30', 'assets/app.js?v=b1-30',
+const VERSION = 'futter-v2-b1-32';
+const SHELL = ['./', 'assets/boot.js?v=b1-32', 'assets/app.css?v=b1-32', 'assets/k3.js?v=b1-32', 'assets/model.js?v=b1-32', 'assets/crypto.js?v=b1-32', 'assets/foto.js?v=b1-32', 'assets/wheel.js?v=b1-32', 'assets/io.js?v=b1-32', 'assets/kurs.js?v=b1-32', 'assets/naehrwert.js?v=b1-32', 'assets/ocr.js?v=b1-32', 'assets/statistik.js?v=b1-32', 'assets/assistent.js?v=b1-32', 'assets/sammel.js?v=b1-32', 'assets/schweiz.js?v=b1-32', 'assets/bilanz.js?v=b1-32', 'assets/app.js?v=b1-32',
   'assets/bilder/stadien-page-1.webp', 'assets/bilder/knaulgras.webp', 'assets/bilder/rotklee.webp', 'assets/bilder/b2-stadien-1.webp', 'assets/bilder/wringprobe-1.webp',
   'assets/icon.svg', 'manifest.webmanifest', 'api/basis', 'assets/vendor/jspdf.umd.min.js', 'assets/vendor/qrcode.js'];
 

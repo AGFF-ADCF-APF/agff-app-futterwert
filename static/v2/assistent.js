@@ -56,6 +56,16 @@
       einfach: 'Schau dir die Häcksellänge an: Gut sind kurze, sauber geschnittene Stücke (etwa 1 cm). Lange oder verfranste Stängel lassen sich schlecht verdichten. Wichtig: <b>Jedes Korn sollte angeschlagen sein</b> – ganze Körner gehen unverdaut durch die Kuh.',
       fachlich: 'Median der Partikellänge um 10 mm, höchstens 5 % > 20 mm (Schüttelbox). Verfranste Schnitte deuten auf stumpfe Messer oder falschen Gegenschneiden-Abstand hin. Körner: Auswaschmethode (Probe in Wasser, Körner absetzen lassen, ganze Körner zählen). Je trockener, desto härter die Körner – ab 36 % TS dürfen keine ganzen Körner mehr vorkommen; der Corncracker-Spalt (1–3 mm) entsprechend einstellen.',
     },
+    sauber: {
+      titel: 'Sauberes Grünfutter?',
+      einfach: 'Schau, ob Erde, Sand oder Gülle am Futter klebt – besonders nach Regen, bei Maulwurfshaufen oder tief eingestelltem Mähwerk. Verschmutztes Gras hat weniger Energie, und die Tiere fressen es weniger gern.',
+      fachlich: 'Für Grünfutter gelten die Tabellenwerte von Agroscope je Bestand, Aufwuchs und Stadium. Verschmutzung erhöht die Rohasche (über 100 g/kg TS) und senkt NEL, NEV und APD (Abzug wie K3b: −5 % leicht, −10 % stark). Hofdüngerreste bringen Keime ein; Gülle deshalb früh und verdünnt ausbringen.',
+    },
+    kultur: {
+      titel: 'Ganzpflanzensilage',
+      einfach: 'Wähle die Getreideart (oder die Mischung) und wie reif sie bei der Ernte war. Am besten wird GPS zwischen Milch- und früher Teigreife geerntet: Dann ist das Korn gefüllt, aber Halm und Blätter sind noch gut verdaulich.',
+      fachlich: 'Die Werte stammen aus dem Richtwert-Modell von v1 (AGFF-Näherung, Referenzen für Getreide-GPS) und werden je Stadium und Leguminosenanteil angepasst. Früh: weniger Stärke, mehr Protein, weniger Faser; spät: mehr Stärke, aber verholzte Halme. Die Gärqualität beurteilst du mit dem Rad der Grassilage. Wegen grosser Schwankungen (Sorte, Jahr, Schnitthöhe) lohnt sich eine Laboranalyse.',
+    },
     ergebnis: {
       titel: 'Dein Ergebnis',
       einfach: 'Oben siehst du die Qualitätsklasse und die geschätzten Werte: <b>NEL</b> ist die Energie für Milch, <b>APDE</b> das Eiweiss, das die Kuh nutzen kann. Vergleiche mit dem Zielwert – und wenn du eine Laboranalyse hast, mit dem Labor. Mit «PDF» speicherst du alles; die Daten stecken in der PDF und lassen sich wieder einlesen.',
@@ -218,6 +228,8 @@
     'rad.mais.farbe': { wie: 'Gut: gelbgrün bis hell bräunlich-gelb. Erwärmt: braun bis dunkelbraun. Schimmel: weisse, blaue, rote Flecken.',
       vorgehen: ['Bei Tageslicht ansehen, frische Probe aus dem Inneren.'] },
     'rad.mais.ph': { vorgehen: ['Silage mit gleich viel destilliertem Wasser übergiessen, 10 Minuten warten.', 'Flüssigkeit mit Teststreifen oder pH-Meter messen.'] },
+    sauber: { vorgehen: ['Eine Handvoll Gras über einem hellen Blatt schütteln: Bleiben Erde oder Sand liegen?', 'Auf verkrustete Stellen an den Halmen achten, vor allem unten am Stängel.'] },
+    kultur: { vorgehen: ['Ein paar Körner aus den Ähren zwischen den Fingern drücken: milchig = Milchreife, teigig = Teigreife, hart = überständig.', 'Leguminosenanteil grob schätzen: Wie viel des Gemenges sind Wicken, Erbsen oder Klee?'] },
     stadium: { vorgehen: ['Im 1. Aufwuchs 10–20 Halme der Leitpflanze (z. B. Knaulgras) anschauen und das häufigste Stadium wählen – nicht die weitesten.', 'Ähre/Rispe sichtbar? Dann mindestens Stadium 3. Staubbeutel sichtbar? Dann Blüte (6).', 'In Konserven: Rispen und Blütenstände im Futter suchen und mit den Bildern vergleichen.'] },
     bestand: { vorgehen: ['Probe auf dem Tisch ausbreiten und grob in Gräser, Klee und Kräuter sortieren.', 'Anteile nach Volumen schätzen – auf 10 % genau reicht.'] },
     'ts.gras': { vorgehen: ['Faustgrosse Probe nehmen, wie ein Waschlappen auswinden (zweimal kräftig).', 'Hände ansehen: Saft tropft? Hände nass, feucht oder trocken?', 'Sehr nasse Silage nur als Kugel drücken, nicht winden.'] },
@@ -242,7 +254,7 @@
     const p = A.probeById(r.id); if (!p || !p.typ) return r.step === 'probe' || !r.step ? 'probe' : null;
     const step = r.step || 'probe';
     if (step === 'ts') return p.typ === 'mais' ? 'ts.mais' : 'ts.gras';
-    if (step === 'rad') { const f = A.radFokus(p); return f ? 'rad.' + p.typ + '.' + f : null; }
+    if (step === 'rad') { const f = A.radFokus(p); return f ? 'rad.' + (p.typ === 'gps' ? 'gras' : p.typ) + '.' + f : null; }
     return T[step] ? step : null;
   }
 

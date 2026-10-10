@@ -429,3 +429,12 @@ table.tbl { width: 100%; border-collapse: collapse; font-variant-numeric: tabula
 .gb-annahme { display: flex; flex-wrap: wrap; gap: 6px; }
 .gb-annahme .input { width: auto; flex: 1 1 140px; min-width: 0; }
 .gb-spanne { display: block; width: 100%; height: auto; margin-top: 10px; font-family: var(--font); }
+:root { --typ-gruen: #8cbf4f; --typ-gps: #c98f5a; }
+.item.typ-gruen { box-shadow: inset 5px 0 0 var(--typ-gruen); } .item.typ-gps { box-shadow: inset 5px 0 0 var(--typ-gps); }
+.typ-badge.typ-gruen { background: var(--typ-gruen); color: #10201a; } .typ-badge.typ-gps { background: var(--typ-gps); color: #fff; }
+.tbl tr.typ-gruen td:first-child { box-shadow: inset 4px 0 0 var(--typ-gruen); } .tbl tr.typ-gps td:first-child { box-shadow: inset 4px 0 0 var(--typ-gps); }
+.item.typ-gruen .typ-avatar { background: var(--typ-gruen); color: #10201a; } .item.typ-gps .typ-avatar { background: var(--typ-gps); color: #fff; }
+@container (max-width: 720px) {
+  .sammel-tbl tr[data-art="gruen"] td.ts, .sammel-tbl tr[data-art="gruen"] td.regen, .sammel-tbl tr[data-art="gps"] td.regen { display: none; }
+  .sammel-tbl tr[data-art="gps"] td[data-l="Bestand"], .sammel-tbl tr[data-art="gps"] td[data-l="Stadium"], .sammel-tbl tr[data-art="gps"] td[data-l="Nutzung"] { display: none; }
+}

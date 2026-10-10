@@ -31,7 +31,7 @@ from flask import jsonify, request, send_from_directory
 import v2_admin as ADM
 import v2_mail as M
 from v2_api import (v2, _db, _now, _sha, _rate_hit, _check_record, _check_privat, _json_body,
-                    ID_RE, HASH_RE, TOKEN_RE, RETENTION_DAYS, MAX_RECORD_BYTES, FOTO_ID_RE)
+                    ID_RE, HASH_RE, TOKEN_RE, RETENTION_DAYS, MAX_RECORD_BYTES, FOTO_ID_RE, FUTTERARTEN)
 
 KURS_CONSENT_VERSION = '2026-10-k4'
 SESSION_TTL = 120 * 24 * 3600
@@ -417,7 +417,7 @@ def kurs_etiketten(kurs_id):
 
 
 def _check_erfassung(an, pv):
-    return isinstance(an, dict) and set(an) <= {'typ'} and an.get('typ') in ('heu', 'gras', 'mais') and _check_privat(pv)
+    return isinstance(an, dict) and set(an) <= {'typ'} and an.get('typ') in FUTTERARTEN and _check_privat(pv)
 
 
 @v2.route('/v2/api/kurse/<kurs_id>/proben/<probe_id>', methods=['PUT'])

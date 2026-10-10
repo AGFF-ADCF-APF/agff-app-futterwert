@@ -82,6 +82,7 @@
   }
   function tonOf(res) { return res.sperre.length ? 'kritisch' : (res.klasse && res.vollstaendig ? res.klasse.ton : (res.klasse ? res.klasse.ton : 'offen')); }
   function zentrum(p, res) {
+    if (p.typ === 'gruen') return { wert: res.werte ? fmt(res.werte.nel, 1) : '–', label: res.werte ? 'MJ NEL' : 'offen', ton: res.werte ? tonOf(res) : 'offen' };
     if (p.typ === 'heu') {
       const anyset = Object.values(res.auswahl).some(Boolean);
       return { wert: anyset ? (res.korr.nel > 0 ? '+' : '') + fmt(res.korr.nel, 0) + '%' : '–', label: anyset ? 'NEL-Korrektur' : 'offen', ton: anyset ? tonOf(res) : 'offen' };
@@ -96,6 +97,7 @@
   function bestandStadium(p) {
     const a = p.antworten || {};
     if (p.typ === 'mais') { const k = { gt55: 'Kolben > 55 %', 45: 'Kolben 45–55 %', lt45: 'Kolben < 45 %' }[a.kolben]; return k || ''; }
+    if (p.typ === 'gps') { const ku = K3.GPS_KULTUREN.find((x) => x.id === a.kultur); const st = K3.GPS_STADIEN.find((x) => x.id === a.gpsStadium); return [ku && ku.titel, st && st.titel].filter(Boolean).join(' · '); }
     const parts = [];
     if (a.bestand) parts.push(K3.BESTAND_PLAIN[a.bestand]);
     if (a.aufwuchs) parts.push(a.aufwuchs === '1' ? '1. Aufw.' : 'Folgeaufw.');
@@ -105,7 +107,7 @@
   const titelOf = (p) => (p.kopf && p.kopf.bez) || 'Probe ohne Namen';
   function mppOf(p, res) {
     if (!res.werte) return null;
-    return K3.milchPotenzial(res.werte, { kuhGewicht: db.prefs.kuhGewicht, tsvBasis: res.basis && res.basis.tsv, typ: p.typ === 'heu' ? 'heu' : 'silage', aufwuchs: p.antworten.aufwuchs });
+    return K3.milchPotenzial(res.werte, { kuhGewicht: db.prefs.kuhGewicht, tsvBasis: res.basis && res.basis.tsv, typ: p.typ === 'heu' || p.typ === 'gruen' ? p.typ : 'silage', aufwuchs: p.antworten.aufwuchs });
   }
 
   const mastGewicht = () => Number(db.prefs.mastGewicht) || 400;
@@ -123,10 +125,20 @@
     const typ = K3.TYPEN[p.typ];
     const an = p.anlassId && anlassById(p.anlassId);
     const meta = [['Anlass', an && an.titel], ['Herkunft', k.herkunft], ['Beurteilt von', k.beurteiler], ['Schnitt', dateCH(k.schnitt)], ['Erfasst', dateCH(p.createdAt)]];
-    if (p.typ !== 'mais') meta.splice(3, 0, ['Bestand', a.bestand ? K3.BESTAND_PLAIN[a.bestand] + ' – ' + bestandName(a.bestand) : ''], ['Aufwuchs/Stadium', a.aufwuchs ? (a.aufwuchs === '1' ? '1. Aufwuchs' : 'Folgeaufwuchs') + (a.stadium ? ', Stadium ' + a.stadium : '') : '']);
+    if (p.typ === 'gps') {
+      const ku = K3.GPS_KULTUREN.find((x) => x.id === a.kultur); const st = K3.GPS_STADIEN.find((x) => x.id === a.gpsStadium); const lg = K3.GPS_LEGUM.find((x) => x.id === (a.leguminosen || 'none'));
+      meta.splice(3, 0, ['Kultur', ku ? ku.titel : ''], ['Stadium', st ? st.titel + ' (' + st.text + ')' : ''], ['Leguminosen', lg ? lg.titel : '']);
+    }
+    if (p.typ !== 'mais' && p.typ !== 'gps') meta.splice(3, 0, ['Bestand', a.bestand ? K3.BESTAND_PLAIN[a.bestand] + ' – ' + bestandName(a.bestand) : ''], ['Aufwuchs/Stadium', a.aufwuchs ? (a.aufwuchs === '1' ? '1. Aufwuchs' : 'Folgeaufwuchs') + (a.stadium ? ', Stadium ' + a.stadium : '') : '']);
     const rows = [];
     const w = res.werte || {}; const b = res.basis || {};
-    if (p.typ === 'mais') {
+    if (p.typ === 'gps') {
+      const e = res.erwartet || {};
+      ['nel', 'nev', 'apde', 'apdn', 'rp', 'rf', 'ndf', 'staerke', 'zucker'].forEach((m) => {
+        const d = w[m] != null && e[m] != null ? w[m] - e[m] : null; const dg = m === 'nel' || m === 'nev' ? 2 : 0;
+        rows.push({ key: ['nel', 'apde'].includes(m), label: K3.METRIK_LABEL[m][0], unit: K3.METRIK_LABEL[m][1], basis: fmt(e[m], dg), korr: d && Math.abs(d) > 0.004 ? (d > 0 ? '+' : '') + fmt(d, dg) : '–', wert: fmt(w[m], dg) });
+      });
+    } else if (p.typ === 'mais') {
       K3.K3C_METRIKEN.forEach((m) => {
         const d = w[m] != null && b[m] != null ? w[m] - b[m] : null;
         rows.push({ key: ['nel', 'apde'].includes(m), label: K3.METRIK_LABEL[m][0], unit: K3.METRIK_LABEL[m][1], basis: fmt(b[m], m === 'nel' || m === 'nev' ? 2 : 0),
@@ -141,10 +153,19 @@
       });
     }
     const befunde = [];
-    if (p.typ === 'gras') {
+    if (p.typ === 'gruen') {
+      const sb = K3.K3B_SAUBERKEIT.find((x) => x.id === a.sauberkeit);
+      befunde.push({ k: 'Sauberkeit', v: sb && sb.text, v2: sb ? (sb.k.nel ? fmt(sb.k.nel, 0) + ' %' : '0 %') : '', ton: sb && sb.k.nel ? 'kritisch' : 'gut' });
+    }
+    if (p.typ === 'gps') {
+      const ku = K3.GPS_KULTUREN.find((x) => x.id === a.kultur); const st = K3.GPS_STADIEN.find((x) => x.id === a.gpsStadium); const lg = K3.GPS_LEGUM.find((x) => x.id === (a.leguminosen || 'none'));
+      befunde.push({ k: 'Kultur / Stadium', v: [ku && ku.titel, st && st.titel + ' – ' + st.text].filter(Boolean).join(', '), v2: lg && lg.id !== 'none' ? 'Leguminosen ' + lg.titel : '' });
+      befunde.push({ k: 'Konservierung (aus dem Rad)', v: { sehr_gut: 'Sehr gut', normal: 'Normal', kritisch: 'Kritisch', schlecht: 'Schlecht' }[res.gpsKons] || '–', ton: res.gpsKons === 'schlecht' ? 'kritisch' : res.gpsKons === 'kritisch' ? 'mittel' : 'gut' });
+    }
+    if (p.typ === 'gras' || p.typ === 'gps') {
       const sb = K3.K3B_SAUBERKEIT.find((x) => x.id === a.sauberkeit); const ts = K3.K3B_TS.find((x) => x.id === a.ts);
       befunde.push({ k: 'Sauberkeit', v: sb && sb.text, v2: sb ? (sb.k.nel ? fmt(sb.k.nel, 0) + ' %' : '0 %') : '', ton: sb && sb.k.nel ? 'kritisch' : 'gut' });
-      befunde.push({ k: 'TS-Gehalt (Auswringprobe)', v: ts && (ts.ts + ' – ' + ts.text), v2: ts ? (ts.k.nel ? 'NEL ' + fmt(ts.k.nel, 0) + ' / APDE ' + (ts.k.apde > 0 ? '+' : '') + fmt(ts.k.apde, 0) + ' %' : '0 %') : '' });
+      befunde.push({ k: 'TS-Gehalt (Auswringprobe)', v: ts && (ts.ts + ' – ' + ts.text), v2: ts && p.typ === 'gras' ? (ts.k.nel ? 'NEL ' + fmt(ts.k.nel, 0) + ' / APDE ' + (ts.k.apde > 0 ? '+' : '') + fmt(ts.k.apde, 0) + ' %' : '0 %') : '' });
       if (a.phWert) befunde.push({ k: 'pH-Wert', v: fmt(a.phWert, 1).replace('.', ',') + (res.auswahl.ph ? ' → ' + res.auswahl.ph.slice(1) + ' Punkte' : '') });
     }
     if (p.typ === 'mais') {
@@ -165,13 +186,14 @@
       if (tx) befunde.push({ k: 'Laborbericht', v: tx });
     }
     let klasseSub = '';
+    if (p.typ === 'gruen' && res.korr) klasseSub = res.korr.nel ? 'Abzug Verschmutzung ' + fmt(res.korr.nel, 0) + ' %' : 'Tabellenwert Agroscope';
     if (p.typ === 'heu' && res.korr) klasseSub = 'Korrektur NEL ' + fmt(res.korr.nel, 0) + ' % · APDE ' + fmt(res.korr.apde, 0) + ' % · APDN ' + fmt(res.korr.apdn, 0) + ' %';
     if (p.typ !== 'heu' && res.punkte != null) klasseSub = res.punkte + ' Punkte ' + (res.mitPh ? '(inkl. pH)' : '(ohne pH)');
     const mp = p.typ === 'mais' ? null : mppOf(p, res);
     const ms = mastOf(p, res);
     return {
       titel: titelOf(p), meta, tabelle: rows, befunde, klasseSub, bestandStadium: bestandStadium(p),
-      basisLabel: p.typ === 'mais' ? 'Ausgang' : 'Tabelle',
+      basisLabel: p.typ === 'mais' ? 'Ausgang' : p.typ === 'gps' ? 'Richtwert' : 'Tabelle',
       mpp: mp ? 'Milchbildungspotenzial aus diesem Futter allein: ' + fmt(mp.mpp, 1) + ' kg Milch/Tag (begrenzt durch ' + mp.limit + '; Verzehr ' + fmt(mp.tsv, 1) + ' kg TS, Kuh ' + mp.kuhGewicht + ' kg).' : null,
       mppKurz: mp ? fmt(mp.mpp, 1) : null,
       mast: mastText(ms),
@@ -321,6 +343,8 @@
     if (p.typ === 'heu') s.push({ id: 'bestand', t: 'Bestand' }, { id: 'stadium', t: 'Stadium' }, { id: 'rad', t: 'Sensorik-Rad' });
     if (p.typ === 'gras') s.push({ id: 'bestand', t: 'Bestand' }, { id: 'stadium', t: 'Stadium' }, { id: 'ts', t: 'Sauberkeit & TS' }, { id: 'rad', t: 'Gärqualität-Rad' });
     if (p.typ === 'mais') s.push({ id: 'haecksel', t: 'Häcksel & Körner' }, { id: 'ts', t: 'TS & Parzelle' }, { id: 'rad', t: 'Gärqualität-Rad' });
+    if (p.typ === 'gruen') s.push({ id: 'bestand', t: 'Bestand' }, { id: 'stadium', t: 'Stadium' }, { id: 'sauber', t: 'Sauberkeit' });
+    if (p.typ === 'gps') s.push({ id: 'kultur', t: 'Kultur & Stadium' }, { id: 'ts', t: 'Sauberkeit & TS' }, { id: 'rad', t: 'Gärqualität-Rad' });
     s.push({ id: 'ergebnis', t: 'Ergebnis' });
     return s;
   }
@@ -329,7 +353,9 @@
     if (id === 'probe') return !!(p.kopf && p.kopf.bez);
     if (id === 'bestand') return !!a.bestand;
     if (id === 'stadium') return !!(a.aufwuchs && a.stadium);
-    if (id === 'ts') return p.typ === 'gras' ? !!(a.sauberkeit && a.ts) : !!(a.ts && a.kolben);
+    if (id === 'ts') return p.typ === 'gras' || p.typ === 'gps' ? !!(a.sauberkeit && a.ts) : !!(a.ts && a.kolben);
+    if (id === 'sauber') return !!a.sauberkeit;
+    if (id === 'kultur') return !!(a.kultur && a.gpsStadium);
     if (id === 'haecksel') return !!(a.laenge && a.schnitt && a.koerner);
     if (id === 'rad') { const sel = K3.radAuswahl(p); return K3.TYPEN[p.typ].rad.every((f) => f.ph || sel[f.id]); }
     if (id === 'ergebnis') return auswertung(p).vollstaendig;
@@ -346,12 +372,14 @@
     if (step.id === 'probe') body = stepProbe(p);
     if (step.id === 'bestand') body = stepBestand(p);
     if (step.id === 'stadium') body = stepStadium(p);
-    if (step.id === 'ts') body = p.typ === 'gras' ? stepTsGras(p) : stepTsMais(p);
+    if (step.id === 'ts') body = p.typ === 'gras' || p.typ === 'gps' ? stepTsGras(p) : stepTsMais(p);
+    if (step.id === 'sauber') body = stepSauber(p);
+    if (step.id === 'kultur') body = stepKultur(p);
     if (step.id === 'haecksel') body = stepHaecksel(p);
     if (step.id === 'rad') body = stepRad(p);
     if (step.id === 'ergebnis') body = stepErgebnis(p);
     const next = steps[idx + 1]; const prev = steps[idx - 1];
-    return '<div class="bar"><a class="icon-btn" href="' + back + '" aria-label="Zurück zur Liste">' + I.back + '</a><h2>' + esc(titelOf(p)) + '<span class="sub">' + esc(typ.titel + ' · AGFF ' + typ.merkblatt) + '</span></h2>' +
+    return '<div class="bar"><a class="icon-btn" href="' + back + '" aria-label="Zurück zur Liste">' + I.back + '</a><h2>' + esc(titelOf(p)) + '<span class="sub">' + esc(typ.titel + ' · ' + (typ.quelle || 'AGFF ' + typ.merkblatt)) + '</span></h2>' +
       '<button class="icon-btn" data-act="probe-menu" data-id="' + p.id + '" aria-label="Probe-Aktionen">' + I.more + '</button></div>' +
       '<nav class="steps" aria-label="Schritte">' + steps.map((s, i) => '<button class="step-chip' + (stepDone(p, s.id) ? ' done' : '') + '" data-go="#/p/' + p.id + '/' + s.id + '"' + (s === step ? ' aria-current="step"' : '') + '><span class="n">' + (stepDone(p, s.id) ? '✓' : i + 1) + '</span>' + s.t + '</button>').join('') + '</nav>' +
       '<div class="wizard" data-probe="' + p.id + '">' + window.Kurs.hinweisKarte(p) + (readOnly(p) ? '<div class="alert info" style="margin-bottom:14px">' + I.lock + '<div>' + (p.abgegebenAt ? 'Im Kurs <b>abgegeben</b> am ' + dateCH(p.abgegebenAt) + ' – gesperrt. Den Vergleich finden Sie unter «Ergebnis».' : 'Geteilt über einen <b>Nur-Ansehen-Link</b> – Sie können alles einsehen, aber nichts ändern.') + '</div></div>' : '') + body + '</div>' +
@@ -499,7 +527,7 @@
       '<label class="field"><span>Notiz</span><textarea class="input" data-k="kopf.notiz" placeholder="Beobachtungen, Lagerung, Fütterung …">' + esc(k.notiz) + '</textarea></label>' +
       '<p class="hint">Personenbezogene Angaben (Betrieb, Name) nur erfassen, wenn die betroffene Person einverstanden ist.</p></div>') +
       q('Fotos', 'Futter und Laborbericht – bleiben auf diesem Gerät, ohne Standortdaten.', fotosHtml(p)) +
-      q('Futterart', '', '<div class="opts cols3">' + Object.values(K3.TYPEN).map((t) => opt({ set: 'typ', val: t.id, on: p.typ === t.id, t: t.titel, s: 'AGFF ' + t.merkblatt })).join('') + '</div>');
+      q('Futterart', '', '<div class="opts cols3">' + Object.values(K3.TYPEN).map((t) => opt({ set: 'typ', val: t.id, on: p.typ === t.id, t: t.titel, s: t.quelle || 'AGFF ' + t.merkblatt })).join('') + '</div>');
   }
 
   function stepBestand(p) {
@@ -542,12 +570,25 @@
     return q('Aufwuchs und Entwicklungsstadium', '', inner);
   }
 
+  function stepSauber(p) {
+    const a = p.antworten;
+    return q('Sauberkeit des Futters', 'Grünfutter auf Erde, Sand und Hofdüngerreste prüfen – Verschmutzung senkt den Nährwert und belastet die Tiere.',
+      '<div class="opts">' + K3.K3B_SAUBERKEIT.map((s) => opt({ set: 'sauberkeit', val: s.id, on: a.sauberkeit === s.id, t: s.text, tag: s.k.nel ? s.k.nel + ' %' : '0 %', cls: s.k.nel ? 'warn' : '' })).join('') + '</div>') +
+      '<p class="hint">Weitere Werte (Gehalte, Mineralstoffe) stammen aus der Agroscope-Tabelle für Grünfutter. Bei Laborwerten rechnet die App sie zusätzlich nach Grünem Buch nach.</p>';
+  }
+  function stepKultur(p) {
+    const a = p.antworten;
+    return q('Kultur', 'Welche Getreideart bzw. Mischung wurde siliert?', '<div class="opts cols-wide">' + K3.GPS_KULTUREN.map((k) => opt({ set: 'kultur', val: k.id, on: a.kultur === k.id, t: k.titel + '-GPS', s: 'NEL ' + fmt(k.w.nel, 1) + ' MJ · RP ' + k.w.rp + ' g (Richtwert)' })).join('') + '</div>') +
+      q('Stadium bei der Ernte', 'Optimal ist die Ernte von der Milch- bis zur frühen Teigreife.', '<div class="opts">' + K3.GPS_STADIEN.map((st) => opt({ set: 'gpsStadium', val: st.id, on: a.gpsStadium === st.id, t: st.titel, s: st.text, tag: st.k.nel ? (st.k.nel > 0 ? '+' : '') + fmt(st.k.nel, 1) + ' MJ' : '' })).join('') + '</div>') +
+      q('Leguminosenanteil', 'z. B. Wicken, Erbsen, Klee im Gemenge (optional).', '<div class="opts cols-wide">' + K3.GPS_LEGUM.map((l) => opt({ set: 'leguminosen', val: l.id, on: (a.leguminosen || 'none') === l.id, t: l.titel, tag: l.k.nel ? '+' + fmt(l.k.nel, 1) + ' MJ' : '' })).join('') + '</div>') +
+      '<p class="hint">Richtwert-Modell wie in v1 (AGFF-Näherung, Referenzen für Getreide-Ganzpflanzensilage). Jahr, Sorte und Ernte führen zu deutlichen Schwankungen – Laboranalyse empfohlen.</p>';
+  }
   function stepTsGras(p) {
     const a = p.antworten;
     return q('Sauberkeit des Futters', 'Probe auf Erde und Hofdüngerreste prüfen (Korrekturfaktor 1).',
       '<div class="opts">' + K3.K3B_SAUBERKEIT.map((s) => opt({ set: 'sauberkeit', val: s.id, on: a.sauberkeit === s.id, t: s.text, tag: s.k.nel ? s.k.nel + ' %' : '0 %', cls: s.k.nel ? 'warn' : '' })).join('') + '</div>') +
       q('TS-Gehalt – Auswringprobe', 'Probe wie einen Waschlappen auswinden; sehr nasse Silage nur als Kugel in der Hand ausdrücken (Korrekturfaktor 2).',
-        '<div class="opts">' + K3.K3B_TS.map((t) => opt({ set: 'ts', val: t.id, on: a.ts === t.id, lead: t.ts.replace(' TS', ''), t: t.text, tag: t.k.nel || t.k.apde ? 'NEL ' + t.k.nel + ' · APDE ' + (t.k.apde > 0 ? '+' : '') + t.k.apde + ' %' : '' })).join('') + '</div>');
+        '<div class="opts">' + K3.K3B_TS.map((t) => opt({ set: 'ts', val: t.id, on: a.ts === t.id, lead: t.ts.replace(' TS', ''), t: t.text, tag: p.typ === 'gras' && (t.k.nel || t.k.apde) ? 'NEL ' + t.k.nel + ' · APDE ' + (t.k.apde > 0 ? '+' : '') + t.k.apde + ' %' : '' })).join('') + '</div>');
   }
 
   function stepHaecksel(p) {
@@ -600,10 +641,10 @@
       '<h3>' + esc(f.frage) + '</h3>' + (f.hilfe || f.mitte ? '<p class="qhint">' + esc(f.hilfe || f.mitte) + '</p>' : '');
     if (f.ph) {
       const auto = res.auswahl.ph && a.phWert;
-      factorCard += '<label class="field"><span>Gemessener pH-Wert' + (p.typ === 'gras' ? ' (Punkte abhängig vom TS-Gehalt)' : '') + '</span><div class="stepper"><button data-step="phWert" data-d="-0.1" aria-label="pH minus 0,1">−</button><input inputmode="decimal" data-k="antworten.phWert" value="' + esc(a.phWert != null ? String(a.phWert).replace('.', ',') : '') + '" placeholder="z. B. 4,3" aria-label="pH-Wert"><button data-step="phWert" data-d="0.1" aria-label="pH plus 0,1">+</button></div></label>' +
-        (p.typ === 'gras' && !a.ts ? '<p class="hint">Für die pH-Punkte zuerst den TS-Gehalt bestimmen (Schritt «Sauberkeit & TS»).</p>' : '') +
+      factorCard += '<label class="field"><span>Gemessener pH-Wert' + (p.typ === 'gras' || p.typ === 'gps' ? ' (Punkte abhängig vom TS-Gehalt)' : '') + '</span><div class="stepper"><button data-step="phWert" data-d="-0.1" aria-label="pH minus 0,1">−</button><input inputmode="decimal" data-k="antworten.phWert" value="' + esc(a.phWert != null ? String(a.phWert).replace('.', ',') : '') + '" placeholder="z. B. 4,3" aria-label="pH-Wert"><button data-step="phWert" data-d="0.1" aria-label="pH plus 0,1">+</button></div></label>' +
+        ((p.typ === 'gras' || p.typ === 'gps') && !a.ts ? '<p class="hint">Für die pH-Punkte zuerst den TS-Gehalt bestimmen (Schritt «Sauberkeit & TS»).</p>' : '') +
         (auto ? '<div class="live">→ ' + res.auswahl.ph.slice(1) + ' Punkte für das Rad</div>' : '') +
-        (p.typ === 'gras' ? '<div style="margin-top:12px">' + phChart(a) + '</div>' : '') +
+        (p.typ === 'gras' || p.typ === 'gps' ? '<div style="margin-top:12px">' + phChart(a) + '</div>' : '') +
         '<p class="qhint" style="margin-top:12px">Ohne Messgerät oder Messwert: Stufe direkt wählen.</p>';
     }
     factorCard += '<div class="opts">' + f.optionen.map((o) => opt({ set: 'rad.' + f.id, val: o.id, on: sel[f.id] === o.id, lead: o.kurz === '!' ? '!' : (p.typ === 'heu' ? (o.kurz === '0' ? '0' : o.kurz + '%') : o.kurz), cls: o.block ? 'warn' : '',
@@ -647,18 +688,18 @@
     const res = auswertung(p);
     const L = label(p, res);
     const ton = tonOf(res);
-    const w = res.werte; const b = res.basis || {};
+    const w = res.werte; const b = (p.typ === 'gps' ? res.erwartet : res.basis) || {};
     let h = '';
     if (!res.vollstaendig) h += '<div class="alert info" style="margin-bottom:12px">' + I.warn + '<div><b>Noch offen:</b> ' + esc(res.fehlend.join(', ')) + '</div></div>';
     [...new Set(res.sperre)].forEach((s) => { h += '<div class="alert kritisch" style="margin-bottom:12px">' + I.warn + '<div>' + esc(s) + '</div></div>'; });
-    h += '<div class="hero ' + ton + '"><span class="k">' + esc(K3.TYPEN[p.typ].titel + ' · AGFF ' + K3.TYPEN[p.typ].merkblatt) + '</span><span class="v">' + esc(res.sperre.length ? 'Nicht verfüttern' : res.klasse ? res.klasse.label : 'Unvollständig') + '</span><span>' + esc(L.klasseSub) + '</span></div>';
+    h += '<div class="hero ' + ton + '"><span class="k">' + esc(K3.TYPEN[p.typ].titel + ' · ' + (K3.TYPEN[p.typ].quelle || 'AGFF ' + K3.TYPEN[p.typ].merkblatt)) + '</span><span class="v">' + esc(res.sperre.length ? 'Nicht verfüttern' : res.klasse ? res.klasse.label : 'Unvollständig') + '</span><span>' + esc(L.klasseSub) + '</span></div>';
     if (w) {
-      const kp = p.typ === 'mais' ? ['nel', 'nev', 'apde', 'staerke'] : ['nel', 'apde', 'apdn', 'nev'];
+      const kp = p.typ === 'mais' || p.typ === 'gps' ? ['nel', 'nev', 'apde', 'staerke'] : ['nel', 'apde', 'apdn', 'nev'];
       h += '<div class="kpis" style="margin-top:14px">' + kp.map((m) => {
         const [lab, unit] = K3.METRIK_LABEL[m]; const d = m === 'nel' || m === 'nev' ? 2 : 0;
         const diff = b[m] != null && w[m] != null ? w[m] - b[m] : 0;
         return '<div class="kpi"><div class="l">' + lab + '</div><div class="v">' + fmt(w[m], d) + ' <small>' + unit + '</small></div><div class="d ' + (diff < -0.004 ? 'neg' : diff > 0.004 ? 'pos' : 'muted') + '">' +
-          (Math.abs(diff) > 0.004 ? (diff > 0 ? '+' : '') + fmt(diff, d) + ' ggü. ' + (p.typ === 'mais' ? 'Ausgang' : 'Tabelle') : 'keine Korrektur') + '</div></div>';
+          (Math.abs(diff) > 0.004 ? (diff > 0 ? '+' : '') + fmt(diff, d) + ' ggü. ' + (p.typ === 'mais' ? 'Ausgang' : p.typ === 'gps' ? 'Richtwert' : 'Tabelle') : 'keine Korrektur') + '</div></div>';
       }).join('') + '</div>';
       if (w.nel) {
         const pos = (v) => Math.max(0, Math.min(100, ((v - 4) / 3.5) * 100));
@@ -673,7 +714,7 @@
     if (w) {
       h += '<div class="section-title">Nährwerte pro kg TS</div><div class="tbl-wrap"><table class="tbl"><thead><tr><th></th><th>Einheit</th><th>' + L.basisLabel + '</th><th>Korr.</th><th>Schätzung</th></tr></thead><tbody>' +
         L.tabelle.map((r) => '<tr><td>' + (r.key ? '<strong>' + esc(r.label) + '</strong>' : esc(r.label)) + '</td><td class="muted">' + esc(r.unit) + '</td><td class="muted">' + r.basis + '</td><td class="' + (String(r.korr).startsWith('-') || String(r.korr).startsWith('−') ? 'd neg' : r.korr !== '–' ? 'd pos' : 'muted') + '">' + r.korr + '</td><td><strong>' + r.wert + '</strong></td></tr>').join('') + '</tbody></table></div>' +
-        '<p class="hint">Nährwerte: Agroscope; Schlüssel AGFF ' + K3.TYPEN[p.typ].merkblatt + '. Sensorische Schätzung – ersetzt keine Laboranalyse.</p>';
+        '<p class="hint">Nährwerte: Agroscope; ' + (K3.TYPEN[p.typ].quelle || 'Schlüssel AGFF ' + K3.TYPEN[p.typ].merkblatt) + '. Sensorische Schätzung – ersetzt keine Laboranalyse.</p>';
     }
     if ((p.fotos || []).length || !readOnly(p)) h += '<div class="section-title">Fotos</div>' + fotosHtml(p);
     // Laborbericht: Import erst nach vollständiger eigener Beurteilung (keine Beeinflussung)
@@ -745,7 +786,7 @@
       q('Anonym beitragen und vergleichen', 'Proben mit PLZ anonym für Auswertungen und Publikationen beitragen – und im Gegenzug sehen, wie Ihre Proben im Vergleich zur Region abschneiden. Ohne Namen, Betrieb, Parzelle, Notizen und Fotos; jederzeit widerrufbar.',
         db.prefs.beitragen && db.prefs.beitragConsent ? '<div class="row"><span class="chip gut">eingeschaltet</span><span class="small muted grow">' + db.proben.filter((x) => x.beitrag).length + ' Proben beigetragen</span><button class="btn danger sm" data-act="beitrag-aus">Ausschalten und alle zurückziehen</button></div>'
           : '<button class="btn" data-act="beitrag-ein">Anonym beitragen einschalten …</button>') + '<p style="margin:10px 0 0"><a href="#/schweiz">Auswertung Schweiz ansehen (Karte, Höhenzonen) →</a></p>' +
-      q('Daten aus der bisherigen Version (v1)', 'Wiesenfutter-Beurteilungen (Grassilage/Dürrfutter) und Silomais werden übernommen; die Sensorik von v1 hatte teilweise andere Skalen und wird als «bitte prüfen» markiert. Die v1-Daten selbst bleiben unverändert.',
+      q('Daten aus der bisherigen Version (v1)', 'Wiesenfutter (Grünfutter, Grassilage, Dürrfutter), Silomais und Ganzpflanzensilage werden übernommen; die Sensorik von v1 hatte teilweise andere Skalen und wird als «bitte prüfen» markiert. Die v1-Daten selbst bleiben unverändert.',
         '<div class="row"><button class="btn" data-act="v1-local"' + (v1local ? '' : ' disabled') + '>' + v1local + ' lokal gespeicherte v1-Proben übernehmen</button><button class="btn" data-act="v1-server">Meine Proben vom v1-Server laden …</button></div>') +
       q('Einstellungen', '', '<div class="grid2"><label class="field"><span>Mein Name (Vorschlag für «Beurteilt von»)</span><input class="input" data-pref="beurteiler" value="' + esc(db.prefs.beurteiler) + '"></label>' +
         '<label class="field"><span>Gewicht Referenzkuh (kg)</span><input class="input" inputmode="numeric" data-pref="kuhGewicht" value="' + esc(db.prefs.kuhGewicht) + '"></label>' +
@@ -787,7 +828,7 @@
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheet(); });
 
   function sheetNewProbe(anlassId) {
-    const colors = { heu: K3.TYPEN.heu.farbe, gras: K3.TYPEN.gras.farbe, mais: K3.TYPEN.mais.farbe };
+    const colors = Object.fromEntries(Object.values(K3.TYPEN).map((t) => [t.id, t.farbe]));
     sheet('<h2>Was beurteilen Sie?</h2><p class="muted small" style="margin-top:0">Gewählter Anlass: <b>' + esc(anlassId ? anlassById(anlassId).titel : 'ohne Anlass') + '</b></p><div class="typ-cards">' +
       Object.values(K3.TYPEN).map((t) => '<button class="typ-card" data-act="create-probe" data-typ="' + t.id + '" data-anlass="' + (anlassId || '') + '"><span class="ico" style="background:' + colors[t.id] + ';color:#1d2925">' + t.merkblatt + '</span><span><b>' + t.titel + '</b><span class="small muted">' + esc(t.ziel) + '</span></span></button>').join('') +
       '</div><button class="btn ghost block" data-close style="margin-top:10px">Abbrechen</button>');
@@ -1296,7 +1337,7 @@
         const n = probenOf(aid).length + 1;
         const pr = { id: uid(), typ: t.dataset.typ, anlassId: aid, createdAt: now(), updatedAt: now(), kopf: { bez: 'Probe ' + n, beurteiler: db.prefs.beurteiler || '' }, antworten: {}, rad: {} };
         db.proben.push(pr); touchProbe(pr); closeSheet();
-        go('#/p/' + pr.id + '/' + (pr.typ === 'mais' ? 'haecksel' : 'bestand')); break;
+        go('#/p/' + pr.id + '/' + (pr.typ === 'mais' ? 'haecksel' : pr.typ === 'gps' ? 'kultur' : 'bestand')); break;
       }
       case 'new-anlass':
         sheet('<h2>Neuer Anlass</h2><div class="typ-cards">' +

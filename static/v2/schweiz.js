@@ -115,7 +115,7 @@
     const jahr = new Date().getFullYear();
     const seg = (name, opts) => '<div class="seg sm" role="group">' + opts.map(([v, t]) => '<button data-sw="' + name + '" data-val="' + v + '" aria-pressed="' + (String(zustand[name]) === String(v)) + '">' + t + '</button>').join('') + '</div>';
     let h = '<div class="bar"><a class="icon-btn back-btn hide-wide" href="#/" aria-label="Zurück">' + A.I.back + '</a><h2>Auswertung Schweiz<span class="sub">Anonyme Beiträge aus Betrieben und Kursen</span></h2></div><div class="wizard sw">' +
-      '<div class="stack" style="gap:8px">' + seg('typ', [['alle', 'Alle'], ['heu', 'Dürrfutter'], ['gras', 'Grassilage'], ['mais', 'Mais']]) +
+      '<div class="stack" style="gap:8px">' + seg('typ', [['alle', 'Alle'], ['heu', 'Dürrfutter'], ['gras', 'Grassilage'], ['mais', 'Mais'], ['gruen', 'Grünfutter'], ['gps', 'GPS']]) +
       '<div class="row" style="gap:8px">' + seg('seit', [[0, 'Alle Jahre'], [jahr - 1, 'ab ' + (jahr - 1)], [jahr, jahr]]) + seg('kennwert', [['nel', 'Schätzung'], ['labor', 'Labor']]) + '</div></div>';
     if (zustand.fehler && !d) return h + '<div class="alert info" style="margin-top:14px">Auswertung nicht verfügbar: ' + esc(zustand.fehler) + '</div></div>';
     if (!d || !geo) return h + '<div class="card small muted" style="margin-top:14px">Lade Auswertung …</div></div>';

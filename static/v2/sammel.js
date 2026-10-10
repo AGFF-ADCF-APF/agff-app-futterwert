@@ -15,6 +15,8 @@
     { id: 'BH', t: 'BH Bodenheu', typ: 'heu', text: 'Bodenheu' },
     { id: 'S', t: 'S Silage', typ: 'gras', text: 'Grassilage' },
     { id: 'M', t: 'Mais', typ: 'mais', text: 'Maissilage' },
+    { id: 'G', t: 'G Grünfutter', typ: 'gruen', text: 'Grünfutter/Weide' },
+    { id: 'GPS', t: 'GPS', typ: 'gps', text: 'Ganzpflanzensilage' },
   ];
   const ZEILEN_START = 6;
   const entwurf = {}; // je Anlass: { kopf, zeilen } – nur im Speicher, bis gespeichert
@@ -33,7 +35,7 @@
   }
   function tsId(typ, ts) {
     if (ts == null) return undefined;
-    if (typ === 'gras') {
+    if (typ === 'gras' || typ === 'gps') {
       const opts = K3().K3B_TS; let best = null;
       opts.forEach((o) => { if (!best || Math.abs(o.tsWert - ts) < Math.abs(best.tsWert - ts)) best = o; });
       return best && best.id;
@@ -58,7 +60,7 @@
     const monat = schnitt ? Number(schnitt.slice(5, 7)) : null;
     const antworten = {}; const rad = {}; const notiz = [];
     const st = String(z.stadium || '').trim();
-    if (typ && typ !== 'mais') {
+    if (typ && typ !== 'mais' && typ !== 'gps') {
       if (z.bestand) antworten.bestand = z.bestand; // fehlt er, fragt die Beurteilung danach
       const nutzung = Number(z.nutzung) || null;
       const wochen = /(\d{1,2})\s*w/i.exec(st);
@@ -86,7 +88,7 @@
       const r = Number(z.regen); if (!(r >= 0)) fehler.push('Regentage als Zahl');
       else rad.regen = r === 0 ? 'nein' : r === 1 ? 'tag1' : 'tag2';
     }
-    if ((typ === 'gras' || typ === 'mais') && String(z.ts || '').trim() !== '') {
+    if ((typ === 'gras' || typ === 'mais' || typ === 'gps') && String(z.ts || '').trim() !== '') {
       const t = Number(String(z.ts).replace(',', '.')); if (!(t > 5 && t < 100)) fehler.push('Anwelkgrad in % TS');
       else antworten.ts = tsId(typ, t);
     }

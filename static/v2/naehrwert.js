@@ -135,7 +135,7 @@
   }
 
   /** Konservierung der App-Futterarten. */
-  const KONS = { heu: 'heu', gras: 'silage', mais: 'mais' };
+  const KONS = { heu: 'heu', gras: 'silage', mais: 'mais', gruen: 'gruen' }; // GPS: keine Gleichung im Grünen Buch
 
   global.Naehrwert = { berechnen, korrektur, KONS, BESTAND_NAMEN, BESTAENDE: ['G', 'GR', 'A', 'AR', 'L', 'KF', 'KG', 'ITRG', 'LUZ', 'Unb'] };
 })(typeof window !== 'undefined' ? window : globalThis);
