@@ -63,8 +63,9 @@
     },
     kultur: {
       titel: 'Ganzpflanzensilage',
-      einfach: 'Wähle die Getreideart (oder die Mischung) und wie reif sie bei der Ernte war. Am besten wird GPS zwischen Milch- und früher Teigreife geerntet: Dann ist das Korn gefüllt, aber Halm und Blätter sind noch gut verdaulich.',
-      fachlich: 'Die Werte stammen aus dem Richtwert-Modell von v1 (AGFF-Näherung, Referenzen für Getreide-GPS) und werden je Stadium und Leguminosenanteil angepasst. Früh: weniger Stärke, mehr Protein, weniger Faser; spät: mehr Stärke, aber verholzte Halme. Die Gärqualität beurteilst du mit dem Rad der Grassilage. Wegen grosser Schwankungen (Sorte, Jahr, Schnitthöhe) lohnt sich eine Laboranalyse.',
+      einfach: 'Wähle das Getreide oder das Gemenge und wie reif es bei der Ernte war. Ideal ist es, wenn die meisten Körner teigreif sind (lassen sich mit dem Fingernagel noch eindrücken), die Ähren gelblich werden und die Stängel noch grün sind – rund 35–40 % TS. Diese Phase dauert nur 3–4 Tage: lieber etwas zu früh als zu spät.',
+      fachlich: 'Gehalte nach AGFF-Infoblatt K1 (Agroscope-Analysen 2012–13): Triticale 5,3 MJ NEL, 64 g RP; Hafer 4,5 MJ, 52 g RP; Gemenge Triticale/Hafer/Erbsen 5,3 MJ (Streuung 4,9–6,4), 80 g RP. GPS ist proteinarm (RP/NEL meist unter dem Zielwert 20 für Milchkühe) und ergänzt Mais- oder Grassilage vor allem durch wirksame Fasern. Zu frühe Ernte: Mindererertrag, Buttersäurerisiko; zu späte: Körnerverlust, schlechte Verdichtung, Nacherwärmung. Anteil in Milchkuhrationen unter einem Drittel halten.',
+      bilder: [B('gps-harvey.webp', 'Visuelle Merkmale nach TS (Harvey 1992, AGFF-Infoblatt K1)')],
     },
     ergebnis: {
       titel: 'Dein Ergebnis',
@@ -229,7 +230,8 @@
       vorgehen: ['Bei Tageslicht ansehen, frische Probe aus dem Inneren.'] },
     'rad.mais.ph': { vorgehen: ['Silage mit gleich viel destilliertem Wasser übergiessen, 10 Minuten warten.', 'Flüssigkeit mit Teststreifen oder pH-Meter messen.'] },
     sauber: { vorgehen: ['Eine Handvoll Gras über einem hellen Blatt schütteln: Bleiben Erde oder Sand liegen?', 'Auf verkrustete Stellen an den Halmen achten, vor allem unten am Stängel.'] },
-    kultur: { vorgehen: ['Ein paar Körner aus den Ähren zwischen den Fingern drücken: milchig = Milchreife, teigig = Teigreife, hart = überständig.', 'Leguminosenanteil grob schätzen: Wie viel des Gemenges sind Wicken, Erbsen oder Klee?'] },
+    kultur: { wie: 'Gute GPS riecht angenehm säuerlich-brotig, ähnlich wie gute Grassilage; muffig oder stechend weist auf Schimmel bzw. Fehlgärung hin.',
+      vorgehen: ['Mehrere Ähren an verschiedenen Stellen prüfen: Korn zwischen den Fingern drücken – milchig, teigig oder hart?', 'Stängel und Ähren ansehen: Stängelbasis gelblich und Ähren gelblich grün = optimal (35–40 % TS).', 'Leguminosen grob schätzen: Ein ausgewogenes Gemenge hat höchstens ein Viertel Erbsen/Wicken.', 'Bei der Ernte: Häcksellänge 4–5 cm, Schnitthöhe ca. 10 cm, dünne Schichten und gut walzen; ab 45 % TS Körner quetschen.', 'Siliermittel: unter 35 % TS Liste A (Buttersäure), über 40 % TS Liste B (Nacherwärmung). Vorschub im Winter 10–15 cm, im Sommer über 25 cm pro Tag.'] },
     stadium: { vorgehen: ['Im 1. Aufwuchs 10–20 Halme der Leitpflanze (z. B. Knaulgras) anschauen und das häufigste Stadium wählen – nicht die weitesten.', 'Ähre/Rispe sichtbar? Dann mindestens Stadium 3. Staubbeutel sichtbar? Dann Blüte (6).', 'In Konserven: Rispen und Blütenstände im Futter suchen und mit den Bildern vergleichen.'] },
     bestand: { vorgehen: ['Probe auf dem Tisch ausbreiten und grob in Gräser, Klee und Kräuter sortieren.', 'Anteile nach Volumen schätzen – auf 10 % genau reicht.'] },
     'ts.gras': { vorgehen: ['Faustgrosse Probe nehmen, wie ein Waschlappen auswinden (zweimal kräftig).', 'Hände ansehen: Saft tropft? Hände nass, feucht oder trocken?', 'Sehr nasse Silage nur als Kugel drücken, nicht winden.'] },

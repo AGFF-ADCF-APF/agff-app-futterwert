@@ -134,7 +134,7 @@
     const w = res.werte || {}; const b = res.basis || {};
     if (p.typ === 'gps') {
       const e = res.erwartet || {};
-      ['nel', 'nev', 'apde', 'apdn', 'rp', 'rf', 'ndf', 'staerke', 'zucker'].forEach((m) => {
+      ['nel', 'nev', 'apde', 'apdn', 'rp', 'rf', 'adf', 'ndf', 'ra', 'staerke', 'zucker'].filter((m) => e[m] != null || w[m] != null).forEach((m) => {
         const d = w[m] != null && e[m] != null ? w[m] - e[m] : null; const dg = m === 'nel' || m === 'nev' ? 2 : 0;
         rows.push({ key: ['nel', 'apde'].includes(m), label: K3.METRIK_LABEL[m][0], unit: K3.METRIK_LABEL[m][1], basis: fmt(e[m], dg), korr: d && Math.abs(d) > 0.004 ? (d > 0 ? '+' : '') + fmt(d, dg) : '–', wert: fmt(w[m], dg) });
       });
@@ -159,7 +159,9 @@
     }
     if (p.typ === 'gps') {
       const ku = K3.GPS_KULTUREN.find((x) => x.id === a.kultur); const st = K3.GPS_STADIEN.find((x) => x.id === a.gpsStadium); const lg = K3.GPS_LEGUM.find((x) => x.id === (a.leguminosen || 'none'));
-      befunde.push({ k: 'Kultur / Stadium', v: [ku && ku.titel, st && st.titel + ' – ' + st.text].filter(Boolean).join(', '), v2: lg && lg.id !== 'none' ? 'Leguminosen ' + lg.titel : '' });
+      befunde.push({ k: 'Kultur / Stadium', v: [ku && ku.titel, st && st.titel + ' – ' + st.text].filter(Boolean).join(', '), v2: lg && lg.id !== 'none' && !(ku && ku.gemenge) ? 'Leguminosen ' + lg.titel : '' });
+      if (ku) befunde.push({ k: 'Grundlage', v: ku.quelle === 'agff' ? 'AGFF-Infoblatt K1, Agroscope-Analysen 2012–2013' + (res.spanne ? ' – Streuung im Datensatz: NEL ' + fmt(res.spanne.nel[0], 1) + '–' + fmt(res.spanne.nel[1], 1) + ' MJ, RP ' + res.spanne.rp[0] + '–' + res.spanne.rp[1] + ' g' : '') : 'Richtwert aus v1 (keine AGFF-Werte für diese Kultur)', ton: ku.quelle === 'agff' ? 'gut' : 'mittel' });
+      if (w.rp && w.nel) { const v = w.rp / w.nel; befunde.push({ k: 'RP/NEL', v: fmt(v, 0) + ' (Zielwert Milchkühe > 20)', v2: v < 20 ? 'Proteindefizit – ergänzen' : '', ton: v < 20 ? 'mittel' : 'gut' }); }
       befunde.push({ k: 'Konservierung (aus dem Rad)', v: { sehr_gut: 'Sehr gut', normal: 'Normal', kritisch: 'Kritisch', schlecht: 'Schlecht' }[res.gpsKons] || '–', ton: res.gpsKons === 'schlecht' ? 'kritisch' : res.gpsKons === 'kritisch' ? 'mittel' : 'gut' });
     }
     if (p.typ === 'gras' || p.typ === 'gps') {
@@ -577,11 +579,12 @@
       '<p class="hint">Weitere Werte (Gehalte, Mineralstoffe) stammen aus der Agroscope-Tabelle für Grünfutter. Bei Laborwerten rechnet die App sie zusätzlich nach Grünem Buch nach.</p>';
   }
   function stepKultur(p) {
-    const a = p.antworten;
-    return q('Kultur', 'Welche Getreideart bzw. Mischung wurde siliert?', '<div class="opts cols-wide">' + K3.GPS_KULTUREN.map((k) => opt({ set: 'kultur', val: k.id, on: a.kultur === k.id, t: k.titel + '-GPS', s: 'NEL ' + fmt(k.w.nel, 1) + ' MJ · RP ' + k.w.rp + ' g (Richtwert)' })).join('') + '</div>') +
-      q('Stadium bei der Ernte', 'Optimal ist die Ernte von der Milch- bis zur frühen Teigreife.', '<div class="opts">' + K3.GPS_STADIEN.map((st) => opt({ set: 'gpsStadium', val: st.id, on: a.gpsStadium === st.id, t: st.titel, s: st.text, tag: st.k.nel ? (st.k.nel > 0 ? '+' : '') + fmt(st.k.nel, 1) + ' MJ' : '' })).join('') + '</div>') +
-      q('Leguminosenanteil', 'z. B. Wicken, Erbsen, Klee im Gemenge (optional).', '<div class="opts cols-wide">' + K3.GPS_LEGUM.map((l) => opt({ set: 'leguminosen', val: l.id, on: (a.leguminosen || 'none') === l.id, t: l.titel, tag: l.k.nel ? '+' + fmt(l.k.nel, 1) + ' MJ' : '' })).join('') + '</div>') +
-      '<p class="hint">Richtwert-Modell wie in v1 (AGFF-Näherung, Referenzen für Getreide-Ganzpflanzensilage). Jahr, Sorte und Ernte führen zu deutlichen Schwankungen – Laboranalyse empfohlen.</p>';
+    const a = p.antworten; const ku = K3.GPS_KULTUREN.find((x) => x.id === a.kultur);
+    const quelle = (k) => (k.quelle === 'agff' ? 'AGFF-Infoblatt K1 (Agroscope 2012–13)' : 'Richtwert aus v1 – nicht AGFF');
+    return q('Kultur', 'Welche Getreideart bzw. welches Gemenge wurde siliert?', '<div class="opts cols-wide">' + K3.GPS_KULTUREN.map((k) => opt({ set: 'kultur', val: k.id, on: a.kultur === k.id, t: k.titel, s: 'NEL ' + fmt(k.w.nel, 1) + ' MJ · RP ' + k.w.rp + ' g · ' + quelle(k) + (k.text ? ' · ' + k.text : '') })).join('') + '</div>') +
+      q('Stadium bei der Ernte', 'Ideal: die meisten Körner teigreif, die letzten milchreif; Stängel grün mit gelblicher Basis – etwa 3–4 Wochen nach der Blüte. Diese Phase dauert nur 3–4 Tage.', '<div class="opts">' + K3.GPS_STADIEN.map((st) => opt({ set: 'gpsStadium', val: st.id, on: a.gpsStadium === st.id, t: st.titel, s: st.text, tag: st.k.nel ? (st.k.nel > 0 ? '+' : '') + fmt(st.k.nel, 1) + ' MJ' : '' })).join('') + '</div>') +
+      (ku && ku.gemenge ? '' : q('Leguminosenanteil', 'z. B. Futtererbsen im Getreide. Ein ausgewogenes Gemenge enthält höchstens ein Viertel Leguminosen (AGFF).', '<div class="opts cols-wide">' + K3.GPS_LEGUM.map((l) => opt({ set: 'leguminosen', val: l.id, on: (a.leguminosen || 'none') === l.id, t: l.titel, tag: l.anteil ? Math.round(l.anteil * 100) + ' % Erbsen-Werte' : '' })).join('') + '</div>')) +
+      '<p class="hint">Gehalte nach AGFF-Infoblatt K1 (Agroscope-Analysen 2012–2013); NEV und APDN nach Grünem Buch berechnet. Leguminosen werden mit den AGFF-Werten der Futtererbsen eingemischt; die Stadiumskorrektur ist eine Näherung aus v1. Sorte, Jahr und Ernte führen zu deutlichen Schwankungen – Laboranalyse empfohlen.</p>';
   }
   function stepTsGras(p) {
     const a = p.antworten;

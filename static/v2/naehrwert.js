@@ -90,7 +90,9 @@
     const rl = lab.rl > 0 ? lab.rl : 35;
     const os = 1000 - ra; const rpos = rp / os * 1000;
     let vos; let faser; let ausserhalb = false;
-    if (o.kons === 'mais') {
+    if (o.vos > 0) { // vOS bekannt (z. B. in vivo oder aus einer Tabelle): direkt verwenden
+      faser = 'vos'; vos = os * o.vos / 100;
+    } else if (o.kons === 'mais') {
       if (!(lab.rf > 0)) return null;
       faser = 'rf';
       const v1 = 79.4 + 0.0652 * rpos - 0.0591 * (lab.rf / os * 1000);

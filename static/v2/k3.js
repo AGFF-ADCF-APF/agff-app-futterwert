@@ -259,31 +259,47 @@
       ziel: 'Ausgezeichnet: 32–36 % TS, Kolbenanteil > 55 %, pH < 4,1, keine Fehlgärungen und keine Nacherwärmung.' },
     gruen: { id: 'gruen', merkblatt: 'GF', quelle: 'Agroscope-Tabelle', farbe: '#8cbf4f', titel: 'Grünfutter', kurz: 'Grünfutter/Weide', rad: [], basisKons: 'gruen',
       ziel: 'Nährwert aus der Agroscope-Tabelle für Bestand, Aufwuchs und Stadium; Abzug bei Verschmutzung.' },
-    gps: { id: 'gps', merkblatt: 'GPS', quelle: 'Richtwert-Modell, Rad K3b', farbe: '#c98f5a', titel: 'Ganzpflanzensilage', kurz: 'GPS', rad: RAD_K3B,
-      ziel: 'Richtwert-Modell wie v1: Kultur, Stadium und Leguminosen; Gärqualität mit dem Rad der Grassilage (K3b).' },
+    gps: { id: 'gps', merkblatt: 'GPS', quelle: 'AGFF-Infoblatt K1, Rad K3b', farbe: '#c98f5a', titel: 'Ganzpflanzensilage', kurz: 'GPS', rad: RAD_K3B,
+      ziel: 'Ernte bei 35–40 % TS (Korn teigreif, Stängel grün mit gelblicher Basis), Häcksellänge 4–5 cm, einwandfreie Konservierung. GPS ist proteinarm – Zielwert RP/NEL > 20 für Milchkühe meist nicht erreicht (AGFF K1).' },
   };
 
-  // ---------- Ganzpflanzensilage (GPS): Richtwert-Modell aus v1 (AGFF-Näherung, Silage-Getreide-Referenzen) ----------
+  // ---------- Ganzpflanzensilage (GPS) ----------
+  // AGFF-Infoblatt K1 «Ganzpflanzensilage aus Getreide und Körnerleguminosen», Teil 3 Fütterung (2017):
+  // Nährstoffgehalte von Silagen, untersucht von Agroscope 2012–2013 (TS in %, sonst je kg TS). NEV und APDN fehlen dort;
+  // sie sind nach Grünem Buch Kap. 15 aus vOS, OS und RP berechnet (NEV auf das AGFF-NEL abgestimmt).
+  // Kulturen ohne AGFF-Werte behalten die Richtwerte aus v1 (quelle: 'v1').
   const GPS_KULTUREN = [
-    { id: 'weizen', titel: 'Weizen', w: { nel: 5.0, nev: 5.3, apde: 55, apdn: 62, rp: 105, rf: 290, ndf: 500, staerke: 170, zucker: 35 } },
-    { id: 'gerste', titel: 'Gerste', w: { nel: 5.0, nev: 5.3, apde: 54, apdn: 60, rp: 100, rf: 300, ndf: 520, staerke: 160, zucker: 30 } },
-    { id: 'triticale', titel: 'Triticale', w: { nel: 5.0, nev: 5.2, apde: 53, apdn: 58, rp: 95, rf: 315, ndf: 540, staerke: 150, zucker: 28 } },
-    { id: 'hafer', titel: 'Hafer', w: { nel: 5.8, nev: 6.0, apde: 58, apdn: 66, rp: 112, rf: 265, ndf: 470, staerke: 200, zucker: 40 } },
-    { id: 'roggen', titel: 'Roggen', w: { nel: 6.0, nev: 6.2, apde: 60, apdn: 68, rp: 115, rf: 250, ndf: 450, staerke: 220, zucker: 45 } },
-    { id: 'wickhafer', titel: 'Wickhafer', w: { nel: 6.1, nev: 6.3, apde: 64, apdn: 74, rp: 135, rf: 240, ndf: 430, staerke: 190, zucker: 50 } },
-    { id: 'mischung', titel: 'Mischung / unbekannt', w: { nel: 5.6, nev: 5.9, apde: 60, apdn: 70, rp: 125, rf: 265, ndf: 470, staerke: 175, zucker: 42 } },
+    { id: 'triticale', titel: 'Triticale', quelle: 'agff', w: { ts: 42, nel: 5.3, nev: 5.22, apde: 65, apdn: 40, rp: 64, rf: 301, ra: 44, adf: 333, ndf: 501, staerke: 65, vos: 65 } },
+    { id: 'hafer', titel: 'Hafer', quelle: 'agff', w: { ts: 35, nel: 4.5, nev: 4.26, apde: 54, apdn: 32, rp: 52, rf: 326, ra: 56, adf: 363, ndf: 527, staerke: 47, vos: 58 } },
+    { id: 'mischung', titel: 'Gemenge Triticale/Hafer/Erbsen (bzw. unbekannt)', quelle: 'agff', gemenge: true,
+      text: 'Triticale 66 % (35–81), Hafer 17 % (5–27), Futtererbsen 17 % (9–41)',
+      w: { ts: 36, nel: 5.3, nev: 5.23, apde: 72, apdn: 50, rp: 80, rf: 300, ra: 56, adf: 335, ndf: 515, staerke: 111, vos: 66 },
+      spanne: { ts: [34, 39], nel: [4.9, 6.4], apde: [65, 77], rp: [68, 92], rf: [276, 318], ndf: [486, 542], staerke: [96, 129] } },
+    { id: 'erbsen', titel: 'Futtererbsen (Reinkultur)', quelle: 'agff', gemenge: true, w: { ts: 26, nel: 5.6, nev: 5.59, apde: 71, apdn: 100, rp: 158, rf: 289, ra: 73, adf: 327, ndf: 439, staerke: 123, vos: 70 } },
+    { id: 'weizen', titel: 'Weizen', quelle: 'v1', w: { nel: 5.0, nev: 5.3, apde: 55, apdn: 62, rp: 105, rf: 290, ndf: 500, staerke: 170, zucker: 35 } },
+    { id: 'gerste', titel: 'Gerste', quelle: 'v1', w: { nel: 5.0, nev: 5.3, apde: 54, apdn: 60, rp: 100, rf: 300, ndf: 520, staerke: 160, zucker: 30 } },
+    { id: 'roggen', titel: 'Roggen', quelle: 'v1', w: { nel: 6.0, nev: 6.2, apde: 60, apdn: 68, rp: 115, rf: 250, ndf: 450, staerke: 220, zucker: 45 } },
+    { id: 'wickhafer', titel: 'Wickhafer', quelle: 'v1', gemenge: true, w: { nel: 6.1, nev: 6.3, apde: 64, apdn: 74, rp: 135, rf: 240, ndf: 430, staerke: 190, zucker: 50 } },
   ];
+  const GPS_ERBSE = GPS_KULTUREN.find((k) => k.id === 'erbsen').w;
+  // Stadium: Merkmale nach Harvey (1992) aus dem AGFF-Infoblatt; Korrekturen weiterhin als Näherung aus v1
   const GPS_STADIEN = [
-    { id: 'frueh', titel: 'Früh', text: 'Frühe Kornfüllung, hoher Blattanteil', k: { nel: 0.3, nev: 0.3, apde: 6, apdn: 2, rp: 20, rf: -35, ndf: -45, staerke: -30, zucker: 10 } },
-    { id: 'optimal', titel: 'Optimal', text: 'Milchreif bis frühe Teigreife', k: {} },
-    { id: 'spaet', titel: 'Spät', text: 'Teigreif bis überständig', k: { nel: -0.4, nev: -0.4, apde: -8, apdn: -4, rp: -18, rf: 45, ndf: 60, staerke: 35, zucker: -8 } },
+    { id: 'frueh', titel: 'Früh', text: 'ca. 30–35 % TS · Pflanze, Stängel und Ähren grün · Korn milchig', k: { nel: 0.3, nev: 0.3, apde: 6, apdn: 2, rp: 20, rf: -35, ndf: -45, staerke: -30, zucker: 10 } },
+    { id: 'optimal', titel: 'Optimal', text: 'ca. 35–40 % TS · Stängelbasis gelblich, Ähren gelblich grün · Korn teigreif, leicht milchig', k: {} },
+    { id: 'spaet', titel: 'Spät', text: 'über 40 % TS · Stängel und Ähren hauptsächlich gelb · Korn teigreif bis hart', k: { nel: -0.4, nev: -0.4, apde: -8, apdn: -4, rp: -18, rf: 45, ndf: 60, staerke: 35, zucker: -8 } },
   ];
+  // Leguminosen im Getreide: AGFF-Werte der Futtererbsen nach Anteil (TS-Basis) einmischen; empfohlen höchstens ein Viertel
   const GPS_LEGUM = [
-    { id: 'none', titel: 'Kein Anteil', k: {} },
-    { id: 'low', titel: 'Gering (< 20 %)', k: { nel: 0.1, nev: 0.1, apde: 2, apdn: 3, rp: 10, rf: -4, ndf: -8, staerke: -8, zucker: 2 } },
-    { id: 'medium', titel: 'Mittel (20–40 %)', k: { nel: 0.2, nev: 0.2, apde: 5, apdn: 7, rp: 22, rf: -10, ndf: -14, staerke: -18, zucker: 4 } },
-    { id: 'high', titel: 'Hoch (> 40 %)', k: { nel: 0.3, nev: 0.3, apde: 8, apdn: 12, rp: 35, rf: -16, ndf: -22, staerke: -30, zucker: 6 } },
+    { id: 'none', titel: 'Kein Anteil', anteil: 0 },
+    { id: 'low', titel: 'Gering (ca. 10 %)', anteil: 0.1 },
+    { id: 'medium', titel: 'Mittel (ca. 25 %)', anteil: 0.25 },
+    { id: 'high', titel: 'Hoch (ca. 40 %)', anteil: 0.4 },
   ];
+  function gpsMischen(w, anteil) {
+    if (!anteil) return Object.assign({}, w);
+    const o = {}; Object.keys(w).forEach((m) => { o[m] = GPS_ERBSE[m] != null ? w[m] * (1 - anteil) + GPS_ERBSE[m] * anteil : w[m]; });
+    return o;
+  }
   const GPS_TS = { lt30: { nel: -0.1, nev: -0.1, apde: -2, apdn: -1, rp: 0, rf: 8, ndf: 10, staerke: -8, zucker: 2 }, gt40: { nel: -0.2, nev: -0.2, apde: -1, apdn: -2, rp: -2, rf: 12, ndf: 14, staerke: -10, zucker: -2 } };
   const GPS_KONS = { sehr_gut: { nel: 0.1, nev: 0.1, apde: 1, apdn: 1, rp: 1, rf: -2, ndf: -3, staerke: 2, zucker: 2 }, normal: {},
     kritisch: { nel: -0.2, nev: -0.2, apde: -3, apdn: -2, rp: -3, rf: 12, ndf: 18, staerke: -8, zucker: -3 },
@@ -423,7 +439,8 @@
       res.gpsKons = kl.id === 'gut' ? (punkte === 0 ? 'sehr_gut' : 'normal') : kl.id === 'leicht' ? 'kritisch' : 'schlecht';
       if (kl.id === 'problem') sperre.push('Problematische Silage – Verfütterung kritisch prüfen.');
       if (ku && st) {
-        const erwartet = addK(addK(Object.assign({}, ku.w), st.k), lg ? lg.k : null);
+        const erwartet = addK(gpsMischen(ku.w, ku.gemenge || !lg ? 0 : lg.anteil), st.k);
+        res.gpsQuelle = ku.quelle; res.spanne = ku.spanne || null;
         res.basis = Object.assign({}, ku.w); res.erwartet = Object.assign({}, erwartet);
         const w = addK(addK(Object.assign({}, erwartet), ts ? GPS_TS[ts.tsWert < 30 ? 'lt30' : ts.tsWert > 40 ? 'gt40' : 'x'] : null), GPS_KONS[res.gpsKons]);
         if (sb && sb.k) ['nel', 'nev', 'apde', 'apdn'].forEach((m) => { if (w[m] != null && sb.k[m]) w[m] = w[m] * (1 + sb.k[m] / 100); });
