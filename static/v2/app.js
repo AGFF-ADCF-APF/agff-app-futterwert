@@ -286,7 +286,7 @@
       '</ul>' +
       '<div class="section-title" style="padding:0 12px">Daten & Datenschutz</div><ul class="list" style="padding:0 8px 24px">' +
       '<li><a class="item" href="#/daten" aria-current="' + (r.name === 'daten') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.lock.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Speicherort, Sicherung, v1-Daten</span><span class="s">' + (storageOk ? 'Daten liegen nur in diesem Browser' : 'Browserspeicher nicht verfügbar!') + '</span></span></a></li>' +
-      '<li><a class="item" href="#/bilanz" aria-current="' + (r.name === 'bilanz') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.table.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Grundfutter-Bilanz</span><span class="s">Energie und Protein der Ration</span></span></a></li>' +
+      '<li><a class="item" href="#/bilanz" aria-current="' + (r.name === 'bilanz') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.table.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Rationscheck</span><span class="s">Energie & Protein der Ration</span></span></a></li>' +
       '<li><a class="item" href="#/schweiz" aria-current="' + (r.name === 'schweiz') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">CH</span><span><span class="t">Auswertung Schweiz</span><span class="s">Karte nach PLZ und Höhenzone</span></span></a></li>' +
       '<li><a class="item" href="../"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">v1</span><span><span class="t">Zur bisherigen Version</span><span class="s">Futterwert-Rechner v1</span></span></a></li>' +
       '</ul>';
@@ -862,7 +862,7 @@
     sheet('<h2>' + esc(a.titel) + '</h2><div class="stack">' +
       (ro ? '<div class="alert info">' + I.lock + '<div>Geöffnet über einen <b>Nur-Ansehen-Link</b>. Ändern ist nicht möglich.</div></div>' : '<button class="btn block" data-act="edit-anlass" data-id="' + a.id + '">Bearbeiten</button>') +
       (ro ? '' : '<button class="btn block" data-go="#/a/' + a.id + '/sammel">' + I.table + ' Sammelerfassung (wie Ernterapport)</button>') +
-      '<button class="btn block" data-act="bilanz-anlass" data-id="' + a.id + '">Grundfutter-Bilanz mit diesen Proben</button>' +
+      '<button class="btn block" data-act="bilanz-anlass" data-id="' + a.id + '">Rationscheck mit diesen Proben</button>' +
       '<button class="btn block" data-act="pdf-anlass" data-id="' + a.id + '">' + I.pdf + ' PDF aller Proben (mit QR-Codes)</button>' +
       '<button class="btn block" data-act="export-anlass" data-id="' + a.id + '">Als JSON-Datei exportieren</button>' +
       (a.space ? '<button class="btn block" data-act="share-space" data-id="' + a.id + '">' + I.share + ' Freigabe-Links fürs Büro / Team</button><button class="btn block" data-act="sync-now" data-id="' + a.id + '">Jetzt synchronisieren</button>' +
