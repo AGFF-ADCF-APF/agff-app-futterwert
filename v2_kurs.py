@@ -10,12 +10,13 @@ Ablauf
 - Vergleich der Beurteilungen erst nach eigener Abgabe; Abgaben sind gesperrt.
 
 Sicherheit
-- Kurs-Link «#k=<id>.<geheimnis>[.<probe>]»: Kursschlüssel (Ende-zu-Ende für Kurstitel, Namen,
-  Proben-Angaben, Standort, Notizen, Foto-Schlüssel) und Beitritts-Token (Server: nur Hash).
+- Kurs-Link «#k=<id>.<geheimnis>[.<probe>]»: daraus das Beitritts-Token (Server: nur Hash). Seit 2026-10
+  ohne Ende-zu-Ende-Verschlüsselung: Kursdaten liegen auf dem Server, Zugriff nur mit Sitzung (Rolle).
+  Das Link-Geheimnis speichert der Server verschlüsselt (Serverschlüssel), damit Mitglieder ihre Kurse
+  per E-Mail wiederfinden («Meine Kurse»).
 - Teilnahme ohne E-Mail möglich (Sitzung an Gerät gebunden); E-Mail optional für Zugriff von
   anderen Geräten. Adressen nur verschlüsselt (Serverschlüssel), Suche per HMAC.
-- Fotos: eigener Schlüssel je Foto (steckt im verschlüsselten Proben-Paket), Server sieht nur Bytes;
-  20 MB je Person und Kurs, plus Gesamtobergrenze.
+- Fotos: JPEG/WebP, 20 MB je Person und Kurs, plus Gesamtobergrenze.
 """
 import hmac
 import json
@@ -30,10 +31,10 @@ from flask import jsonify, request, send_from_directory
 
 import v2_admin as ADM
 import v2_mail as M
-from v2_api import (v2, _db, _now, _sha, _rate_hit, _check_record, _check_privat, _json_body,
+from v2_api import (v2, _db, _now, _sha, _rate_hit, _check_record, _check_privat, _json_body, _bild_typ, bild_senden,
                     ID_RE, HASH_RE, TOKEN_RE, RETENTION_DAYS, MAX_RECORD_BYTES, FOTO_ID_RE, FUTTERARTEN)
 
-KURS_CONSENT_VERSION = '2026-10-k4'
+KURS_CONSENT_VERSION = '2026-10-k5'  # k5: ohne Ende-zu-Ende-Verschlüsselung
 SESSION_TTL = 120 * 24 * 3600
 MAX_PROBEN = 400
 MAX_TEILNEHMENDE = 300
@@ -106,6 +107,11 @@ def init_kurs_db():
                 PRIMARY KEY (kurs_id, id)
             );
         ''')
+        if 'link_enc' not in [c[1] for c in conn.execute('PRAGMA table_info(kurse)').fetchall()]:
+            try:  # Link-Geheimnis, mit Serverschlüssel verschlüsselt («Meine Kurse»)
+                conn.execute('ALTER TABLE kurse ADD COLUMN link_enc TEXT')
+            except sqlite3.OperationalError:
+                pass
         if 'zweck' not in [c[1] for c in conn.execute('PRAGMA table_info(kurs_fotos)').fetchall()]:
             try:  # probe | beurteilung
                 conn.execute("ALTER TABLE kurs_fotos ADD COLUMN zweck TEXT NOT NULL DEFAULT 'probe'")
@@ -174,6 +180,27 @@ def _join_ok(conn, kurs_id, join_token):
     return ok
 
 
+def _join_token_aus(secret):
+    """Wie im Browser (crypto.js kursKeys): HKDF-SHA256(secret, salt «agff-futter-v2», info «kurs-join») → base64url."""
+    import base64
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+    raw = base64.urlsafe_b64decode(secret + '=' * (-len(secret) % 4))
+    bits = HKDF(algorithm=hashes.SHA256(), length=32, salt=b'agff-futter-v2', info=b'kurs-join').derive(raw)
+    return base64.urlsafe_b64encode(bits).decode().rstrip('=')
+
+
+def _link_speichern(conn, kurs_id, secret):
+    """Link-Geheimnis übernehmen, wenn es zum Kurs passt (Beitritts-Hash)."""
+    if not isinstance(secret, str) or not TOKEN_RE.match(secret) or len(secret) != 43:
+        return False
+    k = conn.execute('SELECT join_hash FROM kurse WHERE id = ?', (kurs_id,)).fetchone()
+    if not k or not hmac.compare_digest(k['join_hash'], _sha(_join_token_aus(secret))):
+        return False
+    conn.execute('UPDATE kurse SET link_enc = ? WHERE id = ?', (M.text_enc(secret, b'kurs-link'), kurs_id))
+    return True
+
+
 def _hinweise_aus(meta_analyse):
     h = dict(HINWEIS_DEFAULT)
     try:
@@ -210,6 +237,8 @@ def kurs_anlegen():
         conn.execute('INSERT INTO kurse (id, join_hash, status, pending_email_hmac, pending_einladung, consent_version, created_at, updated_at) '
                      "VALUES (?, ?, 'pending', ?, ?, ?, ?, ?)",
                      (kurs_id, join_hash, M.email_hmac(email), (str(einladung or '')[:40]) or None, KURS_CONSENT_VERSION, now, now))
+        if body.get('secret'):
+            _link_speichern(conn, kurs_id, body.get('secret'))
     M.code_senden('kurs:' + kurs_id, email, 'Kurs anlegen')
     return jsonify({'id': kurs_id, 'consentVersion': KURS_CONSENT_VERSION}), 201
 
@@ -340,7 +369,9 @@ def kurs_lesen(kurs_id):
         'kurs': {'id': k['id'], 'meta': {'analyse': _box(k['meta_analyse']) or {}, 'privat': _box(k['meta_privat'])}, 'updatedAt': k['updated_at'],
                  'consentVersion': k['consent_version']},
         'hinweise': hinweise,
-        'ich': {'id': ich['id'], 'rolle': ich['rolle'], 'fotoBytes': foto_bytes, 'fotoLimit': FOTO_PRO_PERSON},
+        'ich': {'id': ich['id'], 'rolle': ich['rolle'], 'fotoBytes': foto_bytes, 'fotoLimit': FOTO_PRO_PERSON,
+                'consentVersion': ich['consent_version'], 'consentAktuell': KURS_CONSENT_VERSION},
+        'linkBekannt': bool(k['link_enc']),
         'teilnehmende': teilnehmende,
         # Leere Etiketten sieht nur die Kursleitung
         'proben': [{'id': r['id'], 'nr': r['nr'], 'status': r['status'], 'eigene': r['owner_id'] == ich['id'], 'ownerId': r['owner_id'],
@@ -391,6 +422,70 @@ def kurs_meta(kurs_id):
         conn.execute('UPDATE kurse SET meta_analyse = ?, meta_privat = ?, updated_at = ? WHERE id = ?',
                      (json.dumps(an), json.dumps(pv) if pv else None, _now(), kurs_id))
     return jsonify({'status': 'ok'})
+
+
+@v2.route('/v2/api/kurse/<kurs_id>/zustimmung', methods=['PUT'])
+def kurs_zustimmung(kurs_id):
+    """Bestehendes Mitglied stimmt geänderten Datenschutzhinweisen zu."""
+    if not _consent_ok(_json_body() or {}):
+        return _err('CONSENT_REQUIRED', 400)
+    with _db() as conn:
+        ich = _session(conn, kurs_id)
+        if not ich:
+            return _err('NOT_FOUND', 404)
+        conn.execute('UPDATE kurs_teilnehmende SET consent_version = ?, consent_at = ? WHERE id = ?', (KURS_CONSENT_VERSION, _now(), ich['id']))
+    return jsonify({'status': 'ok'})
+
+
+@v2.route('/v2/api/kurse/<kurs_id>/link', methods=['PUT'])
+def kurs_link(kurs_id):
+    """Kursmitglied hinterlegt das Link-Geheimnis (für Kurse von vor 2026-10 bzw. ohne Hinterlegung beim Anlegen)."""
+    with _db() as conn:
+        if not _session(conn, kurs_id):
+            return _err('NOT_FOUND', 404)
+        if not _link_speichern(conn, kurs_id, (_json_body() or {}).get('secret')):
+            return _err('REJECTED_CONTENT', 422)
+    return jsonify({'status': 'ok'})
+
+
+# --- Meine Kurse: per E-Mail alle eigenen Kurse wiederfinden (neues Gerät, Link verloren) ---
+@v2.route('/v2/api/meine-kurse/code', methods=['POST'])
+def meine_kurse_code():
+    _rate_hit('meine_code', limit=10, window=3600)
+    email = M.email_norm((_json_body() or {}).get('email'))
+    if not M.email_ok(email):
+        return _err('BAD_REQUEST', 400)
+    with _db() as conn:
+        bekannt = conn.execute('SELECT 1 FROM kurs_teilnehmende WHERE email_hmac = ? LIMIT 1', (M.email_hmac(email),)).fetchone()
+    if bekannt:  # sonst still: keine Auskunft, ob eine Adresse bekannt ist
+        M.code_senden('meine', email, 'Meine Kurse')
+    return jsonify({'status': 'sent'})
+
+
+@v2.route('/v2/api/meine-kurse', methods=['POST'])
+def meine_kurse():
+    _rate_hit('meine_list', limit=20, window=3600)
+    body = _json_body() or {}
+    email = M.email_norm(body.get('email'))
+    if not M.email_ok(email) or not M.code_pruefen('meine', email, body.get('code')):
+        return _err('CODE_INVALID', 400)
+    out, ohne = [], 0
+    with _db() as conn:
+        rows = conn.execute("SELECT t.id AS tid, t.rolle, k.id AS kid, k.link_enc, k.meta_privat, k.meta_analyse FROM kurs_teilnehmende t "
+                            "JOIN kurse k ON k.id = t.kurs_id WHERE t.email_hmac = ? AND k.status = 'aktiv'", (M.email_hmac(email),)).fetchall()
+        for r in rows:
+            secret = M.text_dec(r['link_enc'], b'kurs-link') if r['link_enc'] else None
+            if not secret:
+                ohne += 1
+                continue
+            try:
+                mp = json.loads(r['meta_privat'] or '{}')
+            except ValueError:
+                mp = {}
+            titel = mp.get('titel') if isinstance(mp, dict) and isinstance(mp.get('titel'), str) else None
+            out.append({'kursId': r['kid'], 'rolle': r['rolle'], 'ichId': r['tid'], 'secret': secret, 'titel': titel,
+                        'session': _neue_session(conn, r['tid'], r['kid'])})
+    return jsonify({'kurse': out, 'ohneLink': ohne})
 
 
 @v2.route('/v2/api/kurse/<kurs_id>/etiketten', methods=['POST'])
@@ -550,7 +645,7 @@ def kurs_foto_put(kurs_id, foto_id):
     if (request.content_length or 0) > MAX_FOTO_BYTES:
         return _err('TOO_LARGE', 413)
     data = request.get_data(cache=False)
-    if len(data) > MAX_FOTO_BYTES or len(data) < 30 or data[0] != 1:
+    if len(data) > MAX_FOTO_BYTES or len(data) < 100 or not _bild_typ(data[:12]):
         return _err('REJECTED_CONTENT', 422)
     with _db() as conn:
         ich = _session(conn, kurs_id)
@@ -619,9 +714,7 @@ def kurs_foto_get(kurs_id, foto_id):
     if pool_quelle:
         import v2_pool as POOL
         return POOL.foto_senden(pool_quelle, foto_id)
-    resp = send_from_directory(os.path.abspath(_foto_dir(kurs_id)), foto_id + '.bin', mimetype='application/octet-stream')
-    resp.headers['Cache-Control'] = 'no-store'
-    return resp
+    return bild_senden(_foto_dir(kurs_id), foto_id + '.bin')
 
 
 @v2.route('/v2/api/kurse/<kurs_id>/fotos/<foto_id>', methods=['DELETE'])
@@ -639,7 +732,7 @@ def kurs_foto_delete(kurs_id, foto_id):
 @v2.route('/v2/api/kurse/<kurs_id>/ich', methods=['PUT'])
 def kurs_name(kurs_id):
     pv = (_json_body() or {}).get('name')
-    if not pv or not _check_privat(pv) or len(pv['ct']) > 2000:
+    if not isinstance(pv, dict) or set(pv) != {'name'} or not isinstance(pv['name'], str) or not 0 < len(pv['name'].strip()) <= 80 or not _check_privat(pv):
         return _err('REJECTED_CONTENT', 422)
     with _db() as conn:
         ich = _session(conn, kurs_id)

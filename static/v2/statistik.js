@@ -143,7 +143,7 @@
     const bis = a ? a.nudgeBis : pr.nudgeEinzelBis;
     if (bis && bis > new Date().toISOString()) return '';
     return '<div class="pad" style="padding-bottom:0"><div class="card" style="border-color:var(--brand);background:var(--brand-soft)"><b>' + anzahl + ' Proben – sicher aufbewahren?</b>' +
-      '<p class="small" style="margin:6px 0 10px">Speichern Sie sie verschlüsselt auf dem Server: <b>später wieder abrufen</b>, auf allen Geräten, <b>alle Proben an einem Ort</b>. Nur Sie (und wem Sie den Link geben) können sie lesen.</p>' +
+      '<p class="small" style="margin:6px 0 10px">Speichern Sie sie auf dem Server: <b>später wieder abrufen</b>, auf allen Geräten, <b>alle Proben an einem Ort</b>. Nur Sie (und wem Sie den Link geben) können sie lesen.</p>' +
       '<div class="row"><button class="btn primary sm" data-act="nudge-ja" data-id="' + (a ? a.id : '') + '">Sicher speichern</button><button class="btn sm ghost" data-act="nudge-spaeter" data-id="' + (a ? a.id : '') + '">Später</button><button class="btn sm ghost" data-act="nudge-nie">Nicht mehr fragen</button></div></div></div>';
   }
 

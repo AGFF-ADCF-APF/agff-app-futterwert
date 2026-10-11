@@ -31,7 +31,7 @@ V2_DB_PATH = os.environ.get('V2_DB_PATH', 'data/v2.db')
 V2_STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'v2')
 CSV_PATH = 'data/futterwerte.csv'
 # Bei Aenderung des Zustimmungstextes im Frontend MUSS diese Version mitwachsen.
-CONSENT_VERSION = '2026-10-b'  # b: Ende-zu-Ende-Verschlüsselung personenbezogener Angaben
+CONSENT_VERSION = '2026-10-c'  # c: Speicherung auf dem Server ohne Ende-zu-Ende-Verschlüsselung (Zugriff per Link)
 RETENTION_DAYS = int(os.environ.get('V2_RETENTION_DAYS', '730'))
 PRIVACY_URL = os.environ.get('V2_PRIVACY_URL', '')
 MAX_RECORD_BYTES = 64 * 1024
@@ -201,19 +201,64 @@ def _scalar_ok(v):
     return isinstance(v, str) and bool(_SHORT_RE.match(v))
 
 
+_KEY_RE = re.compile(r'^[A-Za-z0-9_.-]{1,40}$')
+_CTRL_RE = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]')
+
+
+def _frei_ok(v, tiefe=0):
+    """Freie, personenbezogene Angaben (Namen, Notizen, Standort, Foto-Metadaten): begrenzte JSON-Struktur.
+    Gespeichert auf dem Server (seit 2026-10 ohne Ende-zu-Ende-Verschlüsselung), sichtbar nur mit Zugriff."""
+    if v is None or isinstance(v, bool):
+        return True
+    if isinstance(v, (int, float)):
+        return abs(v) < 1e12
+    if isinstance(v, str):
+        return len(v) <= 5000 and not _CTRL_RE.search(v)
+    if tiefe >= 4:
+        return False
+    if isinstance(v, list):
+        return len(v) <= 60 and all(_frei_ok(x, tiefe + 1) for x in v)
+    if isinstance(v, dict):
+        return len(v) <= 80 and all(isinstance(k, str) and _KEY_RE.match(k) and _frei_ok(x, tiefe + 1) for k, x in v.items())
+    return False
+
+
 def _check_privat(pv):
     if pv is None:
         return True
-    return (isinstance(pv, dict) and set(pv) == {'v', 'iv', 'ct'} and pv['v'] == 1
-            and isinstance(pv['iv'], str) and len(pv['iv']) == 16 and _B64_RE.match(pv['iv'])
-            and isinstance(pv['ct'], str) and 0 < len(pv['ct']) <= MAX_RECORD_BYTES and _B64_RE.match(pv['ct']))
+    if not isinstance(pv, dict) or not _frei_ok(pv):
+        return False
+    return len(json.dumps(pv, ensure_ascii=False).encode('utf-8')) <= MAX_RECORD_BYTES
+
+
+def _bild_typ(kopf):
+    """Nur echte Bilder annehmen bzw. ausliefern (JPEG, WebP)."""
+    if kopf[:3] == b'\xff\xd8\xff':
+        return 'image/jpeg'
+    if kopf[:4] == b'RIFF' and kopf[8:12] == b'WEBP':
+        return 'image/webp'
+    return None
+
+
+def bild_senden(ordner, datei):
+    """Foto ausliefern: Typ aus dem Dateikopf (Altbestand verschlüsselt → octet-stream), nie zwischenspeichern."""
+    pfad = os.path.join(os.path.abspath(ordner), datei)
+    try:
+        with open(pfad, 'rb') as fh:
+            typ = _bild_typ(fh.read(12)) or 'application/octet-stream'
+    except FileNotFoundError:
+        return jsonify({'error': 'NOT_FOUND'}), 404
+    resp = send_from_directory(os.path.abspath(ordner), datei, mimetype=typ)
+    resp.headers['Cache-Control'] = 'no-store'
+    resp.headers['Content-Disposition'] = 'inline'
+    return resp
 
 
 FUTTERARTEN = ('heu', 'gras', 'mais', 'gruen', 'gps')
 
 
 def _check_record(record_id, data):
-    """Whitelist der lesbaren Analysedaten. Freitext ist nur verschlüsselt (privat) erlaubt."""
+    """Whitelist der Analysedaten (anonym auswertbar). Freitext und Personenbezogenes nur im Teil «privat»."""
     if not isinstance(data, dict) or not set(data) <= {'analyse', 'privat'}:
         return False
     an = data.get('analyse') or {}
@@ -376,9 +421,9 @@ def v2_basis():
     return resp
 
 
-# --- Freigabe-Bereiche (nur mit Zustimmung, Ende-zu-Ende verschlüsselt) ----
+# --- Freigabe-Bereiche (nur mit Zustimmung; Zugriff nur mit Lese-/Bearbeiten-Link) ----
 mimetypes.add_type("image/webp", ".webp")  # fehlt in python:slim
-ASSET_BUILD = 'b1-37'  # gleich wie ?v= in templates/v2/index.html
+ASSET_BUILD = 'b1-38'  # gleich wie ?v= in templates/v2/index.html
 
 
 @v2.route('/v2/api/config')
@@ -514,7 +559,7 @@ def v2_delete_record(space_id, record_id):
 
 @v2.route('/v2/api/spaces/<space_id>/rotate', methods=['POST'])
 def v2_rotate(space_id):
-    """Links erneuern: neue Token-Hashes und neu verschlüsselte Datensätze in einer Transaktion.
+    """Links erneuern: neue Token-Hashes (und aktueller Stand der Datensätze) in einer Transaktion.
     Danach sind alle alten Links ungültig."""
     body = _json_body() or {}
     rh, wh, recs = body.get('readHash', ''), body.get('writeHash', ''), body.get('records')
@@ -535,7 +580,7 @@ def v2_rotate(space_id):
     return jsonify({'status': 'rotated', 'epoch': space['epoch'] + 1})
 
 
-# --- Fotos (Ende-zu-Ende verschlüsselt, eigener Schlüssel je Foto; Server sieht nur Bytes) ---
+# --- Fotos (JPEG/WebP ohne Metadaten; Zugriff nur mit Link) ---
 @v2.route('/v2/api/spaces/<space_id>/fotos/<foto_id>', methods=['PUT'])
 def v2_foto_put(space_id, foto_id):
     if not FOTO_ID_RE.match(foto_id):
@@ -543,8 +588,7 @@ def v2_foto_put(space_id, foto_id):
     if (request.content_length or 0) > MAX_FOTO_BYTES:
         return jsonify({'error': 'TOO_LARGE'}), 413
     data = request.get_data(cache=False)
-    # Format: 1 Byte Version, 12 Byte IV, Chiffrat inkl. 16 Byte Tag
-    if len(data) > MAX_FOTO_BYTES or len(data) < 1 + 12 + 16 + 1 or data[0] != 1:
+    if len(data) > MAX_FOTO_BYTES or len(data) < 100 or not _bild_typ(data[:12]):
         return jsonify({'error': 'REJECTED_CONTENT'}), 422
     with _db() as conn:
         if not _auth(conn, space_id, need_write=True):
@@ -576,9 +620,7 @@ def v2_foto_get(space_id, foto_id):
             return jsonify({'error': 'NOT_FOUND'}), 404
         if not conn.execute('SELECT 1 FROM e2e_fotos WHERE space_id = ? AND id = ?', (space_id, foto_id)).fetchone():
             return jsonify({'error': 'NOT_FOUND'}), 404
-    resp = send_from_directory(os.path.abspath(os.path.join(FOTO_DIR, space_id)), foto_id + '.bin', mimetype='application/octet-stream')
-    resp.headers['Cache-Control'] = 'no-store'
-    return resp
+    return bild_senden(os.path.join(FOTO_DIR, space_id), foto_id + '.bin')
 
 
 @v2.route('/v2/api/spaces/<space_id>/fotos/<foto_id>', methods=['DELETE'])

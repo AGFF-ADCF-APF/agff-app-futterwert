@@ -4,7 +4,7 @@
  * cleanAnlass: nur bekannte Felder, geprüfte Werte, begrenzte Längen. Unbekanntes wird verworfen.
  *
  * Schutzklassen:
- *  - privat  (Personen-/Standortbezug, Freitext, Fotos, Laborberichte) → auf dem Server immer Ende-zu-Ende verschlüsselt
+ *  - privat  (Personen-/Standortbezug, Freitext, Fotos, Laborberichte) → auf dem Server nur für Personen mit Zugang sichtbar (seit 2026-10 ohne Ende-zu-Ende-Verschlüsselung)
  *  - analyse (Futterart, Bestand, Stadium, Rad-Antworten, Messwerte)    → auf dem Server lesbar (Statistik möglich)
  */
 (function (global) {
@@ -83,8 +83,8 @@
   const FOTO_ID_RE = /^[A-Za-z0-9_-]{16}$/;
   function cleanFotos(list) {
     if (!Array.isArray(list)) return undefined;
-    const out = list.filter((f) => isObj(f) && FOTO_ID_RE.test(f.id || '') && SECRET_RE.test(f.key || '') && (f.art === 'futter' || f.art === 'labor'))
-      .slice(0, 12).map((f) => compact({ id: f.id, art: f.art, key: f.key, w: num(f.w, 1, 10000), h: num(f.h, 1, 10000), bytes: num(f.bytes, 1, 20e6),
+    const out = list.filter((f) => isObj(f) && FOTO_ID_RE.test(f.id || '') && (f.key == null || SECRET_RE.test(f.key)) && (f.art === 'futter' || f.art === 'labor'))
+      .slice(0, 12).map((f) => compact({ id: f.id, art: f.art, key: f.key || undefined, w: num(f.w, 1, 10000), h: num(f.h, 1, 10000), bytes: num(f.bytes, 1, 20e6),
         mime: oneOf(f.mime, ['image/webp', 'image/jpeg']), createdAt: iso(f.createdAt), up: bool(f.up), ger: oneOf(f.ger, ['auto', 'manuell']) }));
     return out.length ? out : undefined;
   }

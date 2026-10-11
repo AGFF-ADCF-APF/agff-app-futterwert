@@ -82,7 +82,7 @@
   async function speichern(canvas, art, probeId) {
     const blob = await kodieren(canvas, QUALI);
     const thumb = await kodieren(zeichnen(canvas, 360), 0.8);
-    const meta = { id: neueId(), art, w: canvas.width, h: canvas.height, bytes: blob.size, mime: blob.type, key: neuerSchluessel(), createdAt: new Date().toISOString() };
+    const meta = { id: neueId(), art, w: canvas.width, h: canvas.height, bytes: blob.size, mime: blob.type, createdAt: new Date().toISOString() };
     await put({ id: meta.id, probeId, blob, thumb, mime: blob.type });
     return meta;
   }
@@ -200,24 +200,20 @@
     if (!out) return null;
     const blobNeu = await kodieren(out, QUALI);
     await put({ id: meta.id, probeId, blob: blobNeu, thumb: await kodieren(zeichnen(out, 360), 0.8), mime: blobNeu.type });
-    return Object.assign({}, meta, { bytes: blobNeu.size, mime: blobNeu.type, key: neuerSchluessel(), up: false, ger: meta.ger || (out._rechtecke ? 'manuell' : undefined) });
+    return Object.assign({}, meta, { bytes: blobNeu.size, mime: blobNeu.type, key: undefined, up: false, ger: meta.ger || (out._rechtecke ? 'manuell' : undefined) });
   }
 
-  // ---------- Verschlüsselung für den Server (eigener Schlüssel je Foto) ----------
+  // ---------- Übertragung zum Server: das Bild selbst (JPEG/WebP ohne Metadaten) ----------
+  // Bis 2026-10 waren Fotos mit eigenem Schlüssel je Foto verschlüsselt; solche Altbestände werden noch gelesen.
   function unb64u(str) {
     const s = atob(str.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((str.length + 3) % 4));
     const out = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i); return out;
   }
   async function aesKey(keyB64) { return crypto.subtle.importKey('raw', unb64u(keyB64), 'AES-GCM', false, ['encrypt', 'decrypt']); }
-  async function verschluesseln(meta, b) {
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: new TextEncoder().encode('agff-foto|' + meta.id) }, await aesKey(meta.key), await b.arrayBuffer()));
-    const out = new Uint8Array(1 + 12 + ct.length); out[0] = 1; out.set(iv, 1); out.set(ct, 13);
-    return out;
-  }
-  async function entschluesseln(meta, bytes) {
+  async function fuerServer(meta, b) { void meta; return new Uint8Array(await b.arrayBuffer()); }
+  async function vomServer(meta, bytes) {
     bytes = new Uint8Array(bytes);
-    if (bytes[0] !== 1) throw new Error('Unbekanntes Fotoformat');
+    if (!(bytes[0] === 1 && meta.key)) return new Blob([bytes], { type: meta.mime || 'image/webp' });
     const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bytes.slice(1, 13), additionalData: new TextEncoder().encode('agff-foto|' + meta.id) }, await aesKey(meta.key), bytes.slice(13));
     return new Blob([pt], { type: meta.mime || 'image/webp' });
   }
@@ -227,5 +223,5 @@
     for (const id of await alleIds()) if (!set.has(id)) await del(id);
   }
 
-  global.Fotos = { neueId, neuerSchluessel, vorbereiten, speichern, schwaerzen, laborSchwaerzen, autoSchwaerzen, nachSchwaerzen, thumbUrl, bildUrl, blob, ablegen, jpegDataUrl, del, get, aufraeumen, verschluesseln, entschluesseln, MAX_KANTE };
+  global.Fotos = { neueId, neuerSchluessel, vorbereiten, speichern, schwaerzen, laborSchwaerzen, autoSchwaerzen, nachSchwaerzen, thumbUrl, bildUrl, blob, ablegen, jpegDataUrl, del, get, aufraeumen, fuerServer, vomServer, MAX_KANTE };
 })(window);

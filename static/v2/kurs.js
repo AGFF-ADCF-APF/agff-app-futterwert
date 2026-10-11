@@ -1,6 +1,7 @@
 /* Futter v2 – Kursmodus im Browser.
  *
- * Kurs-Link «#k=<id>.<geheimnis>[.<probe>]» → Kursschlüssel (E2E) + Beitritts-Token.
+ * Kurs-Link «#k=<id>.<geheimnis>[.<probe>]» → Beitritts-Token (Zugang). Daten liegen lesbar auf dem Server (seit 2026-10
+ * ohne Ende-zu-Ende-Verschlüsselung); ältere verschlüsselte Einträge werden mit dem Link einmalig gelesen und neu gespeichert.
  * - Kursleitung (freigeschaltet) legt den Kurs an, druckt QR-Etiketten (leere, nummerierte Proben)
  *   und legt fest, welche Angaben als Hilfestellung erscheinen.
  * - Teilnehmende scannen ein Etikett: Beitritt nur mit Namen; leere Probe → Ersterfassung;
@@ -48,7 +49,7 @@
       '<li>Ihre <b>Beurteilungen</b> inklusive Fotos und Laborimport.</li>' +
       '<li><b>Nationale Auswertung:</b> Erfasste Kursproben werden anonym für Auswertungen und Publikationen beigetragen – Postleitzahl, Höhe (100 m), Monat, Futterart, Laborwerte und der Mittelwert (Median) der Beurteilungen. Ohne Namen, Bezeichnungen, Notizen und Fotos. Die Kursleitung kann das ausschalten.</li>' +
       '<li><b>Wer sieht was:</b> Die Kursleitung sieht alles, auch die vollständigen E-Mail-Adressen. Kursmitglieder sehen Namen, Proben und Beurteilungen der anderen – Beurteilungen und Laborwerte erst nach der eigenen Abgabe; E-Mail-Adressen nur gekürzt.</li>' +
-      '<li>Die Daten sind auf dem Server mit dem Kursschlüssel (im Kurs-Link bzw. auf dem QR-Etikett) verschlüsselt; die Beurteilungsdaten ohne Namen sind lesbar und können anonym ausgewertet werden. Laborberichte: Adresse vor dem Fotografieren abdecken oder schwärzen.</li>' +
+      '<li>Zugang zum Kurs haben nur Personen mit Kurs-Link bzw. QR-Etikett sowie der Betreiber (für Betrieb und Support). Die Übertragung ist verschlüsselt (HTTPS), E-Mail-Adressen werden verschlüsselt gespeichert. Laborberichte: Adresse vor dem Fotografieren abdecken oder schwärzen.</li>' +
       '<li>Sie können jederzeit austreten – Ihre Daten werden gelöscht. Kurse werden ' + monate() + ' Monate nach der letzten Änderung gelöscht.</li>' +
       '</ul><p class="small">' + dsLink() + '</p></div>';
   }
@@ -63,7 +64,7 @@
   async function laden(a) {
     const k = await kk(a.kurs.secret);
     const r = await api(a.kurs.id, { headers: H(a) });
-    const dec = async (box, teil) => { try { return box ? await C.decryptJSON(k.key, box, C.kursAad(a.kurs.id, teil)) : {}; } catch (e) { return {}; } };
+    const dec = (x, teil) => C.lesbar(k.key, x, C.kursAad(a.kurs.id, teil));
     const meta = Object.assign({}, r.kurs.meta.analyse, await dec(r.kurs.meta.privat, 'meta'));
     const teilnehmende = [];
     for (const t of r.teilnehmende) teilnehmende.push({ id: t.id, rolle: t.rolle, email: t.email, mitEmail: t.mitEmail, name: (await dec(t.name, 'name|' + t.id)).name || '(ohne Namen)' });
@@ -76,6 +77,8 @@
     const st = { meta, hinweise: r.hinweise, teilnehmende, proben, ich: r.ich, geladen: Date.now(), kursConsent: r.kurs.consentVersion || '' };
     cache.set(a.id, st);
     if (r.ich.rolle === 'leitung') setTimeout(() => beitraegeAbgleichen(a).catch(() => {}), 4000);
+    nachziehen(a, r, st).catch(() => {});
+    if (r.ich.consentAktuell && r.ich.consentVersion !== r.ich.consentAktuell) setTimeout(() => neuZustimmen(a, r.ich), 300);
     a.kurs.rolle = r.ich.rolle; a.kurs.ichId = r.ich.id;
     if (meta.titel) { a.titel = String(meta.titel).slice(0, 200); a.datum = meta.datum; a.ort = meta.ort; }
     app().db.proben.filter((p) => p.anlassId === a.id && p.kursProbeId).forEach((p) => {
@@ -84,6 +87,42 @@
     app().save();
     const rt = app().route(); if (rt.name === 'anlass' || rt.name === 'home') app().refreshChrome();
     return st;
+  }
+  let zustimmungOffen = false;
+  /** Geänderte Datenschutzhinweise (z. B. seit 2026-10 ohne Ende-zu-Ende-Verschlüsselung) einmal bestätigen lassen. */
+  function neuZustimmen(a, ich) {
+    const A = app(); const rt = A.route();
+    if (zustimmungOffen || document.querySelector('#sheet-root .sheet') || !(rt.name === 'anlass' && rt.id === a.id)) return;
+    zustimmungOffen = true;
+    A.sheet('<h2>Geänderte Datenschutzhinweise</h2><p class="small" style="margin-top:0"><b>Neu:</b> Kursdaten werden nicht mehr Ende-zu-Ende verschlüsselt, sondern auf dem Server gespeichert; Zugriff haben Kursmitglieder gemäss Rolle und der Betreiber. Dafür lassen sich Kurse mit bestätigter E-Mail auf jedem Gerät wiederfinden.</p>' +
+      consentHtml(ich.rolle === 'leitung') + '<label class="toggle"><input type="checkbox" id="zOk"> <span>Ich habe die Hinweise gelesen und bin einverstanden.</span></label>' +
+      '<div class="row"><button class="btn ghost grow" id="zSpaeter">Später</button><button class="btn primary grow" id="zJa" disabled>Zustimmen</button></div>' +
+      '<p class="small muted">Nicht einverstanden? Sie können unter «Teilnehmende» austreten – Ihre Daten werden dann gelöscht.</p>', (el) => {
+      el.querySelector('#zOk').addEventListener('change', (e) => { el.querySelector('#zJa').disabled = !e.target.checked; });
+      el.querySelector('#zSpaeter').addEventListener('click', () => { zustimmungOffen = false; A.closeSheet(); });
+      el.querySelector('#zJa').addEventListener('click', async () => {
+        try { await api(a.kurs.id + '/zustimmung', { method: 'PUT', headers: H(a), body: { consent: { accepted: true, version: await consentVersion() } } }); A.closeSheet(); A.toast('Danke – Zustimmung gespeichert.'); }
+        catch (er) { A.toast(fehlerText(er)); }
+        zustimmungOffen = false;
+      });
+    });
+  }
+  /** Einmalig: ältere verschlüsselte Einträge lesbar neu speichern (eigener Name, als Kursleitung Kursangaben)
+   *  und das Link-Geheimnis hinterlegen, damit «Meine Kurse» per E-Mail funktioniert. */
+  async function nachziehen(a, r, st) {
+    if (!r.linkBekannt && a.kurs.secret) await api(a.kurs.id + '/link', { method: 'PUT', headers: H(a), body: { secret: a.kurs.secret } }).catch(() => {});
+    const ich = r.teilnehmende.find((t) => t.id === r.ich.id);
+    const mein = st.teilnehmende.find((t) => t.id === r.ich.id);
+    if (ich && C.istBox(ich.name) && mein && mein.name && mein.name !== '(ohne Namen)') await api(a.kurs.id + '/ich', { method: 'PUT', headers: H(a), body: { name: { name: mein.name } } });
+    if (r.ich.rolle === 'leitung') {
+      if (C.istBox(r.kurs.meta.privat)) await metaSpeichern(a);
+      for (const p of r.proben) {
+        if (!(C.istBox(p.privat) || C.istBox(p.labor))) continue;
+        const kp = st.proben.find((x) => x.id === p.id); if (!kp) continue;
+        const privat = {}; Object.keys(kp).forEach((key) => { if (!['id', 'nr', 'status', 'eigene', 'ownerId', 'typ', 'abgaben', 'meineAbgabe', 'hatLabor', 'labor'].includes(key)) privat[key] = kp[key]; });
+        await api(a.kurs.id + '/proben/' + p.id, { method: 'PUT', headers: H(a), body: { analyse: { typ: kp.typ }, privat: Object.keys(privat).length ? privat : null, labor: kp.labor || null } }).catch(() => {});
+      }
+    }
   }
   function frisch(a) {
     const st = cache.get(a.id);
@@ -126,7 +165,7 @@
   }
   async function nameSetzen(a, name) {
     const k = await kk(a.kurs.secret);
-    await api(a.kurs.id + '/ich', { method: 'PUT', headers: H(a), body: { name: await C.encryptJSON(k.key, { name }, C.kursAad(a.kurs.id, 'name|' + a.kurs.ichId)) } });
+    await api(a.kurs.id + '/ich', { method: 'PUT', headers: H(a), body: { name: { name } } });
     await laden(a);
   }
   async function metaSpeichern(a, hinweise, beitragen) {
@@ -135,7 +174,7 @@
     const h = hinweise || (st && st.hinweise) || undefined;
     const bt = beitragen != null ? beitragen : (st && st.meta && typeof st.meta.beitragen === 'boolean' ? st.meta.beitragen : undefined);
     await api(a.kurs.id + '/meta', { method: 'PUT', headers: H(a), body: { analyse: Object.assign(a.datum ? { datum: a.datum } : {}, h ? { hinweise: h } : {}, bt != null ? { beitragen: bt } : {}),
-      privat: await C.encryptJSON(k.key, { titel: a.titel, ort: a.ort || '' }, C.kursAad(a.kurs.id, 'meta')) } });
+      privat: { titel: a.titel, ort: a.ort || '' } } });
   }
 
   // ---------- Kurs anlegen (freigeschaltete Kursleitung) ----------
@@ -170,7 +209,7 @@
   async function anlegenSenden(d) {
     const A = app();
     const secret = C.newSecret(); const k = await kk(secret); const version = await consentVersion();
-    const r = await global.FutterIO.api('kurse', { method: 'POST', body: { email: d.email, joinHash: k.joinHash, consent: { accepted: true, version }, einladung: d.einladung || undefined } });
+    const r = await global.FutterIO.api('kurse', { method: 'POST', body: { email: d.email, joinHash: k.joinHash, secret, consent: { accepted: true, version }, einladung: d.einladung || undefined } });
     codeSchritt('E-Mail bestätigen', d.email, async (code) => {
       const v = await api(r.id + '/aktivieren', { method: 'POST', body: { email: d.email, code } });
       const a = { id: A.uid(), titel: d.titel, datum: d.datum, ort: d.ort, createdAt: A.now(), updatedAt: A.now(), kurs: { id: r.id, secret, email: d.email, session: v.session, ichId: v.ich.id, rolle: 'leitung' } };
@@ -355,7 +394,7 @@
       '<button type="button" class="foto-add" data-ef-foto="futter">' + A.I.plus + '<span>Futter</span></button><button type="button" class="foto-add" data-ef-foto="labor">' + A.I.plus + '<span>Laborbericht</span></button></div>';
     const lw = (k, l, u) => '<label class="field"><span>' + l + ' <span class="muted">' + u + '</span></span><input class="input" name="lab_' + k + '" inputmode="decimal" value="' + esc(d.labor[k] != null ? String(d.labor[k]).replace('.', ',') : '') + '"></label>';
     const lbl = (t) => '<span style="display:block;font-size:.86rem;font-weight:650;color:var(--ink-2);margin-bottom:6px">' + t + '</span>';
-    A.sheet('<h2>' + titel + '</h2><p class="small" style="margin-top:0">Angaben zu Ihrer Probe. Die Kursleitung bestimmt, was andere davon als Hilfestellung sehen. Alles wird Ende-zu-Ende verschlüsselt.</p>' +
+    A.sheet('<h2>' + titel + '</h2><p class="small" style="margin-top:0">Angaben zu Ihrer Probe. Die Kursleitung bestimmt, was andere davon als Hilfestellung sehen. Alles wird im Kurs auf dem Server gespeichert.</p>' +
       '<form id="efForm" class="stack"><div>' + lbl('Futterart *') + '<div class="opts cols-wide">' +
       Object.values(K3.TYPEN).map((t) => '<label class="opt"><input type="radio" name="typ" value="' + t.id + '"' + (d.typ === t.id ? ' checked' : '') + (kp && kp.abgaben ? ' disabled' : '') + ' required style="accent-color:var(--brand)"><span class="body"><b>' + t.titel + '</b><small>' + t.merkblatt + '</small></span></label>').join('') + '</div></div>' +
       '<label class="field"><span>Bezeichnung</span><input class="input" name="bez" maxlength="120" value="' + esc(d.bez || '') + '" placeholder="z. B. Rundballen 1. Schnitt"></label>' +
@@ -419,14 +458,13 @@
           for (const f of d.fotos.filter((x) => x.up === false)) {
             msg.textContent = 'Lade Foto hoch …';
             const b = await F().blob(f.id);
-            const r = await fetch('api/kurse/' + a.kurs.id + '/fotos/' + f.id + '?probe=' + encodeURIComponent(pid) + '&art=' + f.art, { method: 'PUT', headers: Object.assign({ 'Content-Type': 'application/octet-stream' }, H(a)), body: await F().verschluesseln(f, b), credentials: 'omit' });
+            const r = await fetch('api/kurse/' + a.kurs.id + '/fotos/' + f.id + '?probe=' + encodeURIComponent(pid) + '&art=' + f.art, { method: 'PUT', headers: Object.assign({ 'Content-Type': 'application/octet-stream' }, H(a)), body: await F().fuerServer(f, b), credentials: 'omit' });
             if (!r.ok) { let j = {}; try { j = await r.json(); } catch (er) { /* leer */ } throw new Error(j.error || 'Foto-Upload ' + r.status); }
             f.up = true;
           }
           privat.fotos = d.fotos.map((f) => { const c = Object.assign({}, f); delete c.up; return c; });
           await api(a.kurs.id + '/proben/' + pid, { method: 'PUT', headers: H(a), body: { analyse: { typ },
-            privat: await C.encryptJSON(k.key, privat, C.kursAad(a.kurs.id, 'probe|' + pid)),
-            labor: Object.keys(labor).length ? await C.encryptJSON(k.key, labor, C.kursAad(a.kurs.id, 'labor|' + pid)) : null } });
+            privat, labor: Object.keys(labor).length ? labor : null } });
           await laden(a); A.closeSheet(); A.refreshChrome();
           const neu = (cache.get(a.id) || { proben: [] }).proben.find((x) => x.id === pid);
           A.toast('Probe gespeichert.');
@@ -461,7 +499,7 @@
       zeilen.map(([k, v]) => '<div class="rating"><span class="small muted" style="font-weight:700">' + k + '</span><span>' + v + '</span></div>').join('') + '</details>';
   }
 
-  /** Lädt Kursfotos (verschlüsselt) und setzt Vorschaubilder ein. */
+  /** Lädt Kursfotos und setzt Vorschaubilder ein. */
   async function kursFotoUrl(aid, kpId, fid, gross) {
     const A = app(); const a = A.anlassById(aid);
     if (!gross && kfotoUrls.has(fid)) return kfotoUrls.get(fid);
@@ -476,7 +514,7 @@
       if (!meta) return null;
       const r = await fetch('api/kurse/' + a.kurs.id + '/fotos/' + fid, { headers: H(a), cache: 'no-store', credentials: 'omit' });
       if (!r.ok) return null;
-      await F().ablegen(fid, kpId, await F().entschluesseln(meta, await r.arrayBuffer()));
+      await F().ablegen(fid, kpId, await F().vomServer(meta, await r.arrayBuffer()));
       url = gross ? await F().bildUrl(fid) : await F().thumbUrl(fid);
     }
     if (url && !gross) kfotoUrls.set(fid, url);
@@ -691,7 +729,7 @@
       return '<div class="b" data-act="kurs-probe" data-id="' + a.id + '" data-kp="' + esc(kp.id) + '"><span class="lbl">Nr. ' + kp.nr + ' ' + esc(kp.bez || '') + '</span><span class="track"><span class="val" style="width:' + pct + '%;background:var(--brand)"></span></span>' +
         '<span class="n">' + kp.abgaben + '/' + n + '</span></div><div class="small muted" style="margin:-4px 0 8px">' + esc(global.K3.TYPEN[kp.typ] ? global.K3.TYPEN[kp.typ].titel : '') + (kp.hatLabor ? ' · Laborwerte vorhanden' : '') +
         (darf && kp.abgaben ? ' · <a href="#" data-act="kurs-probe" data-id="' + a.id + '" data-kp="' + esc(kp.id) + '">Vergleich ansehen →</a>' : '') + '</div>';
-    }).join('') + '</div></div><p class="hint">' + (leitung ? 'Als Kursleitung sehen Sie alle Abgaben jederzeit. ' : 'Den Vergleich mit den anderen sehen Sie je Probe nach Ihrer eigenen Abgabe. ') + 'Namen und Probenangaben sind Ende-zu-Ende verschlüsselt.</p></div>';
+    }).join('') + '</div></div><p class="hint">' + (leitung ? 'Als Kursleitung sehen Sie alle Abgaben jederzeit. ' : 'Den Vergleich mit den anderen sehen Sie je Probe nach Ihrer eigenen Abgabe. ') + 'Namen und Probenangaben sind nur für Kursmitglieder sichtbar.</p></div>';
     return h;
   }
 
@@ -720,15 +758,15 @@
       const k = await kk(a.kurs.secret);
       const { analyse, privat } = global.Model.split(p, 'probe');
       delete analyse.anlassId;
-      // Im Kurs wird alles gespeichert: auch Fotos und Laborimport der Beurteilung (verschlüsselt mit dem Kursschlüssel)
+      // Im Kurs wird alles gespeichert: auch Fotos und Laborimport der Beurteilung
       for (const f of (privat.fotos || [])) {
         const b = await F().blob(f.id).catch(() => null);
         if (!b) continue;
         const r = await fetch('api/kurse/' + a.kurs.id + '/fotos/' + f.id + '?probe=' + encodeURIComponent(p.kursProbeId) + '&art=' + (f.art === 'labor' ? 'labor' : 'futter') + '&zu=beurteilung',
-          { method: 'PUT', headers: Object.assign({ 'Content-Type': 'application/octet-stream' }, H(a)), body: await F().verschluesseln(f, b), credentials: 'omit' });
+          { method: 'PUT', headers: Object.assign({ 'Content-Type': 'application/octet-stream' }, H(a)), body: await F().fuerServer(f, b), credentials: 'omit' });
         if (!r.ok) { let j = {}; try { j = await r.json(); } catch (er) { /* leer */ } throw new Error(j.error || 'Foto-Upload ' + r.status); }
       }
-      const box = Object.keys(privat).length ? await C.encryptJSON(k.key, privat, C.kursAad(a.kurs.id, 'beurteilung|' + p.kursProbeId + '|' + p.id)) : null;
+      const box = Object.keys(privat).length ? privat : null;
       await api(a.kurs.id + '/proben/' + p.kursProbeId + '/beurteilung', { method: 'PUT', headers: H(a), body: { data: { analyse, privat: box } } });
       p.abgegebenAt = A.now(); A.save(); vergleichCache.delete(p.kursProbeId);
       await laden(a).catch(() => {});
@@ -747,7 +785,7 @@
     const out = [];
     for (const b of r.beurteilungen) {
       let privat = {};
-      try { privat = b.privat ? await C.decryptJSON(k.key, b.privat, C.kursAad(a.kurs.id, 'beurteilung|' + kpId + '|' + b.analyse.id)) : {}; } catch (e) { privat = {}; }
+      privat = await C.lesbar(k.key, b.privat, C.kursAad(a.kurs.id, 'beurteilung|' + kpId + '|' + b.analyse.id));
       const probe = global.Model.cleanProbe(global.Model.merge(b.analyse, privat));
       if (!probe) continue;
       const t = st.teilnehmende.find((x) => x.id === b.teilnehmerId);
@@ -836,13 +874,13 @@
     const zeilen = [];
     for (const b of abgaben) {
       let privat = {};
-      try { privat = b.privat ? await C.decryptJSON(k.key, b.privat, C.kursAad(a.kurs.id, 'beurteilung|' + kp.id + '|' + b.analyse.id)) : {}; } catch (e) { privat = {}; }
+      privat = await C.lesbar(k.key, b.privat, C.kursAad(a.kurs.id, 'beurteilung|' + kp.id + '|' + b.analyse.id));
       const probe = global.Model.cleanProbe(global.Model.merge(b.analyse, privat)); if (!probe) continue;
       const t = st.teilnehmende.find((x) => x.id === b.teilnehmerId);
       zeilen.push({ probe, name: t ? t.name : '?', res: A.auswertung(probe), analyse: b.analyse });
     }
     const fotos = (kp.fotos || []).filter((f) => f.art !== 'labor' || f.ger); // ungeschwärzte Laborberichte nie in den Pool
-    A.sheet('<h2>In den Probenpool stellen</h2><p class="small" style="margin-top:0">Andere freigeschaltete Kursleitende können diese Probe in eigene Kurse übernehmen. <b>Ohne Personennamen</b>: Beurteilungen werden als «Referenz» gespeichert. Pool-Einträge sind für alle Kursleitenden lesbar (nicht Ende-zu-Ende verschlüsselt).</p>' +
+    A.sheet('<h2>In den Probenpool stellen</h2><p class="small" style="margin-top:0">Andere freigeschaltete Kursleitende können diese Probe in eigene Kurse übernehmen. <b>Ohne Personennamen</b>: Beurteilungen werden als «Referenz» gespeichert. Pool-Einträge sind für alle Kursleitenden lesbar.</p>' +
       '<form id="poolForm" class="stack"><label class="field"><span>Titel *</span><input class="input" name="titel" required maxlength="120" value="' + esc(kp.bez || ('Probe Nr. ' + kp.nr)) + '"></label>' +
       '<label class="field"><span>Beschreibung (ohne Betriebs- oder Personennamen)</span><textarea class="input" name="beschreibung" maxlength="1000">' + esc(kp.notiz || '') + '</textarea></label>' +
       (kp.standort && (kp.standort.plz || kp.standort.ort || kp.standort.hoehe) ? '<label class="toggle"><input type="checkbox" name="region" checked> Region übernehmen: ' + esc([[kp.standort.plz, kp.standort.ort].filter(Boolean).join(' '), kp.standort.hoehe ? kp.standort.hoehe + ' m ü. M.' : ''].filter(Boolean).join(', ')) + ' <span class="small muted">(ohne genaue Position)</span></label>' : '') +
@@ -856,14 +894,14 @@
         e.preventDefault(); const fd = new FormData(e.target); const btn = e.target.querySelector('.primary'); btn.disabled = true; const msg = el.querySelector('#poolMsg');
         try {
           const poolId = A.uid();
-          // Fotos mit neuem Schlüssel je Foto neu verschlüsseln (Kurs- und Pool-Kopie unabhängig)
+          // Fotos als eigene Pool-Kopie hochladen (Kurs- und Pool-Kopie unabhängig)
           const neueFotos = [];
           for (let i = 0; i < fotos.length; i++) {
             if (fd.get('foto' + i) !== 'on') continue;
             msg.textContent = 'Bereite Foto ' + (i + 1) + ' vor …';
             await kursFotoUrl(a.id, kp.id, fotos[i].id, true);
             const b = await F().blob(fotos[i].id); if (!b) continue;
-            const meta = { id: F().neueId(), art: fotos[i].art, key: F().neuerSchluessel(), mime: b.type || fotos[i].mime, w: fotos[i].w, h: fotos[i].h };
+            const meta = { id: F().neueId(), art: fotos[i].art, mime: b.type || fotos[i].mime, w: fotos[i].w, h: fotos[i].h };
             neueFotos.push({ meta, blob: b });
           }
           const refs = zeilen.map((z, i) => fd.get('ref' + i) === 'on' ? { label: String(fd.get('label' + i) || '').trim() || 'Referenz ' + (i + 1), analyse: Object.assign({}, z.analyse, { id: A.uid() }) } : null).filter(Boolean);
@@ -875,7 +913,7 @@
           await poolApi('/' + poolId, a, { method: 'PUT', body: { daten } });
           for (const x of neueFotos) {
             msg.textContent = 'Lade Foto hoch …';
-            const r = await fetch('api/pool/' + poolId + '/fotos/' + x.meta.id, { method: 'PUT', headers: Object.assign({ 'Content-Type': 'application/octet-stream' }, PH(a)), body: await F().verschluesseln(x.meta, x.blob), credentials: 'omit' });
+            const r = await fetch('api/pool/' + poolId + '/fotos/' + x.meta.id, { method: 'PUT', headers: Object.assign({ 'Content-Type': 'application/octet-stream' }, PH(a)), body: await F().fuerServer(x.meta, x.blob), credentials: 'omit' });
             if (!r.ok) throw new Error('Foto-Upload ' + r.status);
           }
           poolCache = null; A.closeSheet(); A.toast('Im Probenpool – für andere Kursleitende verfügbar.');
@@ -890,7 +928,7 @@
     if (!url) {
       const r = await fetch('api/pool/' + poolId + '/fotos/' + f.id, { headers: PH(a), cache: 'no-store', credentials: 'omit' });
       if (!r.ok) return null;
-      await F().ablegen(f.id, poolId, await F().entschluesseln(f, await r.arrayBuffer()));
+      await F().ablegen(f.id, poolId, await F().vomServer(f, await r.arrayBuffer()));
       url = await F().thumbUrl(f.id);
     }
     return url;
@@ -925,8 +963,7 @@
       const k = await kk(a.kurs.secret); const pid = A.uid();
       const privat = { bez: d.titel, notiz: d.beschreibung || undefined, schnitt: d.schnitt, standort: d.region ? { plz: d.region.plz, ort: d.region.ort, hoehe: d.region.hoehe } : {}, fotos: d.fotos, poolTitel: d.titel };
       await api(a.kurs.id + '/proben/' + pid, { method: 'PUT', headers: H(a), body: { analyse: { typ: d.typ }, poolId,
-        privat: await C.encryptJSON(k.key, privat, C.kursAad(a.kurs.id, 'probe|' + pid)),
-        labor: d.labor ? await C.encryptJSON(k.key, d.labor, C.kursAad(a.kurs.id, 'labor|' + pid)) : null } });
+        privat, labor: d.labor || null } });
       await laden(a); A.closeSheet(); A.toast('Übernommen. Für ein Etikett: «QR-Etiketten» › «Bereits erfasste Proben».');
     } catch (er) { A.toast(fehlerText(er)); }
   }
@@ -1139,7 +1176,7 @@
         const pid = A.uid();
         const privat = { bez: r.bez, schnitt: r.schnitt, notiz: [r.herkunft ? 'Betrieb: ' + r.herkunft : '', r.info, r.notiz].filter(Boolean).join(' · ') || undefined,
           standort: { plz: r.plz, hoehe: r.hoehe != null ? String(r.hoehe) : undefined }, fotos: [] };
-        await api(a.kurs.id + '/proben/' + pid, { method: 'PUT', headers: H(a), body: { analyse: { typ: r.typ }, privat: await C.encryptJSON(k.key, privat, C.kursAad(a.kurs.id, 'probe|' + pid)), labor: null } });
+        await api(a.kurs.id + '/proben/' + pid, { method: 'PUT', headers: H(a), body: { analyse: { typ: r.typ }, privat, labor: null } });
         ids.push(pid);
       }
     } catch (er) { A.toast((ids.length ? ids.length + ' Proben angelegt, dann Fehler: ' : 'Fehler: ') + fehlerText(er)); }
@@ -1160,5 +1197,37 @@
     }, 120);
   }
 
-  global.Kurs = { beitraegeAbgleichen, beitragAktiv, sammelAnlegen, etikettenNachSammel, mailLink, renderList, renderUebersicht, ergebnisExtra, hinweisKarte, nachRender, handle, beitreten, anlegen, istAbgegeben: (p) => !!(p && p.abgegebenAt), nameAusEmail, FORMATE };
+  // ---------- Meine Kurse: per E-Mail auf einem neuen Gerät wiederfinden ----------
+  function meineKurse() {
+    const A = app();
+    A.sheet('<h2>Meine Kurse wiederfinden</h2><p class="small" style="margin-top:0">Mit der E-Mail-Adresse, die Sie in einem Kurs bestätigt haben (Kursleitung immer), finden Sie alle Ihre Kurse auf diesem Gerät wieder – auch ohne Kurs-Link oder Etikett.</p>' +
+      '<form id="mkForm" class="stack"><label class="field"><span>E-Mail-Adresse</span><input class="input" type="email" name="email" required autocomplete="email"></label>' +
+      '<div class="row"><button type="button" class="btn ghost grow" data-close>Abbrechen</button><button class="btn primary grow">Code anfordern</button></div></form>', (el) => {
+      el.querySelector('#mkForm').addEventListener('submit', async (e) => {
+        e.preventDefault(); const email = String(new FormData(e.target).get('email')).trim().toLowerCase();
+        const anfordern = () => global.FutterIO.api('meine-kurse/code', { method: 'POST', body: { email } });
+        try {
+          await anfordern();
+          codeSchritt('Code eingeben', email, async (code) => {
+            const r = await global.FutterIO.api('meine-kurse', { method: 'POST', body: { email, code } });
+            let n = 0;
+            for (const k of r.kurse) {
+              const vorhanden = A.db.anlaesse.find((x) => x.kurs && x.kurs.id === k.kursId);
+              const a = anlassFuer({ id: k.kursId, secret: k.secret }, vorhanden, { session: k.session, ich: { id: k.ichId, rolle: k.rolle } });
+              a.kurs.secret = k.secret; if (k.titel && (!a.titel || a.titel === 'Kurs')) a.titel = String(k.titel).slice(0, 200);
+              if (k.rolle === 'leitung') a.kurs.email = email;
+              n++; await laden(a).catch(() => {});
+            }
+            A.save(); A.closeSheet(); A.render();
+            A.sheet('<h2>' + (n ? n + (n === 1 ? ' Kurs' : ' Kurse') + ' wiederhergestellt' : 'Keine Kurse gefunden') + '</h2>' +
+              (n ? '<p>Sie finden ' + (n === 1 ? 'ihn' : 'sie') + ' links unter «Anlässe».</p>' : '<p>Zu dieser Adresse gibt es keine Kursteilnahme mit bestätigter E-Mail.</p>') +
+              (r.ohneLink ? '<div class="alert info">' + r.ohneLink + ' weitere Kurse lassen sich noch nicht wiederherstellen – bitte einmal über den Kurs-Link oder ein Etikett öffnen.</div>' : '') +
+              '<button class="btn primary block" data-close>OK</button>');
+          }, anfordern);
+        } catch (er) { A.toast(fehlerText(er)); }
+      });
+    });
+  }
+
+  global.Kurs = { meineKurse, beitraegeAbgleichen, beitragAktiv, sammelAnlegen, etikettenNachSammel, mailLink, renderList, renderUebersicht, ergebnisExtra, hinweisKarte, nachRender, handle, beitreten, anlegen, istAbgegeben: (p) => !!(p && p.abgegebenAt), nameAusEmail, FORMATE };
 })(window);

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Datenschutz – Futterbeurteilung v2</title>
   <meta name="robots" content="noindex">
-  <link rel="stylesheet" href="assets/app.css?v=b1-37">
+  <link rel="stylesheet" href="assets/app.css?v=b1-38">
 </head>
 <body>
 <div class="doc">
@@ -27,8 +27,8 @@
   <h2>4. Speicherung auf dem Server (nur mit Einwilligung)</h2>
   <p>Nur wenn Sie für einen Anlass ausdrücklich «Auf Server speichern» wählen und zustimmen, wird er auf dem Server von apps.graswachstum.ch gespeichert. [Serverstandort / Hoster ergänzen]</p>
   <ul>
-    <li><b>Ende-zu-Ende-Verschlüsselung personenbezogener Angaben:</b> Titel und Ort des Anlasses, Probenbezeichnungen, Herkunft/Betrieb, Namen der Beurteilenden und Notizen werden in Ihrem Browser mit AES-256-GCM verschlüsselt. Der Schlüssel ist nur im Freigabe-Link (Teil nach «#») enthalten, der vom Browser nicht an den Server übermittelt wird. Weder der Betreiber noch Dritte mit Zugriff auf den Server oder dessen Sicherungen können diese Angaben lesen.</li>
-    <li><b>Lesbar gespeichert</b> werden die Beurteilungsdaten ohne Personenbezug (Futterart, Bestand, Stadium, Antworten der Beurteilungsräder, Messwerte, Schnittdatum). Sie können für anonyme, zusammenfassende Auswertungen verwendet werden. Der Server weist Daten zurück, die in diesen Feldern Freitext enthalten.</li>
+    <li><b>Gespeichert werden</b> alle Angaben des Anlasses: Titel und Ort, Probenbezeichnungen, Herkunft/Betrieb, Namen der Beurteilenden, Notizen, Fotos und die Beurteilungen. Die Übertragung ist verschlüsselt (HTTPS). Auf dem Server haben nur Personen mit Link sowie der Betreiber (für Betrieb, Sicherung und Support) Zugriff. Die Daten sind in den Sicherungen des Servers enthalten.</li>
+    <li>Die Beurteilungsdaten ohne Personenbezug (Futterart, Bestand, Stadium, Antworten der Beurteilungsräder, Messwerte, Schnittdatum) werden getrennt gespeichert und können für anonyme, zusammenfassende Auswertungen verwendet werden. Der Server weist Daten zurück, die in diesen Feldern Freitext enthalten.</li>
     <li><b>Zugriff:</b> Es gibt einen Bearbeiten- und einen Nur-Ansehen-Link. Wer einen Link besitzt, sieht alle Angaben des Anlasses. Der Server speichert nur Prüfwerte (Hashes) der Zugriffsschlüssel. Links können jederzeit erneuert werden; alte Links sind danach ungültig.</li>
     <li><b>Zweck und Rechtsgrundlage:</b> Zugriff von mehreren Geräten und gemeinsames Erfassen; Ihre Einwilligung (Version und Zeitpunkt werden gespeichert).</li>
     <li><b>Löschung:</b> Automatisch {{ (retention_days / 30.4)|round|int }} Monate nach der letzten Änderung, jederzeit selbst über «Vom Server löschen».</li>
@@ -41,14 +41,15 @@
   <ul>
     <li><b>Gespeichert werden:</b> Vorname bzw. Anzeigename, E-Mail-Adresse (Kursleitung immer, Teilnehmende freiwillig), Angaben zu den Proben (Bezeichnung, Schnitt, Notizen, Standort mit PLZ, Ort, Höhe und auf ca. 1 km gerundeter Position), Fotos vom Futter, Fotos von Laborberichten, Laborwerte sowie die abgegebenen Beurteilungen inklusive Fotos und Laborimport.</li>
     <li><b>Sichtbarkeit:</b> Die Kursleitung sieht alle Angaben, auch die vollständigen E-Mail-Adressen. Kursmitglieder sehen Namen, Proben und Beurteilungen der anderen; Beurteilungen, Laborwerte und Fotos aus Beurteilungen erst nach der eigenen Abgabe (ausser die Kursleitung gibt einzelne Angaben als Hilfestellung frei). E-Mail-Adressen sehen sie nur gekürzt.</li>
-    <li><b>Technischer Schutz:</b> E-Mail-Adressen sind mit einem Serverschlüssel verschlüsselt und werden nur für Einmal-Codes verwendet. Namen, Probenangaben, Standort, Notizen, Laborwerte und Fotos sind mit dem Kursschlüssel verschlüsselt (im Kurs-Link bzw. auf dem QR-Etikett). Wer ein Etikett oder den Kurs-Link besitzt, kann dem Kurs beitreten. Die Beurteilungsdaten ohne Personenbezug sind auf dem Server lesbar.</li>
+    <li><b>Technischer Schutz:</b> Übertragung verschlüsselt (HTTPS). E-Mail-Adressen sind mit einem Serverschlüssel verschlüsselt gespeichert und werden nur für Einmal-Codes und Anmeldungen verwendet. Die übrigen Kursdaten liegen auf dem Server; Zugriff haben nur Kursmitglieder gemäss ihrer Rolle sowie der Betreiber (für Betrieb, Sicherung und Support). Wer ein Etikett oder den Kurs-Link besitzt, kann dem Kurs beitreten.</li>
+    <li><b>Kurse wiederfinden:</b> Mit einer im Kurs bestätigten E-Mail-Adresse lassen sich die eigenen Kurse auf einem neuen Gerät wiederherstellen. Dafür speichert der Server den Kurs-Link verschlüsselt (Serverschlüssel).</li>
     <li><b>Laborberichte:</b> Fotos von Laborberichten werden auf Ihrem Gerät automatisch geschwärzt (Texterkennung ohne KI und ohne Übertragung): sichtbar bleiben nur erkannte Analysezeilen. Sie prüfen das Ergebnis und können weitere Bereiche abdecken. Laborfotos ohne Schwärzung werden anderen Personen nie angezeigt und nicht in den Probenpool übernommen.</li>
     <li><b>Fotos:</b> höchstens 20 MB je Person und Kurs; Neu-Codierung im Browser entfernt Standort- und Kameradaten aus den Bilddateien.</li>
     <li><b>Löschung:</b> Teilnehmende können jederzeit austreten (Name, Fotos und Abgaben werden gelöscht). Die Kursleitung kann Personen entfernen oder den Kurs löschen. Automatische Löschung {{ (retention_days / 30.4)|round|int }} Monate nach der letzten Änderung.</li>
   </ul>
 
   <h2>4b. Probenpool für Kursleitende</h2>
-  <p>Kursleitende können ausgewählte Proben bewusst für andere freigeschaltete Kursleitende veröffentlichen (Bezeichnung, Beschreibung, Postleitzahl, Ort und Höhe (ohne genaue Position), Laborwerte, Fotos, ausgewählte Beurteilungen als anonyme «Referenz»). Diese Einträge sind für alle Kursleitenden lesbar und daher nicht Ende-zu-Ende verschlüsselt, sondern mit Serverschlüssel gespeichert. Sie enthalten keine Personennamen; die veröffentlichende Person bestätigt dies. Einträge können von ihr oder vom Betreiber gelöscht werden.</p>
+  <p>Kursleitende können ausgewählte Proben bewusst für andere freigeschaltete Kursleitende veröffentlichen (Bezeichnung, Beschreibung, Postleitzahl, Ort und Höhe (ohne genaue Position), Laborwerte, Fotos, ausgewählte Beurteilungen als anonyme «Referenz»). Diese Einträge sind für alle Kursleitenden lesbar und mit dem Serverschlüssel gespeichert. Sie enthalten keine Personennamen; die veröffentlichende Person bestätigt dies. Einträge können von ihr oder vom Betreiber gelöscht werden.</p>
 
   <h2>4c. Antrag Kursleitung</h2>
   <p>Wer Kurse anlegen möchte, kann einen Antrag stellen (Name, Organisation, kurze Begründung, bestätigte E-Mail-Adresse). Diese Angaben werden verschlüsselt gespeichert und nur vom Betreiber zur Prüfung gelesen.</p>
@@ -61,7 +62,7 @@
     <li><b>Auf dem Server</b> (nur nach Zustimmung): Das gewählte PDF bzw. Foto wird verschlüsselt (HTTPS) übertragen, ausschliesslich im Arbeitsspeicher bzw. einem temporären Verzeichnis verarbeitet und unmittelbar danach gelöscht. Es wird nichts gespeichert und der Inhalt nicht protokolliert. Zurückgegeben werden nur die erkannten Laborwerte.</li>
     <li><b>Auf dem Gerät:</b> Die Erkennung läuft vollständig im Browser; die Datei verlässt das Gerät nicht.</li>
     <li>Bitte decken Sie Adresse und Namen vor dem Fotografieren ab oder schwärzen Sie sie in der App.</li>
-    <li>Übernommene Laborwerte werden wie die übrigen Angaben behandelt (lokal; bei Freigaben Ende-zu-Ende verschlüsselt).</li>
+    <li>Übernommene Laborwerte werden wie die übrigen Angaben behandelt (lokal; bei Freigaben und in Kursen auf dem Server).</li>
   </ul>
 
   <h2>4f. Anonyme Beiträge für Auswertungen und Publikationen</h2>

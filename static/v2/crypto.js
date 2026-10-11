@@ -1,11 +1,11 @@
-/* Futter v2 – Ende-zu-Ende-Verschlüsselung (WebCrypto, keine Fremdbibliothek).
+/* Futter v2 – Zugangs-Links (WebCrypto, keine Fremdbibliothek).
  *
- * Link-Geheimnisse (32 Byte, base64url) stehen nur im Teil nach «#» und erreichen den Server nie.
+ * Link-Geheimnisse (32 Byte, base64url) stehen im Teil nach «#»; daraus werden Lese-/Schreib- bzw.
+ * Beitritts-Token abgeleitet (Server kennt nur deren SHA-256-Hashes).
  *   Bearbeiten-Link:  #s=<id>.w.<E>    E → R (Lese-Geheimnis), Schreib-Token
- *   Ansehen-Link:     #s=<id>.r.<R>    R → Schlüssel, Lese-Token
- * Der Server kennt nur SHA-256-Hashes der Tokens. Personenbezogene Felder werden mit
- * AES-256-GCM verschlüsselt; Bereich und Datensatz-ID sind als «additional data» gebunden,
- * damit verschlüsselte Pakete nicht zwischen Datensätzen vertauscht werden können.
+ *   Ansehen-Link:     #s=<id>.r.<R>    R → Lese-Token
+ * Seit 2026-10 keine Ende-zu-Ende-Verschlüsselung mehr: Daten werden lesbar auf dem Server gespeichert.
+ * decryptJSON/lesbar bleiben nur, um ältere, noch verschlüsselte Einträge einmalig zu lesen.
  */
 (function (global) {
   'use strict';
@@ -82,6 +82,13 @@
     return JSON.parse(dec.decode(pt));
   }
   const aadFor = (spaceId, recordId) => 'agff-futter-v2|' + spaceId + '|' + recordId;
+  const istBox = (x) => !!(x && typeof x === 'object' && x.v === 1 && typeof x.iv === 'string' && typeof x.ct === 'string');
+  /** Lesbarer Teil eines Datensatzes; ältere, verschlüsselte Einträge (bis 2026-10) mit dem Link-Schlüssel entschlüsseln. */
+  async function lesbar(key, x, aad) {
+    if (!x) return {};
+    if (!istBox(x)) return x;
+    try { return key ? await decryptJSON(key, x, aad) : {}; } catch (e) { return {}; }
+  }
 
   /** Link-Teil nach «#s=» zerlegen: "<id>.<w|r>.<secret>" */
   function parseLink(token) {
@@ -89,5 +96,5 @@
     return m ? { id: m[1], mode: m[2], secret: m[3] } : null;
   }
 
-  global.FutterCrypto = { newSecret, keys, kursKeys, kursAad, parseKursLink, hashes, encryptJSON, decryptJSON, aadFor, parseLink, SECRET_RE };
+  global.FutterCrypto = { newSecret, keys, kursKeys, kursAad, parseKursLink, hashes, decryptJSON, lesbar, istBox, aadFor, parseLink, SECRET_RE };
 })(typeof window !== 'undefined' ? window : globalThis);

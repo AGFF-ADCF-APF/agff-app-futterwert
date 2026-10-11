@@ -4,9 +4,8 @@ Kursleitende stellen ausgewählte Kursproben (Beschreibung, Region, Alter, Labor
 ausgewählte Beurteilungen als anonyme Referenzen) in einen gemeinsamen Pool. Andere freigeschaltete
 Kursleitende können sie in eigene Kurse übernehmen.
 
-Datenschutz: Pool-Einträge sind bewusste Veröffentlichungen an alle Kursleitenden – daher nicht
-Ende-zu-Ende verschlüsselt, sondern mit Serverschlüssel (Datenbank) bzw. Foto-Schlüssel (Dateien)
-gespeichert. Referenzen enthalten keine Namen. Zugriff nur mit gültiger Kursleitungs-Sitzung.
+Datenschutz: Pool-Einträge sind bewusste Veröffentlichungen an alle Kursleitenden. Die Einträge sind
+mit dem Serverschlüssel gespeichert, Fotos als JPEG/WebP ohne Metadaten. Referenzen enthalten keine Namen. Zugriff nur mit gültiger Kursleitungs-Sitzung.
 """
 import json
 import os
@@ -18,7 +17,7 @@ import time
 from flask import jsonify, request, send_from_directory
 
 import v2_mail as M
-from v2_api import v2, _db, _now, _sha, _rate_hit, _check_record, _json_body, ID_RE, TOKEN_RE, FOTO_ID_RE, FUTTERARTEN
+from v2_api import v2, _db, _now, _sha, _rate_hit, _check_record, _json_body, _bild_typ, bild_senden, ID_RE, TOKEN_RE, FOTO_ID_RE, FUTTERARTEN
 
 FOTO_DIR = os.environ.get('V2_FOTO_DIR', 'data/v2_fotos')
 MAX_FOTO_BYTES = 5 * 1024 * 1024
@@ -106,7 +105,7 @@ def pruefen(d):
     out['fotos'] = []
     for f in fotos:
         if (not isinstance(f, dict) or not FOTO_ID_RE.match(str(f.get('id', ''))) or f.get('art') not in ('futter', 'labor')
-                or not re.match(r'^[A-Za-z0-9_-]{43}$', str(f.get('key', ''))) or f.get('mime') not in ('image/webp', 'image/jpeg')):
+                or (f.get('key') is not None and not re.match(r'^[A-Za-z0-9_-]{43}$', str(f.get('key')))) or f.get('mime') not in ('image/webp', 'image/jpeg')):
             return None
         out['fotos'].append({k: f[k] for k in ('id', 'art', 'key', 'mime', 'w', 'h') if k in f and (k not in ('w', 'h') or _num(f[k], 1, 10000))})
     refs = d.get('referenzen') or []
@@ -192,7 +191,7 @@ def pool_foto_put(pool_id, foto_id):
     if not ich or not ID_RE.match(pool_id) or not FOTO_ID_RE.match(foto_id):
         return jsonify({'error': 'NOT_FOUND'}), 404
     data = request.get_data(cache=False)
-    if len(data) > MAX_FOTO_BYTES or len(data) < 30 or data[0] != 1:
+    if len(data) > MAX_FOTO_BYTES or len(data) < 100 or not _bild_typ(data[:12]):
         return jsonify({'error': 'REJECTED_CONTENT'}), 422
     with _db() as conn:
         r = conn.execute('SELECT creator_hmac FROM pool_proben WHERE id = ?', (pool_id,)).fetchone()
@@ -214,9 +213,7 @@ def pool_foto_put(pool_id, foto_id):
 
 
 def foto_senden(pool_id, foto_id):
-    resp = send_from_directory(os.path.abspath(_dir(pool_id)), foto_id + '.bin', mimetype='application/octet-stream')
-    resp.headers['Cache-Control'] = 'no-store'
-    return resp
+    return bild_senden(_dir(pool_id), foto_id + '.bin')
 
 
 @v2.route('/v2/api/pool/<pool_id>/fotos/<foto_id>', methods=['GET'])

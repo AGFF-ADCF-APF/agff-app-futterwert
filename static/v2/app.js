@@ -272,11 +272,11 @@
 
   function syncState(a) {
     if (!a.space) return { ico: '', t: 'Nur auf diesem Gerät' };
-    if (a.space.mode === 'r' && !a.space.error && ui.online) return { ico: I.lock, t: 'Nur ansehen · verschlüsselt geteilt' };
+    if (a.space.mode === 'r' && !a.space.error && ui.online) return { ico: I.lock, t: 'Nur ansehen · auf dem Server geteilt' };
     if (!ui.online) return { ico: I.cloud, t: 'Offline – wird später synchronisiert' };
     if (a.space.error) return { ico: I.cloud, t: 'Synchronisation fehlgeschlagen' };
     const dirty = probenOf(a.id).some((p) => p.dirty);
-    return dirty ? { ico: I.cloud, t: 'Änderungen werden übertragen …' } : { ico: I.cloudOk, t: 'Verschlüsselt auf Server' + (a.space.lastSync ? ' · ' + new Date(a.space.lastSync).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) : '') };
+    return dirty ? { ico: I.cloud, t: 'Änderungen werden übertragen …' } : { ico: I.cloudOk, t: 'Auf dem Server gespeichert' + (a.space.lastSync ? ' · ' + new Date(a.space.lastSync).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) : '') };
   }
 
   function renderNav(r) {
@@ -289,7 +289,7 @@
       '<button class="btn primary block" data-act="new-probe" style="min-height:56px">' + I.plus + ' Neue Probe beurteilen</button>' +
       '<div class="row"><button class="btn sm grow" data-act="new-anlass">' + I.plus + ' Neuer Anlass</button><button class="btn sm grow" data-act="import">' + I.upload + ' Importieren</button></div>' +
       '</div>' +
-      '<div class="section-title" style="margin-top:4px;padding:0 12px">Anlässe</div><ul class="list" style="padding:0 8px">' +
+      '<div class="section-title" style="margin-top:4px;padding:0 12px;display:flex;justify-content:space-between;align-items:center">Anlässe<button class="btn sm ghost" data-act="meine-kurse" style="min-height:30px;font-size:.78rem">Kurse per E-Mail wiederfinden</button></div><ul class="list" style="padding:0 8px">' +
       (anl.length ? anl.map((a) => {
         const n = a.kurs ? '' : probenOf(a.id).length; const s = syncState(a);
         return '<li><a class="item" href="#/a/' + a.id + '" aria-current="' + (cur === a.id) + '"><span class="avatar">' + esc((a.titel || '?').slice(0, 2).toUpperCase()) + '</span><span style="min-width:0"><span class="t">' + esc(a.titel || 'Ohne Titel') + '</span><span class="s">' +
@@ -465,14 +465,14 @@
       (list.some((f) => f.art === 'labor') && laborGesperrt(p) ? '<p class="hint">' + I.lock.replace('<svg', '<svg width="14" height="14" style="vertical-align:-2px"') + ' Laborberichte bleiben verborgen, bis Ihre eigene Beurteilung vollständig ist.</p>' : '');
   }
 
-  /** Lädt fehlende Fotos (verschlüsselt) aus einer Server-Freigabe. */
+  /** Lädt fehlende Fotos aus einer Server-Freigabe. */
   async function fotoVomServer(p, meta) {
     const a = p.anlassId && anlassById(p.anlassId);
     if (!a || !a.space || meta.up === false) return false;
     const k = await keysFor(a);
     const r = await fetch('api/spaces/' + a.space.id + '/fotos/' + meta.id, { headers: readH(k), cache: 'no-store', credentials: 'omit' });
     if (!r.ok) return false;
-    await F.ablegen(meta.id, p.id, await F.entschluesseln(meta, await r.arrayBuffer()));
+    await F.ablegen(meta.id, p.id, await F.vomServer(meta, await r.arrayBuffer()));
     return true;
   }
   async function fotosEinsetzen() {
@@ -558,7 +558,7 @@
     for (const p of probenOf(a.id)) {
       for (const f of (p.fotos || []).filter((x) => x.up === false)) {
         const b = await F.blob(f.id); if (!b) continue;
-        const r = await fetch('api/spaces/' + sid + '/fotos/' + f.id, { method: 'PUT', headers: Object.assign({ 'Content-Type': 'application/octet-stream' }, writeH(k)), body: await F.verschluesseln(f, b), credentials: 'omit' });
+        const r = await fetch('api/spaces/' + sid + '/fotos/' + f.id, { method: 'PUT', headers: Object.assign({ 'Content-Type': 'application/octet-stream' }, writeH(k)), body: await F.fuerServer(f, b), credentials: 'omit' });
         if (!r.ok) { const e = new Error(r.status === 409 ? 'Speicherplatz der Freigabe für Fotos ist voll' : 'Foto-Upload fehlgeschlagen (' + r.status + ')'); e.status = r.status; throw e; }
         f.up = true; p.dirty = true;
       }
@@ -937,7 +937,7 @@
       '<button class="btn ghost block" data-close>Schliessen</button></div>');
   }
 
-  // ---------- Zustimmung / Server (Ende-zu-Ende verschlüsselt) ----------
+  // ---------- Zustimmung / Server (Zugriff per Link) ----------
   const C = window.FutterCrypto;
   const spaceKeys = new Map(); // anlassId → abgeleitete Schlüssel (nur im Speicher)
   async function keysFor(a) {
@@ -950,19 +950,21 @@
   const readH = (k) => ({ 'X-Read-Token': k.readToken });
   const writeH = (k) => ({ 'X-Write-Token': k.writeToken });
 
-  /** Verpackt eine Probe bzw. die Anlass-Angaben: Analyse lesbar, Persönliches verschlüsselt. */
+  /** Verpackt eine Probe bzw. die Anlass-Angaben: «analyse» (anonym auswertbar) und «privat» (Personenbezogenes). */
   async function sealProbe(k, sid, p) {
     const { analyse, privat } = Model.split(p, 'probe');
     delete analyse.anlassId;
     if (privat.fotos) privat.fotos = privat.fotos.map((f) => { const c = Object.assign({}, f); delete c.up; return c; });
-    return { analyse, privat: Object.keys(privat).length ? await C.encryptJSON(k.key, privat, C.aadFor(sid, p.id)) : null };
+    void k; void sid;
+    return { analyse, privat: Object.keys(privat).length ? privat : null };
   }
   async function sealMeta(k, sid, a) {
     const { analyse, privat } = Model.split({ id: 'anlassmeta', titel: a.titel, datum: a.datum, ort: a.ort, notiz: a.notiz }, 'anlass');
-    return { analyse, privat: await C.encryptJSON(k.key, privat, C.aadFor(sid, 'anlassmeta')) };
+    void k; void sid;
+    return { analyse, privat };
   }
   async function openRecord(k, sid, r) {
-    const privat = await C.decryptJSON(k.key, r.data && r.data.privat, C.aadFor(sid, r.id));
+    const privat = await C.lesbar(k.key, r.data && r.data.privat, C.aadFor(sid, r.id));
     return Model.merge((r.data && r.data.analyse) || {}, privat);
   }
 
@@ -970,8 +972,8 @@
     const months = Math.round((CFG.retentionDays || 730) / 30.4);
     sheet('<h2>' + I.cloud.replace('<svg', '<svg width="24" height="24" style="vertical-align:-5px"') + ' Auf dem Server speichern?</h2><div class="consent">' +
       '<p style="margin-top:0">Damit können Sie <b>«' + esc(a.titel) + '»</b> auf weiteren Geräten öffnen und im Team gemeinsam erfassen. Was dabei passiert:</p><ul>' +
-      '<li><b>Persönliches wird auf Ihrem Gerät verschlüsselt:</b> Titel, Ort, Probenbezeichnungen, Herkunft/Betrieb, Namen und Notizen. Der Schlüssel steckt nur im Freigabe-Link und erreicht den Server nie – auch der Betreiber kann diese Angaben nicht lesen.</li>' +
-      '<li><b>Lesbar gespeichert</b> werden nur die Beurteilungsdaten (Futterart, Bestand, Stadium, Rad-Antworten, Messwerte) ohne Bezug zu Personen. Sie können für anonyme, zusammenfassende Auswertungen genutzt werden.</li>' +
+      '<li><b>Alles wird auf dem Server gespeichert:</b> Titel, Ort, Probenbezeichnungen, Herkunft/Betrieb, Namen, Notizen, Fotos und die Beurteilungen. Übertragung verschlüsselt (HTTPS); auf dem Server haben nur Personen mit Link und der Betreiber (für Betrieb und Support) Zugriff.</li>' +
+      '<li>Die Beurteilungsdaten ohne Bezug zu Personen (Futterart, Bestand, Stadium, Rad-Antworten, Messwerte) können für anonyme, zusammenfassende Auswertungen genutzt werden.</li>' +
       '<li><b>Wer einen Link hat, sieht alles.</b> Den Bearbeiten-Link nur an Vertrauenspersonen geben, sonst den Nur-Ansehen-Link. Links lassen sich jederzeit erneuern – die alten werden dann ungültig.</li>' +
       '<li>Automatische Löschung <b>' + months + ' Monate nach der letzten Änderung</b>; Sie können jederzeit selbst löschen. Ohne Zustimmung bleibt alles nur in diesem Browser.</li></ul>' +
       '<p class="small"><a href="' + esc(CFG.privacyUrl) + '" target="_blank" rel="noopener">Datenschutzerklärung lesen</a></p>' +
@@ -1393,13 +1395,14 @@
         if (anlassReadOnly(aid)) { toast('Nur-Ansehen-Link: neue Proben bitte ohne Anlass oder in einem eigenen Anlass erfassen.'); sheetNewProbe(null); break; }
         sheetNewProbe(aid || null); break;
       }
+      case 'meine-kurse': window.Kurs.meineKurse(); break;
       case 'create-probe': {
         const pr = neueProbe(t.dataset.typ, t.dataset.anlass || null); closeSheet();
         go('#/p/' + pr.id + '/' + (pr.typ === 'mais' ? 'haecksel' : pr.typ === 'gps' ? 'kultur' : 'bestand')); break;
       }
       case 'new-anlass':
         sheet('<h2>Neuer Anlass</h2><div class="typ-cards">' +
-          '<button class="typ-card" data-act="new-anlass-eigen"><span class="ico" style="background:var(--brand-soft);color:var(--brand-ink)">' + I.wheel.replace('<svg', '<svg width="26" height="26"') + '</span><span><b>Für mich / mein Team</b><span class="small muted">Eigene Proben sammeln, z. B. Betriebsbesuch oder Silo-Kontrolle. Bleibt im Browser; bei Bedarf verschlüsselt teilen.</span></span></button>' +
+          '<button class="typ-card" data-act="new-anlass-eigen"><span class="ico" style="background:var(--brand-soft);color:var(--brand-ink)">' + I.wheel.replace('<svg', '<svg width="26" height="26"') + '</span><span><b>Für mich / mein Team</b><span class="small muted">Eigene Proben sammeln, z. B. Betriebsbesuch oder Silo-Kontrolle. Bleibt im Browser; bei Bedarf über den Server teilen.</span></span></button>' +
           '<button class="typ-card" data-act="kurs-anlegen"><span class="ico" style="background:#f6c35b;color:#1d2925">' + I.table.replace('<svg', '<svg width="26" height="26"') + '</span><span><b>Kurs</b><span class="small muted">Mehrere Personen erfassen Proben per QR-Etikett und beurteilen sie gegenseitig – mit Vergleich. Für freigeschaltete Kursleitende.</span></span></button>' +
           '</div><button class="btn ghost block" data-close style="margin-top:10px">Abbrechen</button>');
         break;
