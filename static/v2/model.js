@@ -49,7 +49,7 @@
       bestand: oneOf(a.bestand, BESTAND_IDS),
       aufwuchs: oneOf(a.aufwuchs, ['1', 'f']),
       stadium: oneOf(String(a.stadium), ['1', '2', '3', '4', '5', '6', '7']),
-      leitpflanze: num(a.leitpflanze, 0, 4),
+      leitpflanze: num(a.leitpflanze, 0, 5),
       wochen: num(a.wochen, 0, 60),
       ueber600: bool(a.ueber600), herbst: bool(a.herbst),
       sauberkeit: oneOf(a.sauberkeit, SAUBER_IDS),

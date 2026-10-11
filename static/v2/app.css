@@ -550,3 +550,20 @@ html.cam-offen, html.cam-offen body { overflow: hidden; }
 .pf-art-kopf .chip { margin-left: 0; }
 .pf-sym { color: var(--brand-ink); display: inline-grid; }
 .pf-weg { font-size: .74rem; }
+.pf-ic { width: 40px; height: 40px; object-fit: contain; flex: none; border-radius: 6px; background: #f1f1f1; }
+.pf-spalte .pf-ic { width: 46px; height: 46px; }
+.pf-krit .pf-opt { grid-template-columns: auto 1fr; display: grid; align-items: center; column-gap: 10px; }
+.pf-krit .pf-opt:not(:has(.pf-ic)) { grid-template-columns: 1fr; }
+.pf-bilder { display: flex; gap: 6px; overflow-x: auto; padding: 4px 0; }
+.pf-bild { flex: none; width: 76px; height: 96px; padding: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #fff; cursor: pointer; }
+.pf-bild img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pf-bild.zg img { object-fit: contain; background: #f1f1f1; }
+.pf-gross { background: #f1f1f1; }
+.pf-x { color: var(--ink); background: var(--mittel-soft); border-radius: 8px; padding: 4px 8px; }
+.pf-eagff summary { cursor: pointer; font-size: .85rem; font-weight: 650; color: var(--brand-ink); }
+.pf-eagff p { margin: 6px 0; }
+.hilfe ul.doks, .hilfe ul.ext { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.doks a { display: flex; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); text-decoration: none; }
+.doks a > span:last-child { display: grid; gap: 2px; min-width: 0; }
+.doc-ico { flex: none; width: 40px; height: 48px; border-radius: 6px; display: grid; place-items: center; background: var(--kritisch-soft); color: var(--kritisch); font: 800 .72rem/1 var(--font); }
+.ext a { color: var(--brand-ink); }

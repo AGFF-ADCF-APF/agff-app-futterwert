@@ -652,10 +652,16 @@
     6: 'Blüte: An den meisten Ährchen sind Staubbeutel sichtbar. Bei Wind oder beim Schnitt «stäubt» der Blütenstand.',
     7: 'Samenreife: Die Blütenstände haben die grüne Farbe verloren, die Samen sind fest; erste Samen fallen aus.',
   };
-  const FOTO_REF = { 0: { 3: 'ref-kg3', 4: 'ref-kg4', 6: 'ref-kg6' }, 3: { 3: 'ref-rk3', 5: 'ref-rk5', 6: 'ref-rk6' } };
+  // Fotos aus den AGFF-Unterlagen (K3a, Merkblatt 3): Knaulgras, Engl. Raigras, Rotklee, Löwenzahn, Scharfer Hahnenfuss
+  const FOTO_REF = {
+    0: { 3: ['ref-kg3', 'ref-er3'], 4: ['ref-kg4', 'ref-er4'], 6: ['ref-kg6', 'ref-er6'] },
+    3: { 3: ['ref-rk3'], 5: ['ref-rk5'], 6: ['ref-rk6'] },
+    4: { 3: ['ref-lz3a', 'ref-lz3b'], 4: ['ref-lz4'] },
+    5: { 3: ['ref-hf3'], 4: ['ref-hf4'] },
+  };
   function refsLaden() {
     const z = lesen(KEY_REF);
-    return (Array.isArray(z) ? z : []).filter((r) => r && ID_RE.test(r.id || '') && r.lp >= 0 && r.lp <= 4 && r.st >= 1 && r.st <= 7).slice(-40);
+    return (Array.isArray(z) ? z : []).filter((r) => r && ID_RE.test(r.id || '') && r.lp >= 0 && r.lp <= 5 && r.st >= 1 && r.st <= 7).slice(-40);
   }
   function referenzen(lp) {
     const out = [];
@@ -663,7 +669,7 @@
       const name = K3().STADIEN_ERSTER[st - 1][lp]; if (!name || name === '–') continue;
       const bilder = [];
       refsLaden().filter((r) => r.lp === lp && r.st === st).forEach((r) => bilder.push({ fid: r.id, q: 'eigenes Foto' }));
-      if (FOTO_REF[lp] && FOTO_REF[lp][st]) bilder.push({ src: 'assets/bilder/' + FOTO_REF[lp][st] + '.webp', q: 'AGFF' });
+      ((FOTO_REF[lp] && FOTO_REF[lp][st]) || []).forEach((f) => bilder.push({ src: 'assets/bilder/' + f + '.webp', q: 'AGFF' }));
       if (ZEICHNUNG[lp]) bilder.push({ src: 'assets/bilder/ref-st' + ZEICHNUNG[lp][st - 1] + '.webp', q: 'AGFF-Zeichnung' });
       out.push({ st, name, bilder, phase: ZEICHNUNG[lp] ? PHASE_AGFF[ZEICHNUNG[lp][st - 1]] : null });
     }
@@ -671,6 +677,27 @@
   }
   const refUrls = new Map();
   async function refUrl(b) { if (b.src) return b.src; if (!refUrls.has(b.fid)) refUrls.set(b.fid, await F().thumbUrl(b.fid)); return refUrls.get(b.fid); }
+
+  /** Plausibilisierung Stadium 1. Aufwuchs nach AGFF-Merkblatt 3 (grobe Zeitangaben). */
+  function plausi(p) {
+    const a = p.antworten || {}; const k = p.kopf || {};
+    if (a.aufwuchs !== '1') return null;
+    const datum = k.schnitt || (p.typ === 'gruen' ? new Date().toISOString().slice(0, 10) : null);
+    if (!datum) return { html: '<p class="hint">Plausibilisierung nach AGFF-Merkblatt 3: Schnittdatum im Schritt «Probe» eintragen.</p>' };
+    const n = K3().stadiumZeit(datum, k.hoehe, false); const kw = K3().stadiumZeit(datum, k.hoehe, true);
+    if (!n) return null;
+    const dCH = (d) => d.split('-').reverse().slice(0, 2).join('.') + '.';
+    const wo = (k.hoehe ? k.hoehe + ' m ü. M.' : 'bis 600 m (Höhe nicht angegeben)');
+    const alle = Array.from(new Set(n.passt.concat(kw.passt))).sort((x, y) => x - y);
+    let erwartet = alle.length ? 'Stadium ' + alle[0] + (alle.length > 1 ? '–' + alle[alle.length - 1] : '') : (n.vor ? 'noch vor Stadium 1' : 'nach Stadium 7');
+    const st = Number(a.stadium);
+    const ok = !st || alle.includes(st);
+    const quelle = 'Nach AGFF-Merkblatt 3 (Zeitperiode der Stadien, Naturwiesen; über 600 m 3–5 Tage später je 100 m, Kunstwiesen etwa eine Woche später).';
+    let t = (p.typ === 'gruen' && !k.schnitt ? 'Heute' : 'Schnitt am ' + dCH(datum)) + ' auf ' + wo + ': erwartet etwa <b>' + erwartet + '</b>.';
+    if (st && !ok) t += ' Gewählt ist Stadium ' + st + ' – hier üblich etwa ' + dCH(n.fenster[st][0]) + '–' + dCH(kw.fenster[st][1]) + ' Bitte prüfen; das Stadium an den Pflanzen hat Vorrang (Jahr, Witterung und Lage verschieben stark).';
+    else if (st) t += ' Gewähltes Stadium ' + st + ' passt zur groben Zeitangabe.';
+    return { ok, erwartet, html: '<div class="' + (ok ? 'hint' : 'alert warn small') + '" style="margin:10px 0">' + t + ' <span class="muted small">' + quelle + '</span></div>' };
+  }
 
   async function stadiumStarten(probeId, lpWahl) {
     const p = probeId ? app().probeById(probeId) : null;
@@ -683,6 +710,7 @@
       hilfe: 'Blütenstand der Leitpflanze in den Kreis. Vergleichsbild unten antippen (nochmals tippen = nächstes Bild).',
       leiste, knopf,
       start: async (api) => {
+        const pl = p && plausi(p); if (pl && pl.erwartet) api.info('Nach AGFF-Merkblatt 3 erwartet: ' + pl.erwartet);
         for (const r of refs) if (r.bilder.length) { const im = api.root.querySelector('[data-refimg="' + r.st + '"]'); if (im) im.src = await refUrl(r.bilder[0]); }
       },
       zeichnen: (ctx, w, h) => {
@@ -970,7 +998,7 @@
   function allesLoeschen() { try { localStorage.removeItem(KEY_FP); localStorage.removeItem(KEY_REF); } catch (e) { /* ignore */ } FP = []; RS = null; HS = null; }
 
   global.Wiese = {
-    render, renderFotopunkte, handle, nachRender: bilderEinsetzen, bestandKnopf, stadiumKnopf, farbabgleich, fotoIds, sicherung, wiederherstellen, allesLoeschen, kamera, zu,
+    render, renderFotopunkte, handle, plausi, nachRender: bilderEinsetzen, bestandKnopf, stadiumKnopf, farbabgleich, fotoIds, sicherung, wiederherstellen, allesLoeschen, kamera, zu,
     // für Tests
     _t: { vorschlag, homographie, invers, proj, karteFinden, KARTE, exg, unsicher },
   };

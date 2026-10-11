@@ -188,10 +188,11 @@
     lupe: 'Ein grundständiges Blatt flach in den Kreis halten: Nerven, Blattgrund und Blattrand.',
     kinder: [
       { nr: '1', t: 'Binsen und Seggen', arten: [
-        A('Binsen', 'Stängel = blätterlose Röhre.', 'kf'),
-        A('Seggen, Waldsimse', 'Halm schneidend, ohne Knoten, Querschnitt meist dreieckig. Waldsimse mit steifen, breiten Blättern.', 'kf')] },
+        A('Binsen', 'Stängel = blätterlose Röhre.', 'gr', { x: 'Grasartig, futterbaulich geringwertig – im Raster bei «andere Gräser» zählen.' }),
+        A('Seggen, Waldsimse', 'Halm schneidend, ohne Knoten, Querschnitt meist dreieckig. Waldsimse mit steifen, breiten Blättern.', 'gr', { x: 'Grasartig, futterbaulich geringwertig – im Raster bei «andere Gräser» zählen.' })] },
       { nr: '2', t: 'Quirlständige Blätter', arten: [
-        A('Schachtelhalm («Katzenschwanz»)', 'Giftig.', 'kf', { g: true }),
+        A('Ackerschachtelhalm', 'Schachtelhalm «Katzenschwanz» – im Schlüssel als giftig bezeichnet.', 'kf', { x: 'Ackerschachtelhalm ist futterbaulich geringwertig. Nicht verwechseln mit dem hochgiftigen Sumpfschachtelhalm!' }),
+        A('Sumpfschachtelhalm', 'Hochgiftig! Das innerste Teilstück der quirlständigen Seitentriebe ist kürzer als die benachbarte lange Scheide am Stängel (beim Ackerschachtelhalm länger).', 'kf', { g: 'hochgiftig', x: 'Feuchte bis nasse, magere Böden. Giftig frisch und getrocknet.' }),
         A('Wiesenlabkraut', '', 'kf')] },
       { nr: '3', t: 'Mehrere Teilblätter pro Blatt', arten: [
         A('Wiesenkerbel', '', 'kg'), A('Bärenklau', '', 'kg'), A('Bergkerbel / Kälberkropf', '', 'kg'),
@@ -223,6 +224,17 @@
 
   const SCHLUESSEL = [GRAS_V, GRAS_G, LEGUM, KRAUT];
   let Z = { key: 'gv', pfad: [], az: false };
+  // Zeichnungen (AGFF-Schlüssel, edition lmz) und Fotos/Kurzinfos (eAGFF, © AGFF/Agroscope) – bei Bedarf geladen
+  let D = null; let ladend = false;
+  function daten() {
+    if (D || ladend) return D;
+    ladend = true;
+    fetch('assets/pflanzen.json?v=' + ((global.AGFF_V2 || {}).build || ''), { credentials: 'omit' }).then((r) => r.json()).then((j) => { D = j; neu(false); }).catch(() => { ladend = false; });
+    return null;
+  }
+  const info = (n) => (D && D.arten[n]) || null;
+  const ICON = { 'Mittleres Teilblatt ohne Stiel (evtl. Stielchen bis 1 mm)': 'k:ohneStiel', 'Mittleres Teilblatt mit Stiel': 'k:mitStiel', 'Blätter parallelnervig': 'k:parallel' };
+  const icon = (kid, id) => { const f = D && D.icons[kid] && D.icons[kid][id]; return f ? '<img class="pf-ic" alt="" src="assets/pflanzen/' + f + '">' : ''; };
   let rueck = null; // Rückmeldung an das Punktraster
 
   const key = () => SCHLUESSEL.find((k) => k.id === Z.key);
@@ -234,16 +246,27 @@
     return out;
   }
 
+  function bilderHtml(a) {
+    const i = info(a.n); if (!i) return '';
+    const z = i.z.slice().sort((x, y) => (x.k === Z.key ? -1 : 0) - (y.k === Z.key ? -1 : 0));
+    const alle = z.map((b) => ({ f: b.f, t: 'Zeichnung' })).concat(i.fotos.map((b) => ({ f: b.f, t: b.z ? 'Zeichnung' : 'Foto' })));
+    if (!alle.length) return '';
+    return '<div class="pf-bilder">' + alle.map((b, j) => '<button class="pf-bild' + (b.t === 'Zeichnung' ? ' zg' : '') + '" data-pf="bild" data-n="' + esc(a.n) + '" data-i="' + j + '" aria-label="' + b.t + ' vergrössern"><img alt="" loading="lazy" src="assets/pflanzen/' + b.f + '"></button>').join('') + '</div>';
+  }
   function artKarte(a, weg) {
-    const s = a.s && SYM[a.s];
+    const s = a.s && SYM[a.s]; const i = info(a.n);
     return '<div class="pf-art"><div class="pf-art-kopf"><b>' + esc(a.n) + '</b>' + (s ? '<span class="pf-sym" title="' + s.t + '">' + s.i + '</span>' : '') +
-      (a.g ? '<span class="chip kritisch">giftig</span>' : '') + '<span class="chip">' + KAT[a.k] + '</span></div>' +
+      (a.g ? '<span class="chip kritisch">' + (a.g === true ? 'giftig' : esc(a.g)) + '</span>' : '') + '<span class="chip">' + KAT[a.k] + '</span></div>' +
+      (i && i.lat ? '<div class="small muted"><i>' + esc(i.lat) + '</i></div>' : '') + bilderHtml(a) +
       (a.d ? '<div class="small">' + esc(a.d) + '</div>' : '') + (a.o ? '<div class="small muted">Vorkommen: ' + esc(a.o) + '</div>' : '') +
+      (a.x ? '<div class="small pf-x">' + esc(a.x) + '</div>' : '') +
+      (i && (i.auff || i.wert) ? '<details class="pf-eagff"><summary>Mehr aus eAGFF</summary>' + (i.auff ? '<p class="small"><b>Auffällig:</b> ' + esc(i.auff) + '</p>' : '') + (i.wert ? '<p class="small"><b>Futterbaulicher Wert:</b> ' + esc(i.wert) + '</p>' : '') + (i.vork ? '<p class="small"><b>Vorkommen:</b> ' + esc(i.vork) + '</p>' : '') + '<a class="small" href="' + esc(i.url) + '" target="_blank" rel="noopener noreferrer">Porträt auf eagff.ch ↗</a></details>' : '') +
       (weg ? '<div class="small muted pf-weg">' + weg.map(esc).join(' › ') + '</div>' : '') +
       (rueck ? '<button class="btn sm" data-pf="nehmen" data-k="' + a.k + '">Im Raster als «' + KAT[a.k] + '» zählen</button>' : '') + '</div>';
   }
 
   function inhalt() {
+    daten();
     const K = key(); const n = knoten(Z.pfad);
     const lupe = global.Wiese && !rueck ? '<button class="btn sm ghost" data-pf="lupe">Lupe</button>' : '';
     let h = '<div class="pf-tabs" role="tablist">' + SCHLUESSEL.map((k) => '<button data-pf="key" data-v="' + k.id + '" aria-pressed="' + (k.id === Z.key) + '">' + esc(k.titel) + '</button>').join('') + '</div>';
@@ -258,16 +281,16 @@
     }
     if (!Z.pfad.length) {
       h += '<p class="qhint">' + esc(K.hinweis) + '</p>' + (K.reihenfolge ? '<p class="pf-reihe">' + esc(K.reihenfolge) + '</p>' : '') +
-        '<div class="pf-spalten">' + K.kinder.map((s, i) => '<button class="pf-spalte" data-pf="w" data-v="' + i + '"><span class="pf-nr">' + esc(s.nr) + '</span><span><b>' + esc(s.t) + '</b>' + (s.s ? '<small>' + esc(s.s) + '</small>' : '') + '</span></button>').join('') + '</div>';
+        '<div class="pf-spalten">' + K.kinder.map((s, i) => '<button class="pf-spalte" data-pf="w" data-v="' + i + '"><span class="pf-nr">' + esc(s.nr) + '</span>' + icon(K.id, s.nr) + (K.id === 'gg' && /^Ähren/.test(s.t) ? icon('gg', 'Ähren') : K.id === 'gg' && /^Rispen/.test(s.t) ? icon('gg', 'Rispen') : '') + '<span><b>' + esc(s.t) + '</b>' + (s.s ? '<small>' + esc(s.s) + '</small>' : '') + '</span></button>').join('') + '</div>';
     } else {
       if (n.s) h += '<p class="qhint">' + esc(n.s) + '</p>';
       if (n.kinder && n.kinder.length) {
-        h += '<div class="pf-frage">Was trifft zu?</div><div class="pf-krit">' + n.kinder.map((k, i) => { const z = alleArten(k, []).length; return '<button class="pf-opt" data-pf="w" data-v="' + i + '"><span>' + esc(k.t) + '</span><small>' + z + (z === 1 ? ' Art' : ' Arten') + '</small></button>'; }).join('') + '</div>';
+        h += '<div class="pf-frage">Was trifft zu?</div><div class="pf-krit">' + n.kinder.map((k, i) => { const z = alleArten(k, []).length; return '<button class="pf-opt" data-pf="w" data-v="' + i + '">' + (ICON[k.t] ? icon(K.id, ICON[k.t]) : '') + '<span>' + esc(k.t) + '</span><small>' + z + (z === 1 ? ' Art' : ' Arten') + '</small></button>'; }).join('') + '</div>';
       }
       if (n.arten && n.arten.length) h += (n.kinder && n.kinder.length ? '<div class="pf-frage">Trifft nichts davon zu:</div>' : '<div class="pf-frage">Arten – Detailbeschreibung vergleichen:</div>') + n.arten.map((a) => artKarte(a)).join('');
     }
-    h += '<div class="row" style="margin-top:12px"><button class="btn sm ghost" data-pf="az">Alle Arten A–Z</button>' + (Z.pfad.length ? '<button class="btn sm ghost" data-pf="hoch" data-v="' + (Z.pfad.length - 1) + '">← Schritt zurück</button>' : '') + '</div>' +
-      '<p class="hint">Nach: ' + esc(K.quelle) + ' (AGFF, edition lmz 2016). Die Zuordnung zu den Raster-Klassen stammt von dieser App.</p>';
+    h += '<div class="row" style="margin-top:12px"><button class="btn sm ghost" data-pf="az">Alle Arten A–Z</button><button class="btn sm ghost" data-pf="export" data-v="csv">Tabelle (Excel)</button><button class="btn sm ghost" data-pf="export" data-v="pdf">Tabelle (PDF)</button>' + (Z.pfad.length ? '<button class="btn sm ghost" data-pf="hoch" data-v="' + (Z.pfad.length - 1) + '">← Schritt zurück</button>' : '') + '</div>' +
+      '<p class="hint">Nach: ' + esc(K.quelle) + ' (AGFF, edition lmz 2016). Zeichnungen © edition lmz; Fotos und Kurzinfos aus <a href="https://www.eagff.ch" target="_blank" rel="noopener noreferrer">eAGFF</a> (© AGFF, Agroscope). Die Zuordnung zu den Raster-Klassen stammt von dieser App.</p>';
     return h;
   }
 
@@ -279,15 +302,18 @@
     rueck = cb || null;
     app().sheet('<h2>Pflanze bestimmen</h2><div class="pflanzen" id="pfBox">' + inhalt() + '</div><button class="btn ghost block" data-close style="margin-top:10px">Schliessen</button>');
   }
-  function neu() { const b = document.getElementById('pfBox'); if (b) { b.innerHTML = inhalt(); const top = b.closest('.sheet') || document.getElementById('main'); if (top && top.scrollTo) top.scrollTo(0, 0); window.scrollTo(0, 0); } }
+  function neu(scroll) { const b = document.getElementById('pfBox'); if (b) { b.innerHTML = inhalt(); if (scroll !== false) { const top = b.closest('.sheet') || document.getElementById('main'); if (top && top.scrollTo) top.scrollTo(0, 0); window.scrollTo(0, 0); } } }
 
   function handle(e) {
     const t = e.target.closest('[data-pf]'); if (!t) return false;
     const a = t.dataset.pf;
+    if (a === 'zurueck') { sheet(rueckSheet); return true; }
     if (a === 'key') { Z = { key: t.dataset.v, pfad: [], az: false }; neu(); }
     if (a === 'w') { Z.pfad.push(Number(t.dataset.v)); Z.az = false; neu(); }
     if (a === 'hoch') { Z.pfad = Z.pfad.slice(0, Number(t.dataset.v)); Z.az = false; neu(); }
     if (a === 'az') { Z.az = !Z.az; neu(); }
+    if (a === 'bild') { bildGross(t.dataset.n, Number(t.dataset.i)); return true; }
+    if (a === 'export') { (t.dataset.v === 'pdf' ? exportPdf() : exportCsv()).catch((er) => app().toast(er.message)); return true; }
     if (a === 'nehmen' && rueck) { const cb = rueck; rueck = null; app().closeSheet(); cb(t.dataset.k); }
     if (a === 'lupe' && global.Wiese) {
       global.Wiese.kamera({ titel: 'Lupe · ' + key().titel, hilfe: esc(key().lupe) + ' Zoom-Regler und Licht nutzen; grosser Knopf = Standbild.', lupe: true,
@@ -296,5 +322,63 @@
     return true;
   }
 
-  global.Pflanzen = { render, sheet, handle, _daten: { SCHLUESSEL, alleArten } };
+  function bildGross(n, j) {
+    const i = info(n); if (!i) return;
+    const z = i.z.slice().sort((x, y) => (x.k === Z.key ? -1 : 0) - (y.k === Z.key ? -1 : 0));
+    const alle = z.map((b) => ({ f: b.f, cr: 'Zeichnung: AGFF-Bestimmungsschlüssel, © edition lmz' })).concat(i.fotos.map((b) => ({ f: b.f, cr: (b.cap ? b.cap + ' · ' : '') + '© ' + b.cr + ' · eAGFF' })));
+    const b = alle[j]; if (!b) return;
+    const imSheet = !!document.querySelector('#sheet-root .sheet #pfBox'); const cb = rueck;
+    app().sheet('<h2>' + esc(n) + '</h2><img class="foto-gross pf-gross" alt="" src="assets/pflanzen/' + b.f + '"><p class="small muted">' + esc(b.cr) + '</p>' +
+      '<div class="row">' + (alle.length > 1 ? '<button class="btn grow" data-pf="bild" data-n="' + esc(n) + '" data-i="' + ((j + alle.length - 1) % alle.length) + '">← Bild</button><button class="btn grow" data-pf="bild" data-n="' + esc(n) + '" data-i="' + ((j + 1) % alle.length) + '">Bild →</button>' : '') +
+      (imSheet ? '<button class="btn ghost grow" data-pf="zurueck">Zurück</button>' : '<button class="btn ghost grow" data-close>Schliessen</button>') + '</div>');
+    if (imSheet) rueckSheet = cb;
+  }
+  let rueckSheet = null;
+
+  // ---------- Export: Tabelle der Arten ----------
+  function zeilen() {
+    const out = [];
+    SCHLUESSEL.forEach((K) => {
+      (function lauf(n, weg, spalte) {
+        (n.arten || []).forEach((a) => { const i = info(a.n) || {}; out.push({ schl: K.titel, spalte, weg: weg.join(' › '), a, i }); });
+        (n.kinder || []).forEach((k) => lauf(k, weg.concat(k.nr ? k.nr + ' ' + k.t : k.t), spalte || (k.nr ? k.nr + ' ' + k.t : '')));
+      })(K, [], '');
+    });
+    return out;
+  }
+  const symText = (s) => (s === 'v' ? 'gefaltet' : s === 'o' ? 'gerollt' : '');
+  async function exportCsv() {
+    await (async () => { if (!D) { const r = await fetch('assets/pflanzen.json', { credentials: 'omit' }); D = await r.json(); } })();
+    const kopf = ['Schlüssel', 'Weg im Schlüssel', 'Art', 'Lateinisch', 'Jüngstes Blatt', 'Raster-Klasse', 'Giftig', 'Merkmale (Schlüssel)', 'Vorkommen (Schlüssel)', 'Hinweis', 'Auffällig (eAGFF)', 'Futterbaulicher Wert (eAGFF)', 'Vorkommen (eAGFF)', 'eAGFF-Porträt'];
+    const q = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const rows = zeilen().map((z) => [z.schl, z.weg, z.a.n, z.i.lat, symText(z.a.s), KAT[z.a.k], z.a.g ? (z.a.g === true ? 'giftig' : z.a.g) : '', z.a.d, z.a.o, z.a.x, z.i.auff, z.i.wert, z.i.vork, z.i.url].map(q).join(';'));
+    const blob = new Blob(['\ufeff' + [kopf.map(q).join(';')].concat(rows).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    laden(blob, 'AGFF_Pflanzen_Eigenschaften.csv');
+  }
+  async function exportPdf() {
+    if (!D) { const r = await fetch('assets/pflanzen.json', { credentials: 'omit' }); D = await r.json(); }
+    const IO = global.FutterIO; await IO.loadScript('assets/vendor/jspdf.umd.min.js');
+    const doc = new global.jspdf.jsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape' }); const T = (s) => IO.pdfText(String(s || ''));
+    const W = [44, 62, 80, 74, 20]; const X = [10]; W.forEach((w, i) => X.push(X[i] + w));
+    const kopf = ['Art', 'Weg im Schlüssel', 'Merkmale (Schlüssel)', 'Futterbaulicher Wert (eAGFF)', 'Raster'];
+    let y = 0; let schl = '';
+    const seite = (titel) => { doc.addPage(); y = 14; doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.text(T(titel), 10, y); y += 6; doc.setFontSize(8); kopf.forEach((k, i) => doc.text(T(k), X[i], y)); y += 2; doc.setDrawColor(150); doc.line(10, y, 287, y); y += 4; doc.setFont('helvetica', 'normal'); };
+    zeilen().forEach((z) => {
+      if (z.schl !== schl) { schl = z.schl; seite('Wichtigste Eigenschaften – ' + schl); }
+      const zellen = [z.a.n + (z.i.lat ? '\n' + z.i.lat : '') + (symText(z.a.s) ? '\nJüngstes Blatt ' + symText(z.a.s) : ''), z.weg, [z.a.d, z.a.o ? 'Vorkommen: ' + z.a.o : '', z.a.x].filter(Boolean).join(' '), z.i.wert || '', KAT[z.a.k] + (z.a.g ? '\n' + (z.a.g === true ? 'giftig' : z.a.g) : '')];
+      doc.setFontSize(7.5);
+      const L = zellen.map((c, i) => doc.splitTextToSize(T(c), W[i] - 3));
+      const h = Math.max(...L.map((l) => l.length)) * 3.2 + 2;
+      if (y + h > 200) seite('Wichtigste Eigenschaften – ' + schl + ' (Forts.)');
+      L.forEach((l, i) => { if (i === 0) doc.setFont('helvetica', 'bold'); doc.text(l, X[i], y); doc.setFont('helvetica', 'normal'); });
+      y += h; doc.setDrawColor(220); doc.line(10, y - 1.5, 287, y - 1.5);
+    });
+    doc.deletePage(1);
+    const n = doc.getNumberOfPages();
+    for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFontSize(6.5); doc.setTextColor(120); doc.text(T('Quellen: AGFF-Bestimmungsschlüssel (edition lmz 2016); Futterbaulicher Wert aus eAGFF (www.eagff.ch). Raster-Klasse: Zuordnung der App. Futterbeurteilung v2 · Seite ' + i + '/' + n), 10, 205); doc.setTextColor(0); }
+    laden(doc.output('blob'), 'AGFF_Pflanzen_Eigenschaften.pdf');
+  }
+  function laden(blob, name) { const url = URL.createObjectURL(blob); const el = document.createElement('a'); el.href = url; el.download = name; document.body.appendChild(el); el.click(); el.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000); }
+
+  global.Pflanzen = { render, sheet, handle, exportCsv, exportPdf, _daten: { SCHLUESSEL, alleArten, zeilen } };
 })(window);

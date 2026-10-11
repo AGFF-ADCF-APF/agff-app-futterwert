@@ -228,6 +228,7 @@
     if (seg[0] === 'wiese') return { name: 'wiese' };
     if (seg[0] === 'fotopunkte') return { name: 'fotopunkte', id: seg[1] || null };
     if (seg[0] === 'pflanzen') return { name: 'pflanzen' };
+    if (seg[0] === 'hilfe') return { name: 'hilfe' };
     return { name: 'home' };
   }
   const go = (hash) => { if (location.hash === hash) route(); else location.hash = hash; };
@@ -255,7 +256,7 @@
       if (!p) { ui.route = { name: 'home' }; return render(); }
       depth = 2; anlassId = p.anlassId || null;
     }
-    const SEITEN = ['home', 'daten', 'schweiz', 'bilanz', 'wiese', 'fotopunkte', 'pflanzen'];
+    const SEITEN = ['home', 'daten', 'schweiz', 'bilanz', 'wiese', 'fotopunkte', 'pflanzen', 'hilfe'];
     if (SEITEN.includes(r.name) && r.name !== 'home') depth = 2;
     ui.ctxAnlass = SEITEN.includes(r.name) ? (ui.ctxAnlass !== undefined ? ui.ctxAnlass : undefined) : anlassId;
     app.dataset.depth = depth;
@@ -264,7 +265,7 @@
     $('#main').innerHTML = r.name === 'probe' ? renderProbe(probeById(r.id), r.step)
       : r.name === 'anlass' ? (r.sammel ? window.Sammel.render(anlassId) : renderUebersicht(anlassId))
       : r.name === 'daten' ? renderDaten() : r.name === 'schweiz' ? window.Schweiz.render() : r.name === 'bilanz' ? window.Bilanz.render()
-      : r.name === 'wiese' ? window.Wiese.render() : r.name === 'fotopunkte' ? window.Wiese.renderFotopunkte(r.id) : r.name === 'pflanzen' ? window.Pflanzen.render() : renderWelcome();
+      : r.name === 'wiese' ? window.Wiese.render() : r.name === 'fotopunkte' ? window.Wiese.renderFotopunkte(r.id) : r.name === 'pflanzen' ? window.Pflanzen.render() : r.name === 'hilfe' ? renderHilfe() : renderWelcome();
     afterRender();
   }
   let lastHash = null;
@@ -301,6 +302,7 @@
       '<li><a class="item" href="#/wiese" aria-current="' + (['wiese', 'fotopunkte', 'pflanzen'].includes(r.name)) + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.camera.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Wiese mit Kamera</span><span class="s">Bestand, Stadium, Höhe, Fotopunkte</span></span></a></li>' +
       '<li><a class="item" href="#/bilanz" aria-current="' + (r.name === 'bilanz') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.table.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Rationscheck</span><span class="s">Energie & Protein der Ration</span></span></a></li>' +
       '<li><a class="item" href="#/schweiz" aria-current="' + (r.name === 'schweiz') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">CH</span><span><span class="t">Auswertung Schweiz</span><span class="s">Karte nach PLZ und Höhenzone</span></span></a></li>' +
+      '<li><a class="item" href="#/hilfe" aria-current="' + (r.name === 'hilfe') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">?</span><span><span class="t">Hilfe & Merkblätter</span><span class="s">Unterlagen, Pflanzentabelle, Quellen</span></span></a></li>' +
       '<li><a class="item" href="../"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">v1</span><span><span class="t">Zur bisherigen Version</span><span class="s">Futterwert-Rechner v1</span></span></a></li>' +
       '</ul>';
   }
@@ -338,6 +340,42 @@
       '<div class="pad" style="padding-bottom:0"><div class="seg" role="tablist"><button aria-pressed="true">Proben</button><a class="btn ghost sm" style="flex:1;min-height:42px" href="#/' + (a ? 'a/' + a.id : 'e') + '/uebersicht">' + I.table + ' Übersicht</a></div></div>' +
       '<ul class="list" style="padding:8px">' + (list.length ? list.map((p) => probeItem(p, p.id === activeId)).join('') : '<li class="empty small">Noch keine Proben. Tippen Sie auf «Probe hinzufügen».</li>') + '</ul>' +
       '<div class="fab-wrap"><button class="btn primary fab" data-act="new-probe" data-anlass="' + (aid || '') + '">' + I.plus + ' Probe hinzufügen</button></div>';
+  }
+
+  // ---------- Hilfe: Merkblätter und Quellen ----------
+  const DOKS = [
+    ['Beurteilung von Raufutter', [
+      ['AGFF_K3a_Duerrfutter-Qualitaet_2022.pdf', 'K3a Schlüssel zur Beurteilung der Dürrfutter-Qualität', 'AGFF 2022'],
+      ['AGFF_K3b_Grassilage-Qualitaet_2023.pdf', 'K3b Schlüssel zur Beurteilung der Grassilage-Qualität', 'AGFF 2023'],
+      ['AGFF_K3c_Maissilage-Qualitaet_2021.pdf', 'K3c Schlüssel zur Beurteilung der Maissilage-Qualität', 'AGFF 2021'],
+      ['AGFF_MB03_Bewertung_Wiesenfutter_2021.pdf', 'Merkblatt 3: Bewertung von Wiesenfutter (Bestand, Stadium, Zeitperiode, Konservierung)', 'AGFF 2021'],
+      ['AGFF_Infoblatt_K1_Ganzpflanzensilage.pdf', 'Infoblatt K1: Ganzpflanzensilage', 'AGFF'],
+      ['Agrarforschung_Schweiz_2015_Ganzpflanzensilage.pdf', 'Fachartikel Ganzpflanzensilage (Grundlage der GPS-Werte aus v1)', 'Agrarforschung Schweiz 6 (4), 2015'],
+    ]],
+    ['Entwicklungsstadien und TS-Bestimmung', [
+      ['AGFF_Entwicklungsstadien_Graeser_Beschreibung.pdf', 'Beschreibung der Entwicklungsstadien der Gräser', 'AGFF'],
+      ['LMZ_Entwicklungsstadien_Graeser_Zeichnung.pdf', 'Entwicklungsstadien der Gräser (Zeichnung)', 'edition lmz'],
+      ['LMZ_Futter_einfuehren_Trockenheit.pdf', 'Futter einführen: nötige Trockenheit, Wringprobe', 'edition lmz'],
+    ]],
+    ['Pflanzen bestimmen', [
+      ['AGFF_Schluessel_Graeser_vegetativ.pdf', 'Schlüssel Wiesengräser im vegetativen Zustand', 'AGFF / edition lmz 2016'],
+      ['AGFF_Schluessel_Graeser_ab_Rispenschieben.pdf', 'Schlüssel Wiesengräser ab Beginn Rispenschieben', 'AGFF / edition lmz 2016'],
+      ['AGFF_Schluessel_Leguminosen_vegetativ.pdf', 'Schlüssel Leguminosen im vegetativen Zustand', 'AGFF / edition lmz 2016'],
+      ['AGFF_Schluessel_Kraeuter_vegetativ.pdf', 'Schlüssel Kräuter im vegetativen Zustand', 'AGFF / edition lmz 2016'],
+    ]],
+  ];
+  function renderHilfe() {
+    const ext = (u, t, s) => '<li><a href="' + u + '" target="_blank" rel="noopener noreferrer"><b>' + t + '</b> ↗</a><div class="small muted">' + s + '</div></li>';
+    return '<div class="bar"><h2>Hilfe & Merkblätter<span class="sub">Unterlagen, auf denen die App beruht</span></h2></div><div class="pad hilfe">' +
+      DOKS.map(([g, l]) => q(g, '', '<ul class="doks">' + l.map(([f, t, h]) => '<li><a href="assets/docs/' + f + '" download><span class="doc-ico">PDF</span><span><b>' + esc(t) + '</b><span class="small muted">' + esc(h) + '</span></span></a></li>').join('') + '</ul>')).join('') +
+      q('Pflanzen: wichtigste Eigenschaften', 'Alle Arten der vier AGFF-Bestimmungsschlüssel mit Weg im Schlüssel, Merkmalen, Giftigkeit, Raster-Klasse und futterbaulichem Wert (eAGFF).',
+        '<div class="row"><button class="btn" data-pf="export" data-v="csv">Tabelle für Excel (CSV)</button><button class="btn" data-pf="export" data-v="pdf">Tabelle als PDF</button><a class="btn ghost" href="#/pflanzen">Pflanzen bestimmen</a></div>') +
+      q('Weitere Quellen', '', '<ul class="ext">' +
+        ext('https://www.eagff.ch', 'eAGFF – Wissensplattform Futterbau', 'Pflanzenporträts, Fotos, Bestimmungsschlüssel (AGFF)') +
+        ext('https://www.agroscope.admin.ch/de/fuetterungsempfehlungen-fuer-wiederkaeuer', 'Fütterungsempfehlungen für Wiederkäuer («Grünes Buch»)', 'Agroscope – Nährwertberechnung, Verzehr, Bedarf') +
+        ext('https://www.agroscope.admin.ch/de/futtermitteldatenbank', 'Schweizerische Futtermitteldatenbank', 'Agroscope – Referenzwerte Einzelfutter') +
+        ext('https://www.agff.ch', 'AGFF – Arbeitsgemeinschaft zur Förderung des Futterbaus', 'Merkblätter bestellen, Kurse') + '</ul>') +
+      '<p class="hint">Die Merkblätter werden mit Zustimmung der Herausgeber zum Download angeboten. Zeichnungen der Bestimmungsschlüssel © edition lmz; Fotos aus eAGFF © AGFF bzw. Agroscope.</p></div>';
   }
 
   function renderWelcome() {
@@ -583,6 +621,7 @@
         }).join('') + '</div>';
     }
     if (!a.bestand) inner += '<p class="hint">Hinweis: Bestand noch nicht gewählt.</p>';
+    const pl = window.Wiese.plausi(p); if (pl) inner += pl.html;
     if (!readOnly(p)) inner = window.Wiese.stadiumKnopf(p) + inner;
     return q('Aufwuchs und Entwicklungsstadium', '', inner);
   }

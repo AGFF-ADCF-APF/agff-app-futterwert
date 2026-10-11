@@ -21,16 +21,31 @@
 
   // ---------- Entwicklungsstadium (Schritt 2) ----------
   const STADIEN_ERSTER = [
-    // [Knaulgras/Engl. RG, Wiesenfuchsschwanz/Geruchgras, Timothe, Rotklee/Luzerne, Löwenzahn]
-    ['Bestocken bis Beginn Schossen', 'Schossen (10-cm-Punkt)', 'Bestocken', 'Blattrosette', 'Blütenknöpfe'],
-    ['Schossen (10-cm-Punkt)', 'Beginn Rispenschieben', 'Bestocken bis Beginn Schossen', 'Blütenknospen', 'Erste Blüten offen'],
-    ['Beginn Rispenschieben', 'Volles Rispenschieben', 'Schossen (10-cm-Punkt)', 'Wachsen der Stängel', 'Volle bis Ende Blüte'],
-    ['Volles Rispenschieben', 'Ende Rispenschieben bis Beginn Blüte', 'Schossen bis Beginn Rispenschieben', 'Beginn Blüte', 'Samenstände'],
-    ['Ende Rispenschieben', 'Blüte bis Samenreife', 'Beginn bis volles Rispenschieben', 'Volle Blüte', 'Nackte Blütenstände'],
-    ['Blüte', 'Samenreife', 'Volles Rispenschieben', 'Ende Blüte', '–'],
-    ['Samenreife', 'Versamung', 'Ende Rispenschieben', 'Samen', '–'],
+    // [Knaulgras/Engl. RG, Wiesenfuchsschwanz/Geruchgras, Timothe, Rotklee/Luzerne, Löwenzahn, Scharfer Hahnenfuss (AGFF-Merkblatt 3)]
+    ['Bestocken bis Beginn Schossen', 'Schossen (10-cm-Punkt)', 'Bestocken', 'Blattrosette', 'Blütenknöpfe', 'Beginn Schossen'],
+    ['Schossen (10-cm-Punkt)', 'Beginn Rispenschieben', 'Bestocken bis Beginn Schossen', 'Blütenknospen', 'Erste Blüten offen', 'Schossen der Blütenknospen'],
+    ['Beginn Rispenschieben', 'Volles Rispenschieben', 'Schossen (10-cm-Punkt)', 'Wachsen der Stängel', 'Volle bis Ende Blüte', 'Beginn Blüte'],
+    ['Volles Rispenschieben', 'Ende Rispenschieben bis Beginn Blüte', 'Schossen bis Beginn Rispenschieben', 'Beginn Blüte', 'Samenstände', 'Vollblüte'],
+    ['Ende Rispenschieben', 'Blüte bis Samenreife', 'Beginn bis volles Rispenschieben', 'Volle Blüte', 'Nackte Blütenstände', 'Ende Blüte'],
+    ['Blüte', 'Samenreife', 'Volles Rispenschieben', 'Ende Blüte', '–', 'Samenreife'],
+    ['Samenreife', 'Versamung', 'Ende Rispenschieben', 'Samen', '–', 'Versamung'],
   ];
-  const REFERENZPFLANZEN = ['Knaulgras / Engl. Raigras', 'Wiesenfuchsschwanz / Geruchgras', 'Timothe', 'Rotklee / Luzerne', 'Wiesen-Löwenzahn'];
+  const REFERENZPFLANZEN = ['Knaulgras / Engl. Raigras', 'Wiesenfuchsschwanz / Geruchgras', 'Timothe', 'Rotklee / Luzerne', 'Wiesen-Löwenzahn', 'Scharfer Hahnenfuss'];
+  /* Zeitperiode der Stadien im 1. Aufwuchs (AGFF-Merkblatt 3, Naturwiesen bis 600 m ü. M.; grobe Angaben).
+   * Über 600 m: Verzögerung 3 bis 5 Tage je 100 m (3 an Sonnenhängen/Föhntälern, 5 an Schattenhängen).
+   * Kunstwiesen etwa eine Woche später. Anfang = 1.–10., Mitte = 11.–20., Ende = 21.–Monatsende. */
+  const STADIEN_ZEIT = { 1: ['04-01', '04-20'], 2: ['04-11', '04-30'], 3: ['04-21', '05-10'], 4: ['05-01', '05-20'], 5: ['05-11', '05-31'], 6: ['05-21', '06-10'], 7: ['06-01', '06-30'] };
+  /** Erwartete Stadien für ein Schnittdatum (YYYY-MM-DD) und eine Höhe (m); kunst = Kunstwiese (+7 Tage). */
+  function stadiumZeit(datum, hoehe, kunst) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(datum || '')) return null;
+    const j = datum.slice(0, 4); const tag = (md) => Date.parse(j + '-' + md + 'T00:00:00Z') / 864e5;
+    const t = Date.parse(datum + 'T00:00:00Z') / 864e5; const h = Number(hoehe) || 0;
+    const ueber = Math.max(0, h - 600) / 100; const dmin = ueber * 3 + (kunst ? 7 : 0); const dmax = ueber * 5 + (kunst ? 7 : 0);
+    const fenster = {}; const passt = [];
+    Object.entries(STADIEN_ZEIT).forEach(([st, [a, b]]) => { const von = tag(a) + dmin; const bis = tag(b) + dmax; fenster[st] = [von, bis]; if (t >= von && t <= bis) passt.push(Number(st)); });
+    const iso = (d) => new Date(d * 864e5).toISOString().slice(0, 10);
+    return { passt, fenster: Object.fromEntries(Object.entries(fenster).map(([k, [a, b]]) => [k, [iso(a), iso(b)]])), vor: t < fenster[1][0], nach: t > fenster[7][1], hoehe: h, ohneHoehe: !hoehe, kunst: !!kunst };
+  }
   const STADIEN_FOLGE_HINWEIS = {
     1: 'Gräser sehr fein, viele grüne Blätter, kurzer Bestand',
     3: 'Gräser fein mit einigen trockenen Blättern',
@@ -571,7 +586,7 @@
   }
 
   global.K3 = {
-    BESTAENDE, BESTAND_PLAIN, STADIEN_ERSTER, REFERENZPFLANZEN, STADIEN_FOLGE_HINWEIS, stadiumFolge,
+    BESTAENDE, BESTAND_PLAIN, STADIEN_ERSTER, REFERENZPFLANZEN, STADIEN_ZEIT, stadiumZeit, STADIEN_FOLGE_HINWEIS, stadiumFolge,
     TYPEN, K3B_SAUBERKEIT, K3B_TS, K3B_KLASSEN, K3C_SCHRITTE, K3C_KORR, K3C_AUSGANG, K3C_METRIKEN, METRIK_LABEL,
     phPunkteK3b, phPunkteK3c, k3bKlasse, k3cKoernerRating, radAuswahl, pickBasis, verfuegbareStadien,
     GPS_KULTUREN, GPS_STADIEN, GPS_LEGUM, auswerten, milchPotenzial, mastPotenzial, mastNevBedarf, mastApdBedarf, mastTsv, MAST,
