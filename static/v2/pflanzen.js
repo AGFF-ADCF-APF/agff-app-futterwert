@@ -290,7 +290,7 @@
       if (n.arten && n.arten.length) h += (n.kinder && n.kinder.length ? '<div class="pf-frage">Trifft nichts davon zu:</div>' : '<div class="pf-frage">Arten – Detailbeschreibung vergleichen:</div>') + n.arten.map((a) => artKarte(a)).join('');
     }
     h += '<div class="row" style="margin-top:12px"><button class="btn sm ghost" data-pf="az">Alle Arten A–Z</button><button class="btn sm ghost" data-pf="export" data-v="csv">Tabelle (Excel)</button><button class="btn sm ghost" data-pf="export" data-v="pdf">Tabelle (PDF)</button>' + (Z.pfad.length ? '<button class="btn sm ghost" data-pf="hoch" data-v="' + (Z.pfad.length - 1) + '">← Schritt zurück</button>' : '') + '</div>' +
-      '<p class="hint">Nach: ' + esc(K.quelle) + ' (AGFF, edition lmz 2016). Zeichnungen © edition lmz; Fotos und Kurzinfos aus <a href="https://www.eagff.ch" target="_blank" rel="noopener noreferrer">eAGFF</a> (© AGFF, Agroscope). Die Zuordnung zu den Raster-Klassen stammt von dieser App.</p>';
+      '<p class="hint">Nach: ' + esc(K.quelle) + ' (AGFF, edition lmz 2016). Zeichnungen © edition lmz; Fotos und Kurzinfos aus <a href="https://www.eagff.ch" target="_blank" rel="noopener noreferrer">eAGFF</a> (© AGFF, Agroscope, e-pics ETH-Bibliothek – Nachweis beim Bild). Die Zuordnung zu den Raster-Klassen stammt von dieser App.</p>';
     return h;
   }
 

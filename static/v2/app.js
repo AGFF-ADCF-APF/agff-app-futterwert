@@ -375,7 +375,7 @@
         ext('https://www.agroscope.admin.ch/de/fuetterungsempfehlungen-fuer-wiederkaeuer', 'Fütterungsempfehlungen für Wiederkäuer («Grünes Buch»)', 'Agroscope – Nährwertberechnung, Verzehr, Bedarf') +
         ext('https://www.agroscope.admin.ch/de/futtermitteldatenbank', 'Schweizerische Futtermitteldatenbank', 'Agroscope – Referenzwerte Einzelfutter') +
         ext('https://www.agff.ch', 'AGFF – Arbeitsgemeinschaft zur Förderung des Futterbaus', 'Merkblätter bestellen, Kurse') + '</ul>') +
-      '<p class="hint">Die Merkblätter werden mit Zustimmung der Herausgeber zum Download angeboten. Zeichnungen der Bestimmungsschlüssel © edition lmz; Fotos aus eAGFF © AGFF bzw. Agroscope.</p></div>';
+      '<p class="hint">Die Merkblätter werden mit Zustimmung der Herausgeber zum Download angeboten. Zeichnungen der Bestimmungsschlüssel © edition lmz; Fotos aus eAGFF © AGFF, Agroscope bzw. e-pics ETH-Bibliothek (Nachweis beim Bild).</p></div>';
   }
 
   function renderWelcome() {
