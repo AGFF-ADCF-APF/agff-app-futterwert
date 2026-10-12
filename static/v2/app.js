@@ -383,13 +383,27 @@
     go(appStand[ziel] && appStand[ziel] !== location.hash ? appStand[ziel] : (ziel === 'wiese' ? '#/wiese' : '#/'));
   }
 
+  // ---------- Darstellung: Normal / Draussen / Nacht ----------
+  const MOND = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>';
+  const KONTRAST = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg>';
+  function modus() { const d = document.documentElement.dataset; return d.outdoor === '1' ? 'draussen' : d.theme === 'dark' ? 'nacht' : 'normal'; }
+  function modusSetzen(m) {
+    const d = document.documentElement.dataset;
+    if (m === 'draussen') { d.outdoor = '1'; d.theme = 'light'; } else { delete d.outdoor; if (m === 'nacht') d.theme = 'dark'; else delete d.theme; }
+    try { localStorage.setItem('agffV2Outdoor', m === 'draussen' ? '1' : '0'); localStorage.setItem('agffV2Theme', d.theme || ''); } catch (er) { /* ignore */ }
+  }
+  function modusKnopf() {
+    const m = modus(); const t = { normal: 'Darstellung: Normal (tippen: Draussen)', draussen: 'Darstellung: Draussen, hoher Kontrast (tippen: Nacht)', nacht: 'Darstellung: Nacht (tippen: Normal)' }[m];
+    return '<button class="icon-btn" data-act="outdoor" title="' + t + '" aria-label="' + t + '">' + (m === 'nacht' ? MOND : m === 'draussen' ? KONTRAST : I.sun) + '</button>';
+  }
+
   function renderNav(r) {
     if (appVon(r) === 'wiese') return window.Wiese.renderNav(r, appUmschalter('wiese'));
     const cur = r.name === 'anlass' ? r.id : (r.name === 'probe' ? (probeById(r.id) || {}).anlassId : undefined);
     const anl = db.anlaesse.slice().sort((x, y) => ((y.datum || y.createdAt) > (x.datum || x.createdAt) ? 1 : -1));
     const einzel = probenOf(null).length;
     return '<div class="bar"><div class="brand"><img src="assets/icon.svg" alt=""><div><b>Futterbeurteilung</b><span class="sub">AGFF K3a · K3b · K3c <span class="badge-beta">v2 Beta 1</span></span></div></div>' +
-      '<button class="icon-btn" data-act="outdoor" title="Modus «Draussen»: hoher Kontrast" aria-label="Modus Draussen umschalten">' + I.sun + '</button></div>' +
+      modusKnopf() + '</div>' +
       appUmschalter('futter') +
       '<div class="pad stack">' +
       '<button class="btn primary block" data-act="new-probe" style="min-height:56px">' + I.plus + ' Neue Probe beurteilen</button>' +
@@ -509,7 +523,7 @@
       f(I.lock, 'Daten bleiben bei Ihnen', 'Alles wird nur in diesem Browser gespeichert und funktioniert auch offline. Auf den Server kommt nur, was Sie ausdrücklich freigeben.') +
       f(I.pdf, 'PDF mit eingebauten Daten', 'Der Bericht enthält einen QR-Code und die Eingaben selbst – PDF hochladen oder Code scannen, und die Beurteilung ist wieder da.') +
       f(I.table, 'Übersicht im Büro', 'Proben eines Anlasses nebeneinander: Tabelle, Energie-Vergleich und alle Räder auf einen Blick.') +
-      '<div class="row" style="margin-top:22px"><button class="btn primary" data-act="new-probe">' + I.plus + ' Neue Probe</button><button class="btn" data-act="new-anlass">Anlass anlegen</button><button class="btn ghost" data-act="import">' + I.upload + ' PDF/JSON importieren</button></div>' +
+      '<div class="row" style="margin-top:22px"><button class="btn primary" data-act="new-probe">' + I.plus + ' Neue Probe</button><button class="btn" data-act="new-anlass">' + I.share + ' Futterprobe teilen</button><button class="btn ghost" data-act="import">' + I.upload + ' PDF/JSON importieren</button></div>' +
       '<p class="small muted" style="margin-top:28px">Beta: Bitte Ergebnisse mit den gedruckten Merkblättern plausibilisieren. Die bisherige Version bleibt unverändert verfügbar.</p></div>';
   }
 
@@ -1695,10 +1709,11 @@
       case 'tier-ansicht': db.prefs.tierAnsicht = db.prefs.tierAnsicht === t.dataset.val ? '' : t.dataset.val; save(); rerenderDetail(true); break;
       case 'import': sheetImport(); break;
       case 'outdoor': {
-        const on = document.documentElement.dataset.outdoor === '1';
-        if (on) delete document.documentElement.dataset.outdoor; else document.documentElement.dataset.outdoor = '1';
-        try { localStorage.setItem('agffV2Outdoor', on ? '0' : '1'); } catch (er) { /* ignore */ }
-        toast(on ? 'Normale Darstellung' : 'Modus «Draussen»: hoher Kontrast, grosse Schaltflächen'); break;
+        // Darstellung reihum: Normal → Draussen (hoher Kontrast) → Nacht (dunkel) → Normal
+        const naechster = { normal: 'draussen', draussen: 'nacht', nacht: 'normal' }[modus()];
+        modusSetzen(naechster);
+        toast({ normal: 'Normale Darstellung', draussen: 'Modus «Draussen»: hoher Kontrast, grosse Schaltflächen', nacht: 'Nachtmodus: dunkle Darstellung' }[naechster]);
+        render(); break;
       }
       case 'assist-ruhe': window.Assistent.ruhe = t.dataset.val === 'ruhe'; render(); break;
       case 'assist-stufe': window.Assistent.stufe = t.dataset.val; render(); break;
@@ -1862,7 +1877,7 @@
   // Schnittstelle für Zusatzmodule (Kurs)
   window.__app = {
     get db() { return db; }, save, render, refreshChrome, rerenderDetail, sheet, closeSheet, toast, go, esc, I, uid, now, fmt,
-    typBadge, touchProbe, neueProbe, titelOf, istEigen, fotoVomServer, syncAnlass, probenOf, basisTabelle: () => basis && basis.tabelle, radFokus: (p) => ui.fokus[p.id] || null, probeById, anlassById, auswertung, wheelSvg, tonOf, bestandStadium, sheetAnlass, sheetConsent, label, dateCH, route: () => ui.route,
+    typBadge, touchProbe, neueProbe, titelOf, modusKnopf, istEigen, fotoVomServer, syncAnlass, probenOf, basisTabelle: () => basis && basis.tabelle, radFokus: (p) => ui.fokus[p.id] || null, probeById, anlassById, auswertung, wheelSvg, tonOf, bestandStadium, sheetAnlass, sheetConsent, label, dateCH, route: () => ui.route,
   };
   load();
   try { basis = JSON.parse(localStorage.getItem('agffV2Basis')); } catch (e) { basis = null; }

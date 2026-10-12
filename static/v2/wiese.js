@@ -357,118 +357,97 @@
       im.onerror = () => ok(null); im.src = 'assets/bilder/agff-logo.svg';
     });
   }
+  /** Bild (gleiche Herkunft) als PNG-Daten-URL für jsPDF; w/h in Pixeln */
+  function bildPng(src) {
+    return new Promise((ok) => {
+      const im = new Image();
+      im.onload = () => { const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight; const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0); try { ok({ url: c.toDataURL('image/png'), w: c.width, h: c.height }); } catch (e) { ok(null); } };
+      im.onerror = () => ok(null); im.src = src;
+    });
+  }
+  /** Lineal an beiden Längsseiten: 0 cm = Unterkante (wie Vorderseite), mm-Teilung */
+  function lineal(doc, T) {
+    doc.setDrawColor(0); doc.setTextColor(0); doc.setFontSize(6.5);
+    for (let mm = 0; mm <= 290; mm++) {
+      const y = 297 - mm; const l = mm % 10 === 0 ? 5 : mm % 5 === 0 ? 3.5 : 2;
+      doc.setLineWidth(mm % 10 === 0 ? 0.3 : 0.12);
+      doc.line(0, y, l, y); doc.line(210 - l, y, 210, y);
+      if (mm % 10 === 0 && mm > 0 && mm < 290) { doc.text(String(mm / 10), 6.2, y + 1); doc.text(String(mm / 10), 203.8, y + 1, { align: 'right' }); }
+    }
+    doc.setFontSize(5.5); doc.text(T('cm'), 6.2, 293.5); doc.text(T('cm'), 203.8, 293.5, { align: 'right' });
+  }
   /**
-   * Rückseite (doppelseitig drucken, Bindung lange Seite): was die App im Feld nicht kann –
-   * Messschablonen (Blattbreite, Blatthäutchen), Kurzschlüssel Gräser vegetativ (nach AGFF-Schlüssel), 5-m-Kreis (AGFF Merkblatt 8),
-   * Auswringprobe (AGFF K3b) und QR-Code zur Wiesen-App.
+   * Rückseite (doppelseitig, lange Seite): Lineal, Kurzschlüssel Gräser vegetativ mit den LMZ-Zeichnungen des AGFF-Schlüssels,
+   * Blattbreite und Blatthäutchen in echter Grösse, 5-m-Kreis (MB 8), Auswringprobe (K3b), QR-Code zur Wiesen-App.
    */
   async function rueckseite(doc, T, logo) {
-    doc.addPage();
-    const grau = (g) => doc.setTextColor(g); const fett = () => doc.setFont('helvetica', 'bold'); const normal = () => doc.setFont('helvetica', 'normal');
-    const titel = (t, x, y) => { fett(); doc.setFontSize(10); grau(20); doc.text(T(t), x, y); normal(); };
-    const klein = (t, x, y, opt) => { doc.setFontSize(opt && opt.fs || 7); grau(opt && opt.g != null ? opt.g : 60); doc.text(T(t), x, y, opt && opt.align ? { align: opt.align, maxWidth: opt.w } : (opt && opt.w ? { maxWidth: opt.w } : undefined)); };
-    const L = 14; const R = 196;
-    fett(); doc.setFontSize(13); grau(0); doc.text(T('AGFF Messkarte – Rückseite'), L, 16);
-    normal(); klein('Hilfen für das Feld: messen, bestimmen, schätzen. Auf festes Papier drucken, laminieren.', L, 21, { fs: 8 });
-    if (logo) doc.addImage(logo, 'PNG', R - 16, 8, 16, 16 * 249.29 / 256.98);
-    doc.setDrawColor(0); doc.setLineWidth(0.2);
+    doc.addPage(); lineal(doc, T);
+    const X = 16; const B = 178; // Inhaltsbereich zwischen den Linealen
+    const fett = () => doc.setFont('helvetica', 'bold'); const normal = () => doc.setFont('helvetica', 'normal');
+    const txt = (t, x, y, fs, g, opt) => { doc.setFontSize(fs); doc.setTextColor(g); doc.text(T(t), x, y, opt); };
+    const box = (x, y, w, h, titel) => { doc.setDrawColor(200); doc.setLineWidth(0.3); doc.roundedRect(x, y, w, h, 2.5, 2.5); doc.setFillColor(31, 138, 76); doc.roundedRect(x, y, w, 7, 2.5, 2.5, 'F'); doc.rect(x, y + 4, w, 3, 'F'); fett(); txt(titel, x + 3, y + 5, 8.5, 255); normal(); };
+    fett(); txt('AGFF Messkarte', X, 14, 13, 0); normal(); txt('Rückseite · Lineal an beiden Rändern: 0 cm = Unterkante', X, 19, 7.5, 90);
+    if (logo) doc.addImage(logo, 'PNG', X + B - 14, 7, 14, 14 * 249.29 / 256.98);
 
-    // ---- 1 Messschablonen ----
-    let y = 31; titel('1  Messschablonen', L, y);
-    // Lineal 0–150 mm
-    y += 5; const x0 = L + 2;
-    doc.setLineWidth(0.25); doc.line(x0, y, x0 + 150, y);
-    for (let mm = 0; mm <= 150; mm++) { const h = mm % 10 ? (mm % 5 ? 1.6 : 2.6) : 4; doc.setLineWidth(mm % 10 ? 0.12 : 0.25); doc.line(x0 + mm, y, x0 + mm, y + h); }
-    for (let cm = 0; cm <= 15; cm++) klein(String(cm), x0 + cm * 10, y + 7, { fs: 6.5, align: 'center', g: 30 });
-    klein('cm', x0 + 155, y + 3.5, { fs: 7 });
-    // Blattbreiten: Balken in exakter Breite
-    y += 14; klein('Blattbreite – Blatt flach neben den Balken legen:', L, y, { fs: 7.5, g: 20 });
-    const breiten = [[2, '< 2 mm: borstenförmig (Rotschwingel, Gem. Rispe 1a)'], [4, '3–4 mm, Ränder parallel: Engl. Raigras, Kammgras'], [6, '5–10 mm, konisch: Ital. Raigras, Wiesenschwingel,'], [10, 'Rohrschwingel, Wiesenfuchsschwanz']];
-    let yb = y + 3;
-    breiten.forEach(([w, t]) => { doc.setFillColor(40, 40, 40); doc.rect(L + 2, yb, 30, w, 'F'); klein(w + ' mm', L + 35, yb + w / 2 + 1.2, { fs: 7, g: 20 }); klein(t, L + 50, yb + w / 2 + 1.2, { fs: 6.8 }); yb += w + 2.5; });
-    // Blatthäutchen-Skala 0–5 mm (halbe mm)
-    const xs = 128; let ys = y + 3;
-    klein('Blatthäutchen (Ligula) – in echter Grösse:', xs, y, { fs: 7.5, g: 20 });
-    doc.setLineWidth(0.2); doc.line(xs + 2, ys + 6, xs + 12, ys + 6);
-    for (let h = 0; h <= 20; h++) { doc.setLineWidth(h % 2 ? 0.08 : 0.18); doc.line(xs + 2 + h * 0.5, ys + 6, xs + 2 + h * 0.5, ys + 6 - (h % 10 === 0 ? 4 : h % 2 ? 1.5 : 2.6)); }
-    klein('0', xs + 2, ys + 9, { fs: 6, align: 'center', g: 30 }); klein('5', xs + 7, ys + 9, { fs: 6, align: 'center', g: 30 }); klein('10 mm', xs + 12, ys + 9, { fs: 6, g: 30 });
-    klein('Blatt leicht abbiegen, Häutchen gegen das Licht an die Skala halten (Lupe hilft).', xs + 22, ys + 2.5, { fs: 6, w: 44 });
-    // echte Längen daneben
-    const lig = [[0.5, 'kurz, gestutzt: Wiesenrispe, Rotes Straussgras'], [1, 'max. 1 mm, derb: Wiesenschwingel'], [2, 'ca. 2 mm, durchsichtig: Ital. Raigras'], [3, '1–3 mm, robust: Wiesenfuchsschwanz'], [4, 'spitz, 1–4 mm: Gem. Rispe, Straussgräser']];
-    ys += 14; lig.forEach(([l, t]) => { doc.setFillColor(40, 40, 40); doc.rect(xs + 2, ys - 1.6, l, 1.6, 'F'); klein(String(l).replace('.', ',') + ' mm', xs + 8, ys, { fs: 6.5, g: 20 }); klein(t, xs + 19, ys, { fs: 6.3 }); ys += 3.6; });
-
-    // ---- 2 Kurzschlüssel Gräser vegetativ ----
-    y = Math.max(yb, ys) + 5; titel('2  Gräser im vegetativen Zustand – Kurzschlüssel', L, y);
-    klein('Von links nach rechts prüfen – die erste Spalte, die zutrifft, gilt. Blattgrund gegen das Licht halten. Nach AGFF-Schlüssel Wiesengräser vegetativ.', L, y + 4.5, { fs: 6.8 });
-    const sp = [
-      ['1a', 'Blätter borsten-', 'förmig, < 2 mm', 'borste', ['Rotschwingel: zäh, drahtig, gerillt', 'Gem. Rispe: schlaff, gelbgrün', 'Borstgras: steif, Horste fest']],
-      ['1b', 'Doppelrille «Skispur»,', 'Kahnspitze', 'ski', ['Wiesenrispe: Ränder parallel, steif, Häutchen kurz', 'Gem. Rispe: konisch, schlaff, Häutchen spitz', 'Flaumhafer: behaart']],
-      ['2', 'Blätter, Scheiden', 'oder Knoten behaart', 'haare', ['Wolliges Honiggras: samtig, violette Nerven', 'Goldhafer: Haare abwärts, Blatt links gedreht', 'Fromental, Ruchgras, Quecke (Öhrchen)']],
-      ['3', 'Unterseite glänzend,', 'Oberseite stark gerillt', 'glanz', ['Engl. Raigras: 3–4 mm, gefaltet, Trieb unten rot', 'Ital. Raigras: 5–10 mm, Häutchen ~2 mm', 'Wiesenschwingel: Häutchen < 1 mm; Rohrschw. rau', 'Wiesenfuchsschwanz: Unterseite matt']],
-      ['4', 'Unterseite wie Ober-', 'seite, matt/graugrün', 'matt', ['Knaulgras: Triebe flach, graugrün', 'Timothe: Rand gewellt, Halmbasis dick', 'Fromental: schwertförmig, Häutchen gezähnt', 'Straussgräser: Häutchen spitz/gestutzt']],
-    ];
-    const bw = (R - L) / 5; const yk = y + 8;
-    sp.forEach(([nr, t1, t2, bild, arten], i) => {
-      const x = L + i * bw;
-      doc.setDrawColor(170); doc.setLineWidth(0.2); doc.roundedRect(x + 0.8, yk, bw - 1.6, 54, 2, 2);
-      doc.setFillColor(31, 138, 76); doc.circle(x + 6, yk + 5, 3.2, 'F'); doc.setTextColor(255); fett(); doc.setFontSize(7.5); doc.text(nr, x + 6, yk + 6.2, { align: 'center' }); normal();
-      fett(); klein(t1, x + 10.5, yk + 4.6, { fs: 6.6, g: 10 }); klein(t2, x + 10.5, yk + 7.8, { fs: 6.6, g: 10 }); normal();
-      piktogramm(doc, bild, x + bw / 2, yk + 17);
-      let ya = yk + 27; arten.forEach((a) => { const z = doc.splitTextToSize(T('• ' + a), bw - 5); doc.setFontSize(6.4); grau(40); doc.text(z, x + 2.6, ya); ya += z.length * 2.7 + 0.8; });
+    // ---- Kurzschlüssel ----
+    let y = 26; box(X, y, B, 84, 'Gräser vegetativ – Spalten von links nach rechts prüfen, die erste passende gilt');
+    const bilder = await Promise.all(['1a', '1b', '2', '3', '4'].map((k) => bildPng('assets/bilder/schluessel-gv-' + k + '.png')));
+    const sp = [['1a', 'Borstenförmig', '< 2 mm', ['Rotschwingel', 'Gem. Rispengras', 'Borstgras']],
+      ['1b', 'Doppelrille', '«Skispur»', ['Wiesenrispengras', 'Gem. Rispengras', 'Einj. Rispengras']],
+      ['2', 'Behaart', 'Blatt, Scheide, Knoten', ['Wolliges Honiggras', 'Goldhafer', 'Fromental', 'Weiche Trespe']],
+      ['3', 'Glänzend', 'Unterseite; oben gerillt', ['Engl. Raigras', 'Ital. Raigras', 'Wiesenschwingel', 'Kammgras']],
+      ['4', 'Matt', 'Unterseite = Oberseite', ['Knaulgras', 'Timothe', 'Wiesenfuchsschwanz', 'Straussgräser']]];
+    const cw = B / 5;
+    sp.forEach(([nr, t1, t2, arten], i) => {
+      const x = X + i * cw; if (i) { doc.setDrawColor(225); doc.setLineWidth(0.2); doc.line(x, y + 10, x, y + 81); }
+      doc.setFillColor(31, 138, 76); doc.circle(x + 6, y + 14, 3.3, 'F'); fett(); txt(nr, x + 6, y + 15.2, 7.5, 255, { align: 'center' });
+      txt(t1, x + 11, y + 13.6, 8, 15); normal(); txt(t2, x + 11, y + 17, 6.5, 90);
+      const b = bilder[i];
+      if (b) { const mm = (px) => px / 300 * 25.4 * 1.5; let w = mm(b.w); let h = mm(b.h); const max = cw - 6; if (w > max) { h *= max / w; w = max; } doc.addImage(b.url, 'PNG', x + (cw - w) / 2, y + 22 + (26 - h) / 2, w, h); }
+      arten.forEach((a, j) => txt(a, x + 3, y + 56 + j * 5.2, 7.5, 25));
     });
+    txt('Zeichnungen: AGFF-Schlüssel Wiesengräser vegetativ (© edition lmz)', X + B - 2, y + 82, 5.5, 130, { align: 'right' });
 
-    // ---- 3 5-m-Kreis ----
-    y = yk + 61; titel('3  Ertragsanteile schätzen – 5-m-Kreis', L, y);
-    const kx = L + 22; const ky = y + 24; const kr = 18;
-    doc.setDrawColor(60); doc.setLineWidth(0.35); doc.circle(kx, ky, kr);
-    doc.setLineWidth(0.2); doc.line(kx - kr, ky, kx + kr, ky); doc.line(kx, ky - kr, kx, ky + kr);
-    // Viertel und Achtel schraffiert
-    doc.setFillColor(170, 210, 140); sektor(doc, kx, ky, kr, -90, 0); doc.setFillColor(205, 230, 185); sektor(doc, kx, ky, kr, 0, 45);
-    doc.setLineWidth(0.15); doc.setLineDashPattern([0.8, 0.8], 0); doc.line(kx, ky, kx + kr * Math.cos(Math.PI / 4), ky + kr * Math.sin(Math.PI / 4)); doc.setLineDashPattern([], 0);
-    klein('1/4 = 25 %', kx + 4, ky - 6, { fs: 6.5, g: 20 }); klein('1/8', kx + 9, ky + 5, { fs: 6.5, g: 20 }); klein('Ø ca. 5 m', kx, ky + kr + 4, { fs: 6.5, align: 'center' });
-    const schritte = ['Kreis von etwa 5 m Durchmesser abtreten und gedanklich vierteln.', 'Zuerst Gräser, Klee und Kräuter schätzen, dann die vorhandenen Arten, zuletzt den Anteil jeder Art.',
-      'Füllt eine Art einen Viertel nicht aus: Fläche schrittweise halbieren (1/4 ja/nein -> 1/8 ja/nein …), bis sie die Fläche gedanklich füllt.',
-      'An einer zweiten Stelle wiederholen, Durchschnitt beider Kreise notieren.', 'In 5-%-Schritten schätzen – keine übertriebene Genauigkeit.', 'Blühende Pflanzen und gut sichtbare Blätter (z. B. Weissklee) werden gern überschätzt.'];
-    let yt = y + 6; schritte.forEach((t, i) => { const z = doc.splitTextToSize(T((i + 1) + '. ' + t), 122); doc.setFontSize(7); grau(30); doc.text(z, L + 48, yt); yt += z.length * 3 + 1; });
-    klein('Hilfstabelle: 1/2 = 50 %  ·  1/4 = 25 %  ·  1/8 = 12,5 % (10–15)  ·  1/16 = ca. 6 % (5)  ·  1/32 = ca. 3 %', L + 48, yt + 1.5, { fs: 6.8, g: 20 });
-    klein('Vorgehen nach AGFF-Merkblatt 8 (Wiesenaufnahme), Hilfe in der App: Wiese › Pflanzen bestimmen.', L + 48, yt + 5.5, { fs: 6.3 });
+    // ---- Messen: Blattbreite und Blatthäutchen ----
+    y = 114; box(X, y, 104, 50, 'Blattbreite (echte Grösse)'); box(X + 108, y, 70, 50, 'Blatthäutchen');
+    doc.setFillColor(35, 35, 35);
+    const bx = X + 4; let by = y + 14;
+    doc.rect(bx, by - 1, 40, 2, 'F'); txt('< 2 mm', bx + 44, by + 1, 7.5, 15); txt('borstenförmig (1a)', bx + 60, by + 1, 6.5, 90);
+    by += 9; doc.rect(bx, by - 1.5, 20, 3, 'F'); doc.rect(bx + 20, by - 2, 20, 4, 'F'); txt('3–4 mm', bx + 44, by + 1, 7.5, 15); txt('parallel: Engl. Raigras', bx + 60, by + 1, 6.5, 90);
+    by += 13; doc.triangle(bx, by - 2.5, bx + 40, by - 5, bx + 40, by + 5, 'F'); doc.triangle(bx, by - 2.5, bx, by + 2.5, bx + 40, by + 5, 'F');
+    txt('5–10 mm', bx + 44, by + 1, 7.5, 15); txt('konisch: Ital. Raigras,', bx + 60, by - 1, 6.5, 90); txt('Wiesenschwingel …', bx + 60, by + 2.5, 6.5, 90);
+    // Blatthäutchen: Skala 0–10 mm in echter Grösse (0,5-mm-Teilung) und typische Längen als Balken
+    const lx = X + 114; const ly = y + 19;
+    doc.setDrawColor(0); doc.setLineWidth(0.2); doc.line(lx, ly, lx + 10, ly);
+    for (let h = 0; h <= 20; h++) { doc.setLineWidth(h % 2 ? 0.08 : 0.16); doc.line(lx + h / 2, ly, lx + h / 2, ly - (h % 10 === 0 ? 3.5 : h % 2 ? 1.2 : 2.2)); }
+    txt('0', lx, ly + 3.2, 6, 30, { align: 'center' }); txt('10 mm', lx + 10, ly + 3.2, 6, 30, { align: 'left' });
+    txt('Gegen das Licht an die Skala halten', lx + 15, ly - 0.5, 6.5, 90);
+    doc.setFillColor(35, 35, 35);
+    [[1, '< 1 mm', 'Wiesenschwingel'], [2, 'ca. 2 mm', 'Ital. Raigras'], [4, '1–4 mm, spitz', 'Gem. Rispengras']].forEach(([l, a, b], i) => { const yy = ly + 10 + i * 6; doc.rect(lx, yy - 2.2, l, 2.4, 'F'); fett(); txt(a, lx + 7, yy, 7, 15); normal(); txt(b, lx + 27, yy, 7, 70); });
 
-    // ---- 4 Auswringprobe + QR ----
-    y = Math.max(ky + kr + 9, yt + 11); titel('4  Auswringprobe Grassilage (TS-Gehalt)', L, y);
-    const ts = [['< 20 %', 'Kugel, Saftfluss bei leichtem Pressen'], ['25 %', 'Kugel, Saftfluss bei starkem Pressen'], ['30 %', 'nach dem Auswinden Saft zwischen den Fingern'], ['35 %', 'kein Saft zwischen den Fingern, aber feuchte Hände'],
-      ['40 %', 'nach dem Auswinden glänzen die Hände noch'], ['45 %', 'nach dem Auswinden ein leichtes Feuchtegefühl'], ['> 45 %', 'Hände nach dem Auswinden komplett trocken']];
-    let yw = y + 4.5; ts.forEach(([a, b], i) => { if (i % 2 === 0) { doc.setFillColor(242, 244, 241); doc.rect(L, yw - 2.6, 118, 3.6, 'F'); } fett(); klein(a, L + 2, yw, { fs: 7, g: 10 }); normal(); klein(b, L + 18, yw, { fs: 7, g: 40 }); yw += 3.6; });
-    klein('Handvoll Silage wie einen Waschlappen auswinden. Nach AGFF-Schlüssel K3b; optimal 30–40 % TS.', L, yw + 1.5, { fs: 6.3 });
-    // QR zur Wiesen-App
-    const qx = 160; const qy = y - 4; const qs = 32;
-    if (global.FutterIO.qrPdf) await global.FutterIO.qrPdf(doc, global.FutterIO.appUrl() + '#/wiese', qx, qy, qs);
-    klein('Wiesenbeurteilung', qx + qs / 2, qy + qs + 3, { fs: 7.5, g: 10, align: 'center' }); klein('Raster, Stadium, Höhe & Ertrag,', qx + qs / 2, qy + qs + 6.3, { fs: 6.3, align: 'center' }); klein('Pflanzen bestimmen, Fotopunkte', qx + qs / 2, qy + qs + 9, { fs: 6.3, align: 'center' });
-    klein('AGFF Futterbeurteilung v2 · Zeichnungen vereinfacht; massgebend sind die AGFF-Schlüssel und -Merkblätter (Hilfe in der App).', 105, 291, { fs: 6.3, g: 120, align: 'center' });
+    // ---- 5-m-Kreis ----
+    y = 168; box(X, y, B, 56, 'Ertragsanteile schätzen – 5-m-Kreis (AGFF-Merkblatt 8)');
+    const kx = X + 26; const ky = y + 32; const kr = 19;
+    doc.setFillColor(170, 210, 140); sektor(doc, kx, ky, kr, -90, 0); doc.setFillColor(210, 232, 190); sektor(doc, kx, ky, kr, 0, 45);
+    doc.setDrawColor(60); doc.setLineWidth(0.35); doc.circle(kx, ky, kr); doc.setLineWidth(0.2); doc.line(kx - kr, ky, kx + kr, ky); doc.line(kx, ky - kr, kx, ky + kr);
+    doc.setLineDashPattern([0.8, 0.8], 0); doc.line(kx, ky, kx + kr * Math.SQRT1_2, ky + kr * Math.SQRT1_2); doc.setLineDashPattern([], 0);
+    fett(); txt('25 %', kx + 9.5, ky - 7, 8, 20, { align: 'center' }); txt('12,5 %', kx + 12, ky + 5.5, 7, 20, { align: 'center' }); normal();
+    const schritte = ['Kreis von ca. 5 m Durchmesser abtreten, gedanklich vierteln.', 'Zuerst Gräser / Klee / Kräuter, dann die Arten schätzen.', 'Füllt eine Art keinen Viertel: halbieren (1/8, 1/16 …).', 'An einer zweiten Stelle wiederholen, Mittel notieren.', 'In 5-%-Schritten – Blühendes wird gern überschätzt.'];
+    schritte.forEach((t, i) => { doc.setFillColor(31, 138, 76); doc.circle(X + 58, y + 15.5 + i * 8, 2.4, 'F'); fett(); txt(String(i + 1), X + 58, y + 16.6 + i * 8, 7, 255, { align: 'center' }); normal(); txt(t, X + 63, y + 16.6 + i * 8, 8, 25); });
+
+    // ---- Auswringprobe + QR ----
+    y = 228; box(X, y, 128, 58, 'Auswringprobe Grassilage (TS)');
+    const ts = [['< 20 %', 'Saft bei leichtem Pressen'], ['25 %', 'Saft bei starkem Pressen'], ['30 %', 'Saft zwischen den Fingern'], ['35 %', 'feuchte Hände, kein Saft'], ['40 %', 'Hände glänzen noch'], ['45 %', 'leichtes Feuchtegefühl'], ['> 45 %', 'Hände trocken']];
+    ts.forEach(([a, b], i) => { const yy = y + 14 + i * 6.2; if (i % 2 === 0) { doc.setFillColor(242, 245, 241); doc.rect(X + 2, yy - 4, 124, 6.2, 'F'); } if (i === 3 || i === 4) { doc.setFillColor(214, 236, 220); doc.rect(X + 2, yy - 4, 124, 6.2, 'F'); } fett(); txt(a, X + 5, yy, 8, 15); normal(); txt(b, X + 24, yy, 8, 40); });
+    txt('optimal 30–40 % TS (grün) · nach AGFF-Schlüssel K3b', X + 5, y + 56, 6, 110);
+    box(X + 132, y, 46, 58, 'Wiese-App');
+    if (global.FutterIO.qrPdf) await global.FutterIO.qrPdf(doc, global.FutterIO.appUrl() + '#/wiese', X + 137, y + 10, 36);
+    txt('Raster · Stadium · Ertrag', X + 155, y + 50, 6.5, 60, { align: 'center' }); txt('Pflanzen · Wiesenaufnahme', X + 155, y + 54, 6.5, 60, { align: 'center' });
   }
   /** Kreissektor (Grad, 0 = rechts, im Uhrzeigersinn) als gefülltes Polygon */
   function sektor(doc, cx, cy, r, a0, a1) {
     const pts = [[cx, cy]]; for (let a = a0; a <= a1 + 0.01; a += 3) pts.push([cx + r * Math.cos(a * Math.PI / 180), cy + r * Math.sin(a * Math.PI / 180)]);
-    const rel = pts.slice(1).map((p, i) => [p[0] - pts[i][0], p[1] - pts[i][1]]);
-    doc.lines(rel, cx, cy, [1, 1], 'F', true);
-  }
-  /** Einfache Piktogramme (Blattquerschnitt bzw. Blattstück) für den Kurzschlüssel */
-  function piktogramm(doc, art, cx, cy) {
-    doc.setDrawColor(30); doc.setLineWidth(0.3); doc.setFillColor(120, 180, 110);
-    if (art === 'borste') { // dünnes Blatt + Querschnitt fast rund
-      doc.setFillColor(90, 140, 80); doc.rect(cx - 12, cy - 0.6, 14, 1.2, 'F'); doc.circle(cx + 7, cy, 1.4, 'FD');
-    } else if (art === 'ski') { // Blatt mit Doppelrille und Kahnspitze
-      doc.lines([[16, 0], [3, 2.2], [-3, 2.2], [-16, 0]], cx - 10, cy - 2.2, [1, 1], 'FD', true);
-      doc.setLineWidth(0.2); doc.line(cx - 10, cy - 0.5, cx + 6, cy - 0.5); doc.line(cx - 10, cy + 0.5, cx + 6, cy + 0.5);
-    } else if (art === 'haare') { // Blattstück mit Haaren
-      doc.rect(cx - 10, cy - 2, 20, 4, 'FD'); doc.setLineWidth(0.15);
-      for (let i = 0; i < 9; i++) { const x = cx - 9 + i * 2.2; doc.line(x, cy - 2, x - 0.8, cy - 3.6); doc.line(x + 1, cy + 2, x + 0.2, cy + 3.6); }
-    } else if (art === 'glanz') { // gefaltetes Blatt, Unterseite glänzend (Lichtreflex)
-      doc.lines([[10, -4], [10, 4], [-10, -1.5], [-10, 1.5]], cx - 10, cy, [1, 1], 'FD', true);
-      doc.setDrawColor(255); doc.setLineWidth(0.6); doc.line(cx - 6, cy - 1.2, cx + 5, cy - 3); doc.setDrawColor(30);
-      doc.setLineWidth(0.15); for (let i = 1; i < 4; i++) doc.line(cx - 10 + i * 4.5, cy - 0.3, cx - 10 + i * 4.5 + 1.5, cy - 1.8);
-    } else { // matt, flach, graugrün
-      doc.setFillColor(150, 170, 160); doc.rect(cx - 10, cy - 2, 20, 4, 'FD');
-    }
+    doc.lines(pts.slice(1).map((p, i) => [p[0] - pts[i][0], p[1] - pts[i][1]]), cx, cy, [1, 1], 'F', true);
   }
   async function messkartePdf() {
     const IO = global.FutterIO;
@@ -493,16 +472,13 @@
     doc.setLineWidth(0.15); doc.setDrawColor(150); doc.rect(KARTE.m[0][0], KARTE.m[0][1], 170, 140);
     doc.setTextColor(60); doc.setFontSize(8.5);
     const zeilen = [
-      'Feld innerhalb der Marken frei lassen (Weissabgleich).',
-      'Bestand (Punktraster): Karte flach auf den Bestand legen und senkrecht von oben fotografieren –',
-      'die App legt ein Raster von etwa 50 × 50 cm um die Karte.',
-      'Wuchshöhe: Karte senkrecht neben die Pflanzen stellen, Unterkante auf dem Boden, von der Seite fotografieren.',
-      'Alle vier Marken müssen sichtbar sein. Die Marke mit Loch gehört nach oben links.',
-      'Farbe von Heu und Silage: Karte neben das Futter legen, die App gleicht die Farben ab.',
-      'Am besten auf festes Papier drucken oder auf Karton kleben; vor Nässe schützen (Mäppchen).',
-      'Seite 2 = Rückseite mit Messschablonen und Bestimmungshilfen: doppelseitig drucken (Bindung lange Seite).',
+      'Feld innerhalb der Marken frei lassen. Alle vier Marken im Bild, Marke mit Loch oben links.',
+      'Bestand: Karte flach auf den Bestand legen, senkrecht von oben fotografieren.',
+      'Höhe: Karte senkrecht neben die Pflanzen stellen, Unterkante am Boden.',
+      'Farbe: Karte neben Heu oder Silage legen.',
+      'Drucken in tatsächlicher Grösse, doppelseitig (lange Seite), am besten auf Karton.',
     ];
-    zeilen.forEach((z, i) => doc.text(T(z), 105, 182 + i * 5.2, { align: 'center' }));
+    zeilen.forEach((z, i) => doc.text(T(z), 105, 184 + i * 5.6, { align: 'center' }));
     const logo = await logoPng(); if (logo) doc.addImage(logo, 'PNG', 92, 228, 26, 26 * 249.29 / 256.98);
     doc.setFontSize(7); doc.setTextColor(120); doc.text(T('Massstab: 0 cm = Unterkante des Blatts'), 105, 290, { align: 'center' });
     await rueckseite(doc, T, logo);
@@ -1164,7 +1140,7 @@
     const li = (href, ico, t, sub, aktiv) => '<li><a class="item" href="' + href + '" aria-current="' + !!aktiv + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + ico + '</span><span><span class="t">' + t + '</span><span class="s">' + sub + '</span></span></a></li>';
     const lb = (wi, ico, t, sub) => '<li><button type="button" class="item" data-wi="' + wi + '" style="width:100%;text-align:left;background:none;border:0;cursor:pointer;color:inherit"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + ico + '</span><span><span class="t">' + t + '</span><span class="s">' + sub + '</span></span></button></li>';
     return '<div class="bar"><div class="brand"><img src="assets/icon.svg" alt=""><div><b>Wiesenbeurteilung</b><span class="sub">Bestand · Stadium · Pflanzen <span class="badge-beta">v2 Beta 1</span></span></div></div>' +
-      '<button class="icon-btn" data-act="outdoor" title="Modus «Draussen»: hoher Kontrast" aria-label="Modus Draussen umschalten">' + I.sun + '</button></div>' + umschalter +
+      A.modusKnopf() + '</div>' + umschalter +
       '<div class="pad stack"><button class="btn primary block" data-wi="raster" style="min-height:56px">' + I.camera + ' Bestand schätzen (Punktraster)</button>' +
       '<div class="row"><button class="btn sm grow" data-wi="stadium">Stadium vergleichen</button><button class="btn sm grow" data-wi="hoehe">Höhe &amp; Ertrag</button></div></div>' +
       '<div class="section-title" style="padding:0 12px">Werkzeuge</div><ul class="list" style="padding:0 8px">' +
