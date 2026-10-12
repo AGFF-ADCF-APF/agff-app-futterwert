@@ -223,7 +223,7 @@
   };
 
   const SCHLUESSEL = [GRAS_V, GRAS_G, LEGUM, KRAUT];
-  let Z = { key: 'gv', pfad: [], az: false };
+  let Z = { key: 'gv', offen: [], arten: [], az: false };
   // Zeichnungen (AGFF-Schlüssel, edition lmz) und Fotos/Kurzinfos (eAGFF, © AGFF/Agroscope) – bei Bedarf geladen
   let D = null; let ladend = false;
   function daten() {
@@ -265,31 +265,46 @@
       (rueck ? '<button class="btn sm" data-pf="nehmen" data-k="' + a.k + '">Im Raster als «' + KAT[a.k] + '» zählen</button>' : '') + '</div>';
   }
 
+  // Baum zum Aufklappen (wie der Papierschlüssel «nebeneinander»): offene Kriterien und Arten
+  const offen = (k) => Z.offen.includes(k);
+  const pfeil = (auf) => '<span class="pf-pfeil" aria-hidden="true">' + (auf ? '▾' : '▸') + '</span>';
+  function artenNamen(arten, key) {
+    return '<ul class="pf-namen">' + arten.map((a) => {
+      const k = key + '|' + a.n; const auf = Z.arten.includes(k); const sy = a.s && SYM[a.s];
+      return '<li><button type="button" class="pf-name" data-pf="art" data-v="' + esc(k) + '" aria-expanded="' + auf + '">' + pfeil(auf) + '<b>' + esc(a.n) + '</b>' + (sy ? '<span class="pf-sym" title="' + sy.t + '">' + sy.i + '</span>' : '') +
+        (a.g ? '<span class="chip kritisch">' + (a.g === true ? 'giftig' : esc(a.g)) + '</span>' : '') + '</button>' + (auf ? '<div class="pf-portraet">' + artKarte(a) + '</div>' : '') + '</li>';
+    }).join('') + '</ul>';
+  }
+  function zweige(node, pfad, tiefe) {
+    const K = key();
+    return (node.kinder || []).map((c, i) => {
+      const k = pfad === '' ? String(i) : pfad + '.' + i; const auf = offen(k); const n = alleArten(c, []).length;
+      const ic = tiefe === 0 ? icon(K.id, c.nr) + (K.id === 'gg' && /^Ähren/.test(c.t) ? icon('gg', 'Ähren') : K.id === 'gg' && /^Rispen/.test(c.t) ? icon('gg', 'Rispen') : '') : (ICON[c.t] ? icon(K.id, ICON[c.t]) : '');
+      const knopf = tiefe === 0
+        ? '<button type="button" class="pf-spalte" data-pf="auf" data-v="' + k + '" aria-expanded="' + auf + '"><span class="pf-nr">' + esc(c.nr) + '</span>' + ic + '<span class="grow"><b>' + esc(c.t) + '</b>' + (c.s ? '<small>' + esc(c.s) + '</small>' : '') + '</span>' + pfeil(auf) + '</button>'
+        : '<button type="button" class="pf-opt pf-zweig" data-pf="auf" data-v="' + k + '" aria-expanded="' + auf + '">' + pfeil(auf) + ic + '<span>' + esc(c.t) + '</span><small>' + n + (n === 1 ? ' Art' : ' Arten') + '</small></button>';
+      if (!auf) return '<div class="pf-knoten">' + knopf + '</div>';
+      const unter = (c.kinder || []).length; const arten = (c.arten || []).length;
+      return '<div class="pf-knoten offen">' + knopf + '<div class="pf-ast">' + (tiefe > 0 && c.s ? '<p class="qhint">' + esc(c.s) + '</p>' : '') +
+        (unter ? zweige(c, k, tiefe + 1) : '') +
+        (arten ? (unter ? '<div class="pf-frage small">Ohne weiteres Kriterium:</div>' : '') + artenNamen(c.arten, k) : '') + '</div></div>';
+    }).join('');
+  }
+
   function inhalt() {
     daten();
-    const K = key(); const n = knoten(Z.pfad);
+    const K = key();
     const lupe = global.Wiese && !rueck ? '<button class="btn sm ghost" data-pf="lupe">Lupe</button>' : '';
     let h = '<div class="pf-tabs" role="tablist">' + SCHLUESSEL.map((k) => '<button data-pf="key" data-v="' + k.id + '" aria-pressed="' + (k.id === Z.key) + '">' + esc(k.titel) + '</button>').join('') + '</div>';
-    // Brotkrumen: Spalte und gewählte Kriterien
-    const krumen = []; let m = K;
-    Z.pfad.forEach((i, j) => { m = m.kinder[i]; krumen.push('<button class="pf-krume" data-pf="hoch" data-v="' + (j + 1) + '">' + esc(m.nr ? m.nr + ' · ' + m.t : m.t) + '</button>'); });
-    h += '<div class="pf-pfad"><button class="pf-krume start" data-pf="hoch" data-v="0">' + esc(K.titel) + '</button>' + krumen.join('') + lupe + '</div>';
     if (Z.az) {
       const liste = alleArten(K, []).sort((x, y) => x.a.n.localeCompare(y.a.n, 'de'));
       return h + '<div class="row" style="justify-content:space-between;align-items:center;margin:8px 0"><b>Alle Arten im Schlüssel (' + liste.length + ')</b><button class="btn sm ghost" data-pf="az">Zurück zum Schlüssel</button></div>' +
         '<p class="qhint">Unter jeder Art steht der Weg durch den Schlüssel – zum Üben oder Überprüfen.</p>' + liste.map((x) => artKarte(x.a, x.weg)).join('');
     }
-    if (!Z.pfad.length) {
-      h += '<p class="qhint">' + esc(K.hinweis) + '</p>' + (K.reihenfolge ? '<p class="pf-reihe">' + esc(K.reihenfolge) + '</p>' : '') +
-        '<div class="pf-spalten">' + K.kinder.map((s, i) => '<button class="pf-spalte" data-pf="w" data-v="' + i + '"><span class="pf-nr">' + esc(s.nr) + '</span>' + icon(K.id, s.nr) + (K.id === 'gg' && /^Ähren/.test(s.t) ? icon('gg', 'Ähren') : K.id === 'gg' && /^Rispen/.test(s.t) ? icon('gg', 'Rispen') : '') + '<span><b>' + esc(s.t) + '</b>' + (s.s ? '<small>' + esc(s.s) + '</small>' : '') + '</span></button>').join('') + '</div>';
-    } else {
-      if (n.s) h += '<p class="qhint">' + esc(n.s) + '</p>';
-      if (n.kinder && n.kinder.length) {
-        h += '<div class="pf-frage">Was trifft zu?</div><div class="pf-krit">' + n.kinder.map((k, i) => { const z = alleArten(k, []).length; return '<button class="pf-opt" data-pf="w" data-v="' + i + '">' + (ICON[k.t] ? icon(K.id, ICON[k.t]) : '') + '<span>' + esc(k.t) + '</span><small>' + z + (z === 1 ? ' Art' : ' Arten') + '</small></button>'; }).join('') + '</div>';
-      }
-      if (n.arten && n.arten.length) h += (n.kinder && n.kinder.length ? '<div class="pf-frage">Trifft nichts davon zu:</div>' : '<div class="pf-frage">Arten – Detailbeschreibung vergleichen:</div>') + n.arten.map((a) => artKarte(a)).join('');
-    }
-    h += '<div class="row" style="margin-top:12px"><button class="btn sm ghost" data-pf="az">Alle Arten A–Z</button><button class="btn sm ghost" data-pf="export" data-v="csv">Tabelle (Excel)</button><button class="btn sm ghost" data-pf="export" data-v="pdf">Tabelle (PDF)</button>' + (Z.pfad.length ? '<button class="btn sm ghost" data-pf="hoch" data-v="' + (Z.pfad.length - 1) + '">← Schritt zurück</button>' : '') + '</div>' +
+    h += '<p class="qhint">' + esc(K.hinweis) + '</p>' + (K.reihenfolge ? '<p class="pf-reihe">' + esc(K.reihenfolge) + '</p>' : '') +
+      '<div class="row" style="justify-content:flex-end;margin:-4px 0 6px">' + lupe + (Z.offen.length || Z.arten.length ? '<button class="btn sm ghost" data-pf="zu">Alles zuklappen</button>' : '') + '</div>' +
+      '<div class="pf-baum">' + zweige(K, '', 0) + '</div>';
+    h += '<div class="row" style="margin-top:12px"><button class="btn sm ghost" data-pf="az">Alle Arten A–Z</button><button class="btn sm ghost" data-pf="export" data-v="csv">Tabelle (Excel)</button><button class="btn sm ghost" data-pf="export" data-v="pdf">Tabelle (PDF)</button></div>' +
       '<p class="hint">Nach: ' + esc(K.quelle) + ' (AGFF, edition lmz 2016). Zeichnungen © edition lmz; Fotos und Kurzinfos aus <a href="https://www.eagff.ch" target="_blank" rel="noopener noreferrer">eAGFF</a> (© AGFF, Agroscope, e-pics ETH-Bibliothek – Nachweis beim Bild). Die Zuordnung zu den Raster-Klassen stammt von dieser App.</p>';
     return h;
   }
@@ -308,9 +323,15 @@
     const t = e.target.closest('[data-pf]'); if (!t) return false;
     const a = t.dataset.pf;
     if (a === 'zurueck') { sheet(rueckSheet); return true; }
-    if (a === 'key') { Z = { key: t.dataset.v, pfad: [], az: false }; neu(); }
-    if (a === 'w') { Z.pfad.push(Number(t.dataset.v)); Z.az = false; neu(); }
-    if (a === 'hoch') { Z.pfad = Z.pfad.slice(0, Number(t.dataset.v)); Z.az = false; neu(); }
+    if (a === 'key') { Z = { key: t.dataset.v, offen: [], arten: [], az: false }; neu(); }
+    if (a === 'auf') {  // Kriterium auf- bzw. zuklappen (beim Zuklappen auch alles darunter)
+      const k = t.dataset.v;
+      if (Z.offen.includes(k)) { Z.offen = Z.offen.filter((x) => x !== k && !x.startsWith(k + '.')); Z.arten = Z.arten.filter((x) => !(x.startsWith(k + '|') || x.startsWith(k + '.'))); }
+      else Z.offen.push(k);
+      neu(false);
+    }
+    if (a === 'art') { const k = t.dataset.v; Z.arten = Z.arten.includes(k) ? Z.arten.filter((x) => x !== k) : Z.arten.concat(k); neu(false); }
+    if (a === 'zu') { Z.offen = []; Z.arten = []; neu(false); }
     if (a === 'az') { Z.az = !Z.az; neu(); }
     if (a === 'bild') { bildGross(t.dataset.n, Number(t.dataset.i)); return true; }
     if (a === 'export') { (t.dataset.v === 'pdf' ? exportPdf() : exportCsv()).catch((er) => app().toast(er.message)); return true; }

@@ -601,3 +601,17 @@ html.cam-offen, html.cam-offen body { overflow: hidden; }
 .split-btn .split-haupt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .split-btn .btn.primary small { font-size: .72rem; opacity: .85; font-weight: 600; }
 .split-btn .split-neben { flex: 0 0 auto; border-radius: 4px var(--radius) var(--radius) 4px; padding: 0 12px; font-size: .86rem; }
+.pf-baum { display: grid; gap: 8px; }
+.pf-knoten { display: grid; gap: 6px; }
+.pf-spalte .grow { flex: 1; min-width: 0; }
+.pf-spalte[aria-expanded="true"], .pf-zweig[aria-expanded="true"] { border-color: var(--brand); background: var(--brand-soft); }
+.pf-pfeil { flex: none; color: var(--brand-ink); font-size: 1rem; width: 1em; text-align: center; }
+.pf-ast { margin-left: 10px; padding-left: 8px; border-left: 3px solid var(--brand-soft); display: grid; gap: 6px; }
+.pf-zweig { display: grid !important; grid-template-columns: auto auto 1fr; align-items: center; column-gap: 8px; justify-items: start; text-align: left; padding: 10px 54px 10px 10px !important; position: relative; }
+.pf-zweig:not(:has(.pf-ic)) { grid-template-columns: auto 1fr; }
+.pf-zweig small { position: absolute; top: 50%; right: 12px; transform: translateY(-50%); }
+.pf-namen { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.pf-name { width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; border: 1px dashed var(--line-strong); background: var(--surface); color: var(--ink); cursor: pointer; text-align: left; }
+.pf-name[aria-expanded="true"] { border-style: solid; border-color: var(--brand); }
+.pf-portraet { margin: 6px 0 4px; }
+.pf-portraet .pf-art-kopf > b, .pf-portraet .pf-art-kopf > .pf-sym { display: none; }
