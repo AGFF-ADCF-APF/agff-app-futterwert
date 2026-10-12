@@ -662,3 +662,19 @@ html.kb-hinweise [data-kb] { position: relative; }
 html.kb-hinweise [data-kb]::after { content: attr(data-kb); position: absolute; top: -8px; left: -6px; z-index: 5; min-width: 20px; padding: 2px 6px; border-radius: 6px; background: #facc15; color: #1f2937; font: 800 .74rem/1.2 var(--font); box-shadow: 0 1px 4px rgb(0 0 0 / .3); pointer-events: none; text-align: center; }
 .kb-tab kbd { display: inline-block; min-width: 1.6em; padding: 1px 6px; border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 6px; background: var(--surface-2); font: 700 .82rem var(--font); text-align: center; }
 .kb-tab td:last-child { text-align: left; }
+
+/* Fotopunkt: zum Standort führen */
+.fp-fuehren .cam-top { position: static; background: #111; }
+.fp-nav { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 12px 16px max(16px, env(safe-area-inset-bottom)); text-align: center; }
+.fp-nav-phase { font-weight: 700; font-size: 1.05rem; color: #ffd84d; }
+.fp-nav-rose { position: relative; width: min(64vw, 260px); aspect-ratio: 1; border-radius: 50%; border: 2px solid rgb(255 255 255 / .25); display: grid; place-items: center; }
+.fp-nav-pfeil { width: 72%; height: 72%; fill: #ffd84d; transition: transform .35s ease-out; }
+.fp-nav-n { position: absolute; left: 50%; top: 50%; margin: -11px 0 0 -9px; width: 18px; font-weight: 700; color: #ff6b6b; transition: transform .35s ease-out; }
+.fp-da .fp-nav-pfeil { fill: #8fd3ff; }
+.fp-passt .fp-nav-pfeil { fill: #6fdc8c; }
+.fp-passt .fp-nav-rose { border-color: #6fdc8c; }
+.fp-nav-dist { font-size: 2.6rem; font-weight: 800; line-height: 1; }
+.fp-nav-text { max-width: 34ch; }
+.fp-nav-klein { font-size: .8rem; opacity: .7; }
+.fp-nav-knoepfe { margin-top: 6px; }
+.fp-mini-pfeil { width: 1.05em; height: 1.05em; vertical-align: -.15em; display: inline-block; }

@@ -349,6 +349,14 @@
   }
 
   /** Messkarte als PDF (A4) zum Ausdrucken. */
+  /** AGFF-Logo (SVG, eagff.ch) als PNG für jsPDF */
+  function logoPng() {
+    return new Promise((ok) => {
+      const im = new Image();
+      im.onload = () => { const c = document.createElement('canvas'); c.width = 600; c.height = Math.round(600 * im.naturalHeight / im.naturalWidth) || 582; c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); try { ok(c.toDataURL('image/png')); } catch (e) { ok(null); } };
+      im.onerror = () => ok(null); im.src = 'assets/bilder/agff-logo.svg';
+    });
+  }
   async function messkartePdf() {
     const IO = global.FutterIO;
     await IO.loadScript('assets/vendor/jspdf.umd.min.js');
@@ -381,6 +389,7 @@
       'Am besten auf festes Papier drucken oder auf Karton kleben; vor Nässe schützen (Mäppchen).',
     ];
     zeilen.forEach((z, i) => doc.text(T(z), 105, 182 + i * 5.2, { align: 'center' }));
+    const logo = await logoPng(); if (logo) doc.addImage(logo, 'PNG', 92, 228, 26, 26 * 249.29 / 256.98);
     doc.setFontSize(7); doc.setTextColor(120); doc.text(T('Massstab: 0 cm = Unterkante des Blatts'), 105, 290, { align: 'center' });
     const blob = doc.output('blob'); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'AGFF_Messkarte.pdf'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
   }
@@ -805,12 +814,84 @@
   const abstand = (a, b) => { const R = 6371000; const r = Math.PI / 180; const dl = (b.lat - a.lat) * r; const dn = (b.lon - a.lon) * r; const x = Math.sin(dl / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dn / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(x)); };
   let richtungJetzt = null;
   function richtungHoeren(api) {
-    const h = (e) => { const r = e.webkitCompassHeading != null ? e.webkitCompassHeading : (e.absolute && e.alpha != null ? 360 - e.alpha : null); if (r != null) richtungJetzt = Math.round(r) % 360; };
+    const h = (e) => {
+      const r = e.webkitCompassHeading != null ? e.webkitCompassHeading : (e.absolute && e.alpha != null ? 360 - e.alpha : null);
+      if (r == null) return;
+      // Bildschirm quer gedreht: Kompass auf die Blickrichtung der Kamera beziehen (iOS rechnet das selbst)
+      const dreh = e.webkitCompassHeading != null ? 0 : ((global.screen && global.screen.orientation && global.screen.orientation.angle) || 0);
+      richtungJetzt = Math.round(r + dreh + 360) % 360;
+    };
     const ev = 'ondeviceorientationabsolute' in global ? 'deviceorientationabsolute' : 'deviceorientation';
     global.addEventListener(ev, h); api.weg(() => global.removeEventListener(ev, h));
   }
   function richtungErlauben() {
     try { if (global.DeviceOrientationEvent && typeof global.DeviceOrientationEvent.requestPermission === 'function') global.DeviceOrientationEvent.requestPermission().catch(() => {}); } catch (e) { /* ignore */ }
+  }
+
+  /** Kurs (Grad ab Norden) von a nach b */
+  function peilung(a, b) {
+    const r = Math.PI / 180; const y = Math.sin((b.lon - a.lon) * r) * Math.cos(b.lat * r);
+    const x = Math.cos(a.lat * r) * Math.sin(b.lat * r) - Math.sin(a.lat * r) * Math.cos(b.lat * r) * Math.cos((b.lon - a.lon) * r);
+    return (Math.atan2(y, x) / r + 360) % 360;
+  }
+  const HIMMEL = ['Norden', 'Nordosten', 'Osten', 'Südosten', 'Süden', 'Südwesten', 'Westen', 'Nordwesten'];
+  const himmel = (g) => HIMMEL[Math.round(g / 45) % 8];
+  const meter = (d) => (d >= 1000 ? (d / 1000).toFixed(d >= 10000 ? 0 : 1).replace('.', ',') + ' km' : Math.round(d) + ' m');
+  const drehText = (dd) => (Math.abs(dd) <= 10 ? 'geradeaus' : Math.abs(dd) >= 165 ? 'umdrehen' : Math.round(Math.abs(dd)) + '° nach ' + (dd < 0 ? 'links' : 'rechts'));
+  const kleinPfeil = (g) => '<svg class="fp-mini-pfeil" viewBox="0 0 24 24" aria-hidden="true" style="transform:rotate(' + Math.round(g) + 'deg)"><path d="M12 2l7 18-7-4-7 4z" fill="currentColor"/></svg>';
+  /** Drehwinkel ohne Sprung über 0°/360° (CSS-Übergang dreht sonst einmal rundherum) */
+  function glatt(alt, neu) { if (alt == null) return neu; let d = ((neu - alt) % 360 + 540) % 360 - 180; return alt + d; }
+
+  /** Zum Fotopunkt führen: grosser Pfeil zum Standort, am Ziel Pfeil zur gespeicherten Blickrichtung. */
+  function fpFuehren(id) {
+    const pt = fpById(id); if (!pt || pt.lat == null) return;
+    richtungErlauben(); richtungJetzt = null;
+    const v = ansicht(kopf(pt.name, 'Zum Fotopunkt zurückfinden') +
+      '<div class="fp-nav"><div class="fp-nav-phase" data-fn="phase">Standort wird gesucht …</div>' +
+      '<div class="fp-nav-rose"><span class="fp-nav-n" data-fn="n">N</span><svg class="fp-nav-pfeil" data-fn="pfeil" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 6 L80 86 L50 70 L20 86 Z"/></svg></div>' +
+      '<div class="fp-nav-dist" data-fn="dist">–</div><div class="fp-nav-text" data-fn="text" aria-live="polite"></div><div class="fp-nav-klein" data-fn="klein"></div>' +
+      '<div class="fp-nav-knoepfe"><button class="btn primary" data-wi="fp-foto" data-id="' + pt.id + '">Kamera mit Ausrichtungshilfe</button></div></div>', 'fp-fuehren');
+    const el = (k) => v.root.querySelector('[data-fn="' + k + '"]');
+    let pos = null; let fehler = ''; let winkel = null; let nWinkel = null;
+    const api = { weg: (f) => v.weg.push(f) };
+    richtungHoeren(api);
+    if (navigator.geolocation) {
+      const w = navigator.geolocation.watchPosition((p) => { pos = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy }; fehler = ''; },
+        (e) => { fehler = e && e.code === 1 ? 'Kein Zugriff auf den Standort – bitte in den Browser-Einstellungen erlauben.' : 'Standort nicht verfügbar.'; }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 30000 });
+      v.weg.push(() => navigator.geolocation.clearWatch(w));
+    } else fehler = 'Dieses Gerät liefert keinen Standort.';
+    function zeigen() {
+      if (!v.root.isConnected) return;
+      const kompass = richtungJetzt != null;
+      if (!pos) { el('phase').textContent = fehler || 'Standort wird gesucht …'; return; }
+      const d = abstand(pos, pt); const tol = Math.max(8, Math.min(pos.acc || 0, 40));
+      const da = d <= tol;
+      let ziel; let text; let phase;
+      if (!da) {
+        const kurs = peilung(pos, pt);
+        ziel = kompass ? kurs - richtungJetzt : kurs;
+        phase = 'Zum Standort';
+        text = kompass ? 'Gehen Sie ' + drehText(((ziel % 360) + 540) % 360 - 180) + ' – Richtung ' + himmel(kurs) + '.' : 'Richtung ' + himmel(kurs) + ' (' + Math.round(kurs) + '°). Ohne Kompass zeigt der Pfeil nach Norden ausgerichtet: oben = Norden.';
+        el('dist').textContent = meter(d);
+      } else if (pt.richtung != null) {
+        ziel = kompass ? pt.richtung - richtungJetzt : pt.richtung;
+        const dd = ((ziel % 360) + 540) % 360 - 180;
+        phase = 'Am Standort ✓ – Blickrichtung';
+        text = kompass ? (Math.abs(dd) <= 8 ? 'Richtung passt – jetzt fotografieren.' : 'Drehen Sie sich ' + drehText(dd) + '.') : 'Blick nach ' + himmel(pt.richtung) + ' (' + pt.richtung + '°) – oben = Norden.';
+        el('dist').textContent = kompass && Math.abs(dd) <= 8 ? '✓' : pt.richtung + '°';
+      } else {
+        ziel = null; phase = 'Am Standort ✓'; text = 'Für diesen Punkt ist keine Blickrichtung gespeichert – am Vorher-Bild ausrichten.'; el('dist').textContent = '✓';
+      }
+      el('phase').textContent = phase; el('text').textContent = text;
+      el('klein').textContent = 'GPS ± ' + Math.round(pos.acc || 0) + ' m' + (pos.acc > 30 ? ' – ungenau, kurz warten oder ins Freie gehen' : '') + (kompass ? ' · Kompass aktiv' : ' · kein Kompass');
+      v.root.classList.toggle('fp-da', da); v.root.classList.toggle('fp-passt', da && kompass && pt.richtung != null && Math.abs(((pt.richtung - richtungJetzt) % 360 + 540) % 360 - 180) <= 8);
+      const p = el('pfeil'); p.style.visibility = ziel == null ? 'hidden' : 'visible';
+      if (ziel != null) { winkel = glatt(winkel, ziel); p.style.transform = 'rotate(' + winkel + 'deg)'; }
+      const n = el('n');
+      nWinkel = glatt(nWinkel, kompass ? -richtungJetzt : 0); n.style.transform = 'rotate(' + nWinkel + 'deg) translateY(-118px) rotate(' + (-nWinkel) + 'deg)';
+    }
+    const tick = setInterval(zeigen, 300); v.weg.push(() => clearInterval(tick));
+    zeigen();
   }
 
   async function fpFoto(id) {
@@ -829,8 +910,12 @@
         }
         const tick = setInterval(() => {
           const t = [];
-          if (pos && pt.lat != null) { const d = abstand(pt, pos); t.push(d < Math.max(8, pos.acc) ? 'Standort passt (± ' + Math.round(pos.acc) + ' m)' : 'Noch ' + Math.round(d) + ' m vom Fotopunkt entfernt (± ' + Math.round(pos.acc) + ' m)'); }
-          if (richtungJetzt != null && pt.richtung != null) { let dd = ((richtungJetzt - pt.richtung + 540) % 360) - 180; t.push(Math.abs(dd) <= 8 ? 'Richtung passt' : 'Richtung: ' + Math.abs(dd) + '° nach ' + (dd > 0 ? 'links' : 'rechts') + ' drehen'); }
+          if (pos && pt.lat != null) {
+            const d = abstand(pt, pos);
+            if (d < Math.max(8, Math.min(pos.acc, 40))) t.push('Standort passt (± ' + Math.round(pos.acc) + ' m)');
+            else { const kurs = peilung(pos, pt); t.push((richtungJetzt != null ? kleinPfeil(kurs - richtungJetzt) + ' ' : '') + 'Noch ' + meter(d) + ' Richtung ' + himmel(kurs) + ' (± ' + Math.round(pos.acc) + ' m)'); }
+          }
+          if (richtungJetzt != null && pt.richtung != null) { const dd = ((pt.richtung - richtungJetzt + 540) % 360) - 180; t.push(Math.abs(dd) <= 8 ? 'Richtung passt ✓' : kleinPfeil(dd) + ' ' + Math.round(Math.abs(dd)) + '° nach ' + (dd < 0 ? 'links' : 'rechts') + ' drehen'); }
           api.info(t.join(' · '));
         }, 700);
         api.weg(() => clearInterval(tick));
@@ -870,7 +955,10 @@
       return '<div class="bar"><a class="icon-btn" href="#/fotopunkte" aria-label="Zurück">' + app().I.back + '</a><h2>' + esc(pt.name) + '<span class="sub">' + pt.fotos.length + ' Fotos · seit ' + datum(pt.createdAt) + '</span></h2></div><div class="pad wiese">' +
         (pt.notiz ? '<p>' + esc(pt.notiz) + '</p>' : '') +
         '<p class="small muted">' + (pt.lat != null ? 'Standort ' + pt.lat.toFixed(5) + ', ' + pt.lon.toFixed(5) + ' (± ' + Math.round(pt.acc || 0) + ' m)' : 'ohne Standort') + (pt.richtung != null ? ' · Blickrichtung ' + pt.richtung + '°' : '') + ' – nur auf diesem Gerät</p>' +
-        '<div class="row"><button class="btn primary grow" data-wi="fp-foto" data-id="' + pt.id + '">Neues Foto mit Ausrichtungshilfe</button></div>' +
+        '<div class="row"><button class="btn primary grow" data-wi="fp-foto" data-id="' + pt.id + '">Neues Foto mit Ausrichtungshilfe</button>' +
+        (pt.lat != null ? '<button class="btn grow" data-wi="fp-fuehren" data-id="' + pt.id + '">' + kleinPfeil(45) + ' Zum Standort führen</button>' : '') + '</div>' +
+        '<div class="row" style="margin-top:8px"><button class="btn sm" data-wi="fp-standort" data-id="' + pt.id + '">' + (pt.lat != null ? 'Standort hier neu setzen' : 'Standort hier setzen (GPS)') + '</button>' +
+        (pt.lat != null ? '<button class="btn sm ghost" data-wi="fp-standort-weg" data-id="' + pt.id + '">Standort entfernen</button>' : '') + '</div>' +
         (pt.fotos.length >= 2 ? '<div class="row" style="margin-top:8px"><button class="btn grow" data-wi="fp-vergleich" data-id="' + pt.id + '">Vorher / Nachher vergleichen</button><button class="btn grow" data-wi="fp-pdf" data-id="' + pt.id + '">Verlauf als PDF</button></div>' : '') +
         '<div class="fotos" style="margin-top:14px">' + fotos.map((f) => '<button type="button" class="foto-thumb" data-wi="fp-zeigen" data-id="' + pt.id + '" data-foto="' + f.id + '"><img alt="" data-fp-img="' + f.id + '"><span class="foto-art">' + datum(f.at) + '</span></button>').join('') + '</div>' +
         '<div class="row" style="margin-top:18px"><button class="btn sm" data-wi="fp-umbenennen" data-id="' + pt.id + '">Umbenennen</button><button class="btn sm danger" data-wi="fp-loeschen" data-id="' + pt.id + '">Fotopunkt löschen</button></div></div>';
@@ -1003,6 +1091,20 @@
       case 'fp-neu': fpNeuSheet(); break;
       case 'fp-anlegen': fpAnlegen(); break;
       case 'fp-foto': richtungErlauben(); fpFoto(id); break;
+      case 'fp-fuehren': fpFuehren(id); break;
+      case 'fp-standort': {
+        const pt = fpById(id); if (!pt) break;
+        if (!navigator.geolocation) { toast('Dieses Gerät liefert keinen Standort.'); break; }
+        if (pt.lat != null && !confirm('Gespeicherten Standort durch den aktuellen ersetzen?')) break;
+        toast('Standort wird bestimmt …');
+        navigator.geolocation.getCurrentPosition((p) => {
+          const q = fpById(id); if (!q) return;
+          q.lat = p.coords.latitude; q.lon = p.coords.longitude; q.acc = p.coords.accuracy; fpSpeichern();
+          toast('Standort gespeichert (± ' + Math.round(q.acc) + ' m).' + (q.acc > 30 ? ' Ungenau – ggf. später im Freien wiederholen.' : '')); A.render();
+        }, (e) => toast(e && e.code === 1 ? 'Kein Zugriff auf den Standort.' : 'Standort nicht verfügbar.'), { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
+        break;
+      }
+      case 'fp-standort-weg': { const pt = fpById(id); if (pt && confirm('Standort und Blickrichtung dieses Fotopunkts entfernen?')) { pt.lat = pt.lon = pt.acc = pt.richtung = null; fpSpeichern(); A.render(); } break; }
       case 'fp-vergleich': fpVergleich(id); break;
       case 'fp-pdf': fpPdf(id).catch((er) => toast(er.message)); break;
       case 'fp-zeigen': {
