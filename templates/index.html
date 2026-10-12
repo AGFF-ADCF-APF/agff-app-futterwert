@@ -6834,10 +6834,20 @@
   @media (max-width: 640px) { .v2-ecke { width: 104px; height: 104px; } .v2-ecke a { top: 22px; right: -46px; width: 170px; font-size: 11.5px; padding: 7px 0; } }
   @media (max-width: 1180px) { body > header, body > div > header, header.sticky { padding-right: 72px; } }
   @media (max-width: 640px) { body > header, body > div > header, header.sticky { padding-right: 58px; } }
-  @media (max-width: 640px) { #v2SwitchBadge { display: none !important; } }
   @media print { .v2-ecke { display: none; } }
 </style>
 <div class="v2-ecke"><a href="v2/" title="Neue Version 2 (Beta) ausprobieren – mit Beurteilungsrädern, Kursen und Fotos. Daten bleiben im Browser.">Try v2 (Beta)</a></div>
+<script>
+  (function () { // Text der Ecke in der Sprache des Browsers
+    var l = ((navigator.languages && navigator.languages[0]) || navigator.language || 'de').slice(0, 2).toLowerCase();
+    var t = { de: ['v2 testen (Beta)', 'Neue Version 2 (Beta) ausprobieren – mit Beurteilungsrädern, Kursen und Fotos. Daten bleiben im Browser.'],
+              fr: ['Essayer v2 (bêta)', 'Essayer la nouvelle version 2 (bêta) – roues d’appréciation, cours et photos. Les données restent dans le navigateur.'],
+              it: ['Prova v2 (beta)', 'Prova la nuova versione 2 (beta) – ruote di valutazione, corsi e foto. I dati restano nel browser.'],
+              en: ['Try v2 (Beta)', 'Try the new version 2 (beta) – assessment wheels, courses and photos. Data stays in your browser.'] }[l] || null;
+    if (!t) t = ['Try v2 (Beta)', 'Try the new version 2 (beta) – assessment wheels, courses and photos. Data stays in your browser.'];
+    var a = document.querySelector('.v2-ecke a'); if (a) { a.textContent = t[0]; a.title = t[1]; a.lang = l; }
+  })();
+</script>
 
 
     <div id="loading-spinner" class="fixed inset-0 flex items-center justify-center bg-white z-50">
@@ -6862,14 +6872,6 @@
                     <div class="min-w-0">
                         <div class="flex items-center gap-2">
                             <h1 class="text-lg md:text-xl font-bold text-gray-800 whitespace-nowrap">Futterwert-Rechner</h1>
-                            <!-- Umsteller zu v2 (Beta): erscheint nur, wenn v2 auf dem Server antwortet -->
-                            <a id="v2SwitchBadge" href="v2/" title="Neue Version mit Beurteilungsrädern (K3a/K3b/K3c) ausprobieren – Daten bleiben im Browser"
-                               style="display:none;align-items:center;white-space:nowrap;font-size:10px;line-height:1;font-weight:800;letter-spacing:.03em;padding:4px 8px;border-radius:999px;background:#0f7f74;color:#fff;text-decoration:none;box-shadow:0 1px 3px rgba(0,0,0,.15)">v2 Beta 1 →</a>
-                            <script>
-                              fetch('v2/api/config', { cache: 'no-store' }).then(function (r) {
-                                if (r.ok) document.getElementById('v2SwitchBadge').style.display = 'inline-flex';
-                              }).catch(function () {});
-                            </script>
                         </div>
                         <p class="text-[11px] text-gray-500 truncate max-w-[52vw] md:max-w-none">
                             <span id="headerAgffText">Nach AGFF Merkblatt Nr. 3</span>

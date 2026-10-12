@@ -21,6 +21,17 @@
   @media print { .v2-ecke { display: none; } }
 </style>
 <div class="v2-ecke"><a href="v2/" title="Neue Version 2 (Beta) ausprobieren – mit Beurteilungsrädern, Kursen und Fotos. Daten bleiben im Browser.">Try v2 (Beta)</a></div>
+<script>
+  (function () { // Text der Ecke in der Sprache des Browsers
+    var l = ((navigator.languages && navigator.languages[0]) || navigator.language || 'de').slice(0, 2).toLowerCase();
+    var t = { de: ['v2 testen (Beta)', 'Neue Version 2 (Beta) ausprobieren – mit Beurteilungsrädern, Kursen und Fotos. Daten bleiben im Browser.'],
+              fr: ['Essayer v2 (bêta)', 'Essayer la nouvelle version 2 (bêta) – roues d’appréciation, cours et photos. Les données restent dans le navigateur.'],
+              it: ['Prova v2 (beta)', 'Prova la nuova versione 2 (beta) – ruote di valutazione, corsi e foto. I dati restano nel browser.'],
+              en: ['Try v2 (Beta)', 'Try the new version 2 (beta) – assessment wheels, courses and photos. Data stays in your browser.'] }[l] || null;
+    if (!t) t = ['Try v2 (Beta)', 'Try the new version 2 (beta) – assessment wheels, courses and photos. Data stays in your browser.'];
+    var a = document.querySelector('.v2-ecke a'); if (a) { a.textContent = t[0]; a.title = t[1]; a.lang = l; }
+  })();
+</script>
 
     <header class="bg-white shadow-sm sticky top-0 z-30">
         <div class="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
