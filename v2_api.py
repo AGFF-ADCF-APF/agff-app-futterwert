@@ -423,7 +423,7 @@ def v2_basis():
 
 # --- Freigabe-Bereiche (nur mit Zustimmung; Zugriff nur mit Lese-/Bearbeiten-Link) ----
 mimetypes.add_type("image/webp", ".webp")  # fehlt in python:slim
-ASSET_BUILD = 'b1-47'  # gleich wie ?v= in templates/v2/index.html
+ASSET_BUILD = 'b1-48'  # gleich wie ?v= in templates/v2/index.html
 
 
 @v2.route('/v2/api/config')

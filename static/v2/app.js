@@ -342,6 +342,18 @@
     const k = (id, titel) => '<button type="button" class="app-knopf" data-act="app" data-val="' + id + '" aria-pressed="' + (aktiv === id) + '">' + APP_ICON[id] + '<span>' + titel + '</span></button>';
     return '<div class="app-umschalter" role="group" aria-label="App wählen">' + k('futter', 'Futter') + k('wiese', 'Wiese') + '</div>';
   }
+  /** Am Computer: mittlere Spalte (Liste) ein-/ausklappen – Knopf in der Kopfzeile des Arbeitsbereichs. */
+  const LISTE_KEY = 'agffV2Liste';
+  try { if (localStorage.getItem(LISTE_KEY) === 'zu') document.documentElement.dataset.liste = 'zu'; } catch (e) { /* privat */ }
+  function listeGriff() {
+    document.querySelectorAll('.liste-griff').forEach((x) => x.remove());
+    const bar = document.querySelector('#main .bar'); if (!bar) return;
+    const zu = document.documentElement.dataset.liste === 'zu';
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'liste-griff'; b.dataset.act = 'liste-umschalten';
+    b.title = zu ? 'Liste einblenden' : 'Liste ausblenden (mehr Platz für die Beurteilung)'; b.setAttribute('aria-label', b.title);
+    b.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>' + (zu ? '<path d="M13 10l2 2-2 2"/>' : '<path d="M16 10l-2 2 2 2"/>') + '</svg>';
+    bar.insertBefore(b, bar.firstChild);
+  }
   /** Wenn das Menü nicht sichtbar ist (Handy, Tablet): kleiner Umschalter in der Kopfzeile der Ansicht. */
   function appMini() {
     document.querySelectorAll('.app-mini').forEach((x) => x.remove());
@@ -966,7 +978,7 @@
     if (location.hash !== lastHash) { lastHash = location.hash; window.scrollTo(0, 0); $('#main').scrollTop = 0; }
     fotosEinsetzen();
     if (['wiese', 'fotopunkte', 'pflanzen', 'hilfe', 'daten'].includes(ui.route.name)) window.Wiese.nachRender();
-    appMini();
+    appMini(); listeGriff();
     if (window.Assistent) window.Assistent.update();
     if (ui.route.sammel && window.Sammel) window.Sammel.verdrahten();
     Rad.animieren($('#radbox'));
@@ -1430,7 +1442,7 @@
     m.innerHTML = renderProbe(p, ui.route.step);
     if (keepScroll) { m.scrollTop = st; window.scrollTo(0, ws); }
     $('#r-list').innerHTML = renderList(p.anlassId || null, ui.route);
-    appMini();
+    appMini(); listeGriff();
     fotosEinsetzen();
     if (window.Assistent) window.Assistent.update();
     Rad.animieren($('#radbox'));
@@ -1504,6 +1516,12 @@
       }
       case 'meine-kurse': window.Kurs.meineKurse(); break;
       case 'app': appWechseln(t.dataset.val); break;
+      case 'liste-umschalten': {
+        const zu = document.documentElement.dataset.liste !== 'zu';
+        if (zu) document.documentElement.dataset.liste = 'zu'; else delete document.documentElement.dataset.liste;
+        try { localStorage.setItem(LISTE_KEY, zu ? 'zu' : 'auf'); } catch (er) { /* privat */ }
+        listeGriff(); break;
+      }
       case 'create-probe': {
         const pr = neueProbe(t.dataset.typ, t.dataset.anlass || null); closeSheet();
         go('#/p/' + pr.id + '/probe');  // bei Schritt 1 beginnen: Bezeichnung, Schnittdatum, PLZ, Fotos

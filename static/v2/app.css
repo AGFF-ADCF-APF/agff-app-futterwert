@@ -185,7 +185,9 @@ textarea.input { min-height: 88px; resize: vertical; }
 
 /* ---------- Rad ---------- */
 .rad-layout { display: grid; gap: 16px; }
-@media (min-width: 980px) { .rad-layout { grid-template-columns: minmax(340px, 440px) 1fr; align-items: start; } .rad-sticky { position: sticky; top: 70px; } }
+/* Rad und Fragen nebeneinander nur, wenn der Arbeitsbereich selbst breit genug ist (nicht das ganze Fenster) */
+.region-detail { container-type: inline-size; container-name: detail; }
+@container detail (min-width: 760px) { .rad-layout { grid-template-columns: minmax(320px, 440px) 1fr; align-items: start; } .rad-sticky { position: sticky; top: 70px; } }
 .rad-box { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 6px; box-shadow: var(--shadow); }
 .rad { display: block; width: 100%; height: auto; max-width: 460px; margin: 0 auto; touch-action: manipulation; }
 .rad .rz-hit { cursor: pointer; }
@@ -642,3 +644,16 @@ html.cam-offen, html.cam-offen body { overflow: hidden; }
 .bar > .app-mini { order: 99; }
 .app-mini-k { width: 36px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--ink-3); cursor: pointer; }
 .app-mini-k[aria-pressed="true"] { background: #facc15; color: #1f2937; }
+
+/* Mittlere Spalte (Liste) am Computer einklappbar */
+.liste-griff { display: none; }
+@media (min-width: 760px) {
+  .liste-griff { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); cursor: pointer; flex: none; }
+  .liste-griff:hover { border-color: var(--brand); color: var(--ink); }
+  html[data-liste="zu"] .shell[data-depth="1"], html[data-liste="zu"] .shell[data-depth="2"] { grid-template-columns: 1fr; }
+  html[data-liste="zu"] .shell[data-depth="1"] .region-list, html[data-liste="zu"] .shell[data-depth="2"] .region-list { display: none !important; }
+}
+@media (min-width: 1180px) {
+  html[data-liste="zu"] .shell, html[data-liste="zu"] .shell[data-depth="1"], html[data-liste="zu"] .shell[data-depth="2"] { grid-template-columns: 260px 1fr; }
+  html[data-liste="zu"] .shell .region-list { display: none !important; }
+}
