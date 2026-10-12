@@ -430,7 +430,9 @@
     const eigene = list.filter(istEigen); const andere = list.filter((p) => !istEigen(p));
     const kopf = (t, n) => '<li class="list-kopf">' + t + ' <span class="muted">(' + n + ')</span></li>';
     const teilen = a.space.mode === 'w' && teilbareProben(a).length ? '<li><button class="btn sm ghost block" data-act="proben-teilen" data-id="' + a.id + '">' + I.plus + ' Bereits erfasste Proben teilen …</button></li>' : '';
-    return '<ul class="list" style="padding:8px">' + kopf('Eigene Proben', eigene.length) + eigene.map((p) => probeItem(p, p.id === activeId)).join('') +
+    const imKurs = a.kursToken && db.anlaesse.find((x) => x.kurs && a.kursToken.startsWith(x.kurs.id + '.'));
+    const kursHinweis = a.kursToken ? '<div class="pad" style="padding-bottom:0"><div class="alert info">' + I.table + '<div><b>In einen Kurs überführt.</b> Die Proben dieser Gruppe werden jetzt im Kurs beurteilt und verglichen. <button class="btn sm primary" style="margin-top:6px" data-act="gruppe-zum-kurs" data-id="' + a.id + '">' + (imKurs ? 'Zum Kurs' : 'Dem Kurs beitreten') + '</button></div></div></div>' : '';
+    return kursHinweis + '<ul class="list" style="padding:8px">' + kopf('Eigene Proben', eigene.length) + eigene.map((p) => probeItem(p, p.id === activeId)).join('') +
       (eigene.length ? '' : '<li class="empty small">Noch keine eigenen Proben in dieser Gruppe.</li>') + teilen +
       kopf('Andere Proben', andere.length) + (andere.length ? andere.map((p) => probeItem(p, p.id === activeId)).join('') : '<li class="empty small">Noch keine Proben anderer Mitglieder.</li>') + '</ul>';
   }
@@ -1057,6 +1059,7 @@
       '<button class="btn block" data-act="pdf-anlass" data-id="' + a.id + '">' + I.pdf + ' PDF aller Proben (mit QR-Codes)</button>' +
       '<button class="btn block" data-act="export-anlass" data-id="' + a.id + '">Als JSON-Datei exportieren</button>' +
       (a.space && !ro ? '<button class="btn block" data-act="proben-teilen" data-id="' + a.id + '">' + I.plus + ' Bereits erfasste Proben teilen</button>' : '') +
+      (a.space && !ro && !a.kursToken ? '<button class="btn block" data-act="gruppe-kurs" data-id="' + a.id + '">' + I.table + ' In Kurs umwandeln …</button>' : '') +
       (a.space ? '<button class="btn block" data-act="share-space" data-id="' + a.id + '">' + I.share + ' ' + (ro ? 'Freigabe-Link' : 'Mitglieder einladen (Code, QR, Links)') + '</button><button class="btn block" data-act="sync-now" data-id="' + a.id + '">Jetzt synchronisieren</button>' +
         (ro ? '' : '<button class="btn block" data-act="space-rotate" data-id="' + a.id + '">' + I.lock + ' Links erneuern (alte Links sperren)</button><button class="btn danger block" data-act="space-delete" data-id="' + a.id + '">Vom Server löschen (lokal behalten)</button>')
         : '<button class="btn block" data-act="consent" data-id="' + a.id + '">' + I.cloud + ' Auf Server speichern & teilen …</button>') +
@@ -1096,7 +1099,7 @@
     return { analyse, privat: Object.keys(privat).length ? privat : null };
   }
   async function sealMeta(k, sid, a) {
-    const { analyse, privat } = Model.split({ id: 'anlassmeta', titel: a.titel, datum: a.datum, ort: a.ort, notiz: a.notiz }, 'anlass');
+    const { analyse, privat } = Model.split({ id: 'anlassmeta', titel: a.titel, datum: a.datum, ort: a.ort, notiz: a.notiz, kursToken: a.kursToken }, 'anlass');
     void k; void sid;
     return { analyse, privat };
   }
@@ -1173,7 +1176,7 @@
         try { d = await openRecord(k, sid, r); } catch (e) { throw new Error('Schlüssel passt nicht – Link wurde evtl. erneuert'); }
         if (r.id === 'anlassmeta') {
           const m = Model.cleanAnlass(Object.assign(d, { id: a.id }));
-          if (!a.space.metaDirty && m && r.clientUpdatedAt > (a.updatedAt || '')) Object.assign(a, { titel: m.titel, datum: m.datum, ort: m.ort, notiz: m.notiz, updatedAt: r.clientUpdatedAt });
+          if (!a.space.metaDirty && m && r.clientUpdatedAt > (a.updatedAt || '')) Object.assign(a, { titel: m.titel, datum: m.datum, ort: m.ort, notiz: m.notiz, kursToken: m.kursToken || a.kursToken, updatedAt: r.clientUpdatedAt });
           continue;
         }
         remoteIds.add(r.id);
@@ -1342,6 +1345,16 @@
         }).catch(() => {});
       },
     });
+  }
+  function gruppeKursFrage(g) {
+    if (!g || !g.space) return;
+    const ps = probenOf(g.id); const eig = ps.filter((p) => istEigen(p) && auswertung(p).vollstaendig).length;
+    sheet('<h2>Gruppe in Kurs umwandeln</h2><p class="small" style="margin-top:0">Aus «' + esc(g.titel) + '» wird ein Kurs: Alle können jede Probe selbst beurteilen und danach vergleichen. Kurse anlegen können freigeschaltete Kursleitende.</p><ul class="small">' +
+      '<li><b>' + ps.length + ' ' + (ps.length === 1 ? 'Probe wird' : 'Proben werden') + ' Kursproben</b> – mit Bezeichnung, Schnittdatum, PLZ/Höhe, Notizen, Fotos und Laborwerten. Sie erhalten Nummern; Etiketten dafür können Sie anschliessend drucken.</li>' +
+      '<li><b>' + eig + ' eigene, vollständige Beurteilung' + (eig === 1 ? '' : 'en') + '</b> ' + (eig === 1 ? 'wird' : 'werden') + ' als Ihre Abgabe übernommen.</li>' +
+      '<li>Beurteilungen anderer Mitglieder bleiben in der Gruppe; im Kurs beurteilen sie die Proben selbst (so entsteht der Vergleich).</li>' +
+      '<li>Die Mitglieder sehen in der Gruppe einen Hinweis mit «Dem Kurs beitreten». Die Gruppe bleibt als Archiv bestehen; löschen können Sie sie später im Menü.</li></ul>' +
+      '<div class="row"><button class="btn ghost grow" data-close>Abbrechen</button><button class="btn primary grow" data-act="gruppe-kurs-ok" data-id="' + g.id + '">Weiter zum Kurs</button></div>');
   }
   /** Proben, die in eine Gruppe verschoben werden dürfen: nur lokale (Einzelproben oder nicht geteilte Anlässe). */
   function teilbareProben(gruppe) {
@@ -1659,6 +1672,12 @@
       case 'gruppe-beitreten': sheetBeitreten(); break;
       case 'gruppe-scan': closeSheet(); qrScannen(); break;
       case 'proben-teilen': sheetProbenTeilen(anlassById(id)); break;
+      case 'gruppe-kurs': closeSheet(); gruppeKursFrage(anlassById(id)); break;
+      case 'gruppe-kurs-ok': closeSheet(); window.Kurs.anlegen(null, { gruppe: id }); break;
+      case 'gruppe-zum-kurs': {
+        const g = anlassById(id); const k = g && g.kursToken && db.anlaesse.find((x) => x.kurs && g.kursToken.startsWith(x.kurs.id + '.'));
+        if (k) go('#/a/' + k.id); else if (g && g.kursToken) window.Kurs.beitreten(g.kursToken); break;
+      }
       case 'new-anlass-eigen': closeSheet(); sheetAnlass(null, (a) => setTimeout(() => sheetConsent(a), 200)); break;
       case 'edit-anlass': if (anlassReadOnly(id)) { toast('Nur-Ansehen-Link: Änderungen sind nicht möglich.'); break; } sheetAnlass(anlassById(id)); break;
       case 'anlass-menu': sheetAnlassMenu(anlassById(id)); break;
@@ -1834,7 +1853,7 @@
   // Schnittstelle für Zusatzmodule (Kurs)
   window.__app = {
     get db() { return db; }, save, render, refreshChrome, rerenderDetail, sheet, closeSheet, toast, go, esc, I, uid, now, fmt,
-    typBadge, touchProbe, neueProbe, basisTabelle: () => basis && basis.tabelle, radFokus: (p) => ui.fokus[p.id] || null, probeById, anlassById, auswertung, wheelSvg, tonOf, bestandStadium, sheetAnlass, sheetConsent, label, dateCH, route: () => ui.route,
+    typBadge, touchProbe, neueProbe, titelOf, istEigen, fotoVomServer, syncAnlass, probenOf, basisTabelle: () => basis && basis.tabelle, radFokus: (p) => ui.fokus[p.id] || null, probeById, anlassById, auswertung, wheelSvg, tonOf, bestandStadium, sheetAnlass, sheetConsent, label, dateCH, route: () => ui.route,
   };
   load();
   try { basis = JSON.parse(localStorage.getItem('agffV2Basis')); } catch (e) { basis = null; }

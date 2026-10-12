@@ -33,7 +33,7 @@
   /** Felder je Schutzklasse (Pfade relativ zur Probe bzw. zum Anlass). */
   const PRIVAT = {
     probe: ['kopf.bez', 'kopf.herkunft', 'kopf.beurteiler', 'kopf.notiz', 'kopf.v1ProbeNr', 'kopf.plz', 'kopf.hoehe', 'fotos', 'labor', 'teilen', 'beitrag', 'autor'],
-    anlass: ['titel', 'ort', 'notiz'],
+    anlass: ['titel', 'ort', 'notiz', 'kursToken'],
   };
 
   /** Punktraster (Wiese mit Kamera): nur Zählwerte. */
@@ -135,6 +135,8 @@
     return compact({
       id: a.id, titel: str(a.titel, 200) || 'Ohne Titel', datum: date(a.datum), ort: str(a.ort, 200), notiz: str(a.notiz, 4000),
       createdAt: iso(a.createdAt) || now, updatedAt: iso(a.updatedAt), quelle: oneOf(a.quelle, ['v1']), nudgeBis: iso(a.nudgeBis),
+      // Gruppe wurde in einen Kurs umgewandelt: Kurs-Zugang «<kurs>.<geheimnis>» für die Mitglieder
+      kursToken: typeof a.kursToken === 'string' && /^[A-Za-z0-9_-]{6,64}\.[A-Za-z0-9_-]{43}$/.test(a.kursToken) ? a.kursToken : undefined,
       // Server-Zugang nur aus eigener Sicherung/eigenem Speicher übernehmen, nie aus fremden Exporten
       space: opts && opts.mitSpace ? cleanSpace(a.space) : undefined,
       kurs: opts && opts.mitSpace ? cleanKurs(a.kurs) : undefined,

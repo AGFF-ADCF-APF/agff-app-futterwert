@@ -183,13 +183,17 @@
   const ENTWURF = 'agffV2KursEntwurf';
   const entwurf = {
     lesen() { try { return JSON.parse(localStorage.getItem(ENTWURF) || 'null'); } catch (e) { return null; } },
-    merken(d) { try { localStorage.setItem(ENTWURF, JSON.stringify({ titel: d.titel, datum: d.datum, ort: d.ort, email: d.email })); } catch (e) { /* egal */ } },
+    merken(d) { try { localStorage.setItem(ENTWURF, JSON.stringify({ titel: d.titel, datum: d.datum, ort: d.ort, email: d.email, gruppe: d.gruppe })); } catch (e) { /* egal */ } },
     weg() { try { localStorage.removeItem(ENTWURF); } catch (e) { /* egal */ } },
   };
 
-  function anlegen(vorher) {
-    const A = app(); const v = vorher || entwurf.lesen() || {};
-    A.sheet('<h2>Kurs anlegen</h2><p class="small" style="margin-top:0">Für Schulklassen und Gruppen: Teilnehmende erfassen Proben per QR-Etikett und beurteilen sie gegenseitig. Kurse anlegen können freigeschaltete Kursleitende.</p>' +
+  function anlegen(vorher, opts) {
+    const A = app(); let v = vorher || entwurf.lesen() || {};
+    // Aus einer Gruppe: Titel, Datum und Ort übernehmen
+    const g = opts && opts.gruppe ? A.anlassById(opts.gruppe) : (v.gruppe ? A.anlassById(v.gruppe) : null);
+    if (opts && opts.gruppe) v = g ? { titel: g.titel, datum: g.datum, ort: g.ort, email: A.db.prefs.email || v.email, gruppe: g.id } : {};
+    if (!g) v.gruppe = undefined;
+    A.sheet('<h2>' + (g ? 'Kurs aus Gruppe «' + A.esc(g.titel) + '»' : 'Kurs anlegen') + '</h2><p class="small" style="margin-top:0">Für Schulklassen und Gruppen: Teilnehmende erfassen Proben per QR-Etikett und beurteilen sie gegenseitig. Kurse anlegen können freigeschaltete Kursleitende.</p>' +
       '<form id="kursForm" class="stack"><label class="field"><span>Kurstitel *</span><input class="input" name="titel" required maxlength="200" value="' + A.esc(v.titel || '') + '" placeholder="z. B. Silagekurs BZ Rütti, Klasse 2b"></label>' +
       '<div class="grid2"><label class="field"><span>Datum</span><input class="input" type="date" name="datum" value="' + A.esc(v.datum || new Date().toISOString().slice(0, 10)) + '"></label><label class="field"><span>Ort</span><input class="input" name="ort" maxlength="200" value="' + A.esc(v.ort || '') + '"></label></div>' +
       '<label class="field"><span>Ihre E-Mail-Adresse *</span><input class="input" type="email" name="email" required autocomplete="email" value="' + A.esc(v.email || '') + '"></label>' +
@@ -199,7 +203,7 @@
       el.querySelector('#kursForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const fd = new FormData(e.target); const btn = e.target.querySelector('.primary'); btn.disabled = true;
-        const d = { titel: String(fd.get('titel')).trim().slice(0, 200), datum: fd.get('datum') || undefined, ort: String(fd.get('ort') || '').trim(), email: String(fd.get('email')).trim().toLowerCase(), einladung: String(fd.get('einladung') || '').trim() };
+        const d = { titel: String(fd.get('titel')).trim().slice(0, 200), datum: fd.get('datum') || undefined, ort: String(fd.get('ort') || '').trim(), email: String(fd.get('email')).trim().toLowerCase(), einladung: String(fd.get('einladung') || '').trim(), gruppe: v.gruppe };
         try { await anlegenSenden(d); } catch (er) {
           btn.disabled = false;
           if (er.message === 'NICHT_FREIGESCHALTET') freischalten(d); else A.toast(fehlerText(er));
@@ -217,6 +221,17 @@
       entwurf.weg();
       A.db.anlaesse.push(a); A.save();
       await metaSpeichern(a, null); await laden(a);
+      const g = d.gruppe && A.anlassById(d.gruppe);
+      if (g) {
+        A.sheet('<h2>Proben werden übernommen …</h2><p class="small" id="ubMsg">Bitte warten.</p>');
+        const erg = await ausGruppe(g, a, (t) => { const m = document.getElementById('ubMsg'); if (m) m.textContent = t; });
+        nameSchritt(a, nameAusEmail(d.email), () => {
+          A.go('#/a/' + a.id);
+          A.toast(erg.n + (erg.n === 1 ? ' Probe' : ' Proben') + ' übernommen' + (erg.abgaben ? ', ' + erg.abgaben + (erg.abgaben === 1 ? ' eigene Beurteilung' : ' eigene Beurteilungen') + ' abgegeben' : '') + (erg.fehler ? ' – ' + erg.fehler + ' mit Fehler' : '') + '.');
+          if (erg.nrs.length) etikettenNachSammel(a, erg.nrs);
+        });
+        return;
+      }
       nameSchritt(a, nameAusEmail(d.email), () => { A.go('#/a/' + a.id); setTimeout(() => etikettenDialog(a), 80); });
     }, () => A.toast('Bitte das Formular erneut absenden, um einen neuen Code zu erhalten.'));
   }
@@ -1217,6 +1232,52 @@
     const ids = new Set(Object.keys(stand).concat(st.proben.map((p) => p.id)));
     for (const id of ids) { const kenn = await beitragKennung(a, id); await fetch('api/statistik/' + kenn.id, { method: 'DELETE', headers: { 'X-Beitrag-Token': kenn.token }, credentials: 'omit' }).catch(() => {}); }
     standSchreiben(a, {});
+  }
+
+  // ---------- Gruppe → Kurs ----------
+  /** Proben einer Gruppe als Kursproben anlegen (Ersterfassung durch die Kursleitung); eigene vollständige Beurteilungen als Abgabe. */
+  async function ausGruppe(g, a, status) {
+    const A = app(); const erg = { n: 0, abgaben: 0, fehler: 0, nrs: [] }; const ids = [];
+    const ps = A.probenOf(g.id);
+    const fotoHoch = async (p, f, kpId, zu) => {
+      let b = await F().blob(f.id).catch(() => null);
+      if (!b && await A.fotoVomServer(p, f).catch(() => false)) b = await F().blob(f.id).catch(() => null);
+      if (!b) return false;
+      const r = await fetch('api/kurse/' + a.kurs.id + '/fotos/' + f.id + '?probe=' + encodeURIComponent(kpId) + '&art=' + (f.art === 'labor' ? 'labor' : 'futter') + (zu ? '&zu=' + zu : ''),
+        { method: 'PUT', headers: Object.assign({ 'Content-Type': 'application/octet-stream' }, H(a)), body: await F().fuerServer(f, b), credentials: 'omit' });
+      if (!r.ok) { let j = {}; try { j = await r.json(); } catch (er) { /* leer */ } throw new Error(j.error || 'Foto-Upload ' + r.status); }
+      return true;
+    };
+    for (const [i, p] of ps.entries()) {
+      status('Probe ' + (i + 1) + ' von ' + ps.length + ': ' + A.titelOf(p));
+      const kpId = A.uid();
+      try {
+        const fotos = [];
+        for (const f of (p.fotos || [])) { if (await fotoHoch(p, f, kpId)) { const c = Object.assign({}, f); delete c.up; fotos.push(c); } }
+        const k = p.kopf || {};
+        const privat = { bez: A.titelOf(p), schnitt: k.schnitt, notiz: [k.herkunft ? 'Betrieb: ' + k.herkunft : '', k.notiz].filter(Boolean).join(' · ') || undefined,
+          standort: { plz: k.plz, hoehe: k.hoehe != null ? String(k.hoehe) : undefined }, fotos };
+        await api(a.kurs.id + '/proben/' + kpId, { method: 'PUT', headers: H(a), body: { analyse: { typ: p.typ }, privat, labor: p.labor || null } });
+        ids.push(kpId); erg.n++;
+        // Eigene, vollständige Beurteilung → Abgabe der Kursleitung
+        if (A.istEigen(p) && A.auswertung(p).vollstaendig) {
+          const lp = JSON.parse(JSON.stringify(p));
+          Object.assign(lp, { id: A.uid(), anlassId: a.id, kursProbeId: kpId, createdAt: A.now(), updatedAt: A.now() });
+          delete lp.syncedAt; delete lp.dirty; delete lp.teilen; delete lp.beitrag;
+          const { analyse, privat: pv } = global.Model.split(lp, 'probe'); delete analyse.anlassId;
+          delete pv.fotos;  // Fotos gehören bereits zur Kursprobe (Ersterfassung)
+          await api(a.kurs.id + '/proben/' + kpId + '/beurteilung', { method: 'PUT', headers: H(a), body: { data: { analyse, privat: Object.keys(pv).length ? pv : null } } });
+          lp.abgegebenAt = A.now(); A.db.proben.push(lp); erg.abgaben++;
+        }
+      } catch (er) { erg.fehler++; }
+    }
+    // Mitglieder der Gruppe auf den Kurs hinweisen
+    g.kursToken = a.kurs.id + '.' + a.kurs.secret; g.updatedAt = A.now(); if (g.space) g.space.metaDirty = true;
+    A.save(); await A.syncAnlass(g).catch(() => {});
+    await laden(a).catch(() => {});
+    const st = cache.get(a.id) || { proben: [] };
+    erg.nrs = st.proben.filter((x) => ids.includes(x.id)).map((x) => x.nr).sort((x, y) => x - y);
+    return erg;
   }
 
   // ---------- Sammelerfassung (Ernterapport) → Kursproben ----------
