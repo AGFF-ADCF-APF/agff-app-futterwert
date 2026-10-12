@@ -433,11 +433,17 @@
     doc.setFillColor(35, 35, 35);
     [[0.8, '< 1 mm, derb', 'Wiesenschwingel'], [2, 'ca. 2 mm, durchsichtig', 'Ital. Raigras'], [3, '1–3 mm, robust', 'Wiesenfuchsschwanz'], [1, '0,5–1,5, gestutzt', 'Rotes Straussgras'], [4, '1–4 mm, spitz', 'Ausläufer-Str., Fioringras']]
       .forEach(([l, a, n], i) => { const yy = ly + 7 + i * 3.5; doc.rect(lx, yy - 2, l, 2.2, 'F'); fett(); txt(a, lx + 6, yy, 6.5, 15); normal(); txt(n, lx + 36, yy, 6.5, 70); });
-    // ohne Massangabe im Schlüssel – deutlich abgesetzt, damit sie nicht zu einem Balken gelesen werden
+    // ohne Massangabe im Schlüssel – Zeichen wie im AGFF-Schlüssel (Rechteck = gestutzt, Dreieck = zugespitzt), dazu die Blattform
     doc.setDrawColor(200); doc.setLineWidth(0.2); doc.line(lx, ly + 22.6, lx + 80, ly + 22.6);
-    txt('ohne Mass im Schlüssel:', lx, ly + 25.6, 6, 110);
-    fett(); txt('kurz, gestutzt', lx + 26, ly + 25.6, 6.5, 15); normal(); txt('Wiesenrispengras', lx + 45, ly + 25.6, 6.5, 70);
-    fett(); txt('zugespitzt', lx + 26, ly + 28.8, 6.5, 15); normal(); txt('Gem. Rispengras', lx + 45, ly + 28.8, 6.5, 70);
+    txt('ohne Mass im Schlüssel:', lx, ly + 25.8, 6, 110);
+    doc.setFillColor(178, 214, 140); doc.setDrawColor(110, 170, 50); doc.setLineWidth(0.25);
+    doc.rect(lx + 26, ly + 24, 3, 1.8, 'FD'); doc.triangle(lx + 26, ly + 30.6, lx + 29, ly + 30.6, lx + 27.5, ly + 27.6, 'FD');
+    fett(); txt('kurz, gestutzt', lx + 31, ly + 25.8, 6.5, 15); normal(); txt('Wiesenrispengras', lx + 48, ly + 25.8, 6.5, 70);
+    fett(); txt('zugespitzt', lx + 31, ly + 30.4, 6.5, 15); normal(); txt('Gem. Rispengras', lx + 48, ly + 30.4, 6.5, 70);
+    const blaetter = await Promise.all(['wr', 'gr'].map((k) => bildPng('assets/bilder/schluessel-gv-blatt-' + k + '.png')));
+    // Blattform (oben rechts im Kasten): Wiesenrispe parallel mit Kahnspitze, Gem. Rispe konisch
+    blaetter.forEach((bl, i) => { if (!bl) return; const h = 10; const w = h * bl.w / bl.h; doc.addImage(bl.url, 'PNG', lx + 68 + i * 8, ly - 6.5 + (i ? 0.7 : 0), w, h); });
+    txt('Wiesenr.', lx + 69.4, ly + 5.8, 5.2, 110, { align: 'center' }); txt('Gem. R.', lx + 77.4, ly + 5.8, 5.2, 110, { align: 'center' });
 
     // ---- Ährchenlänge (AGFF-Schlüssel ab Rispenschieben) ----
     y = 156; box(X, y, B, 40, 'Ährchenlänge ab Rispenschieben (echte Grösse, ohne Grannen)');
