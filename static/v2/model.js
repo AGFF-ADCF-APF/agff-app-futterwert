@@ -107,7 +107,7 @@
       rad: cleanRad(p.rad, p.typ),
       fotos: cleanFotos(p.fotos),
       labor: cleanLabor(p.labor),
-      kursProbeId: typeof p.kursProbeId === 'string' && ID_RE.test(p.kursProbeId) ? p.kursProbeId : undefined,
+      kursProbeId: typeof p.kursProbeId === 'string' && ID_RE.test(p.kursProbeId) ? p.kursProbeId : undefined, muster: p.muster === true ? true : undefined,
       abgegebenAt: iso(p.abgegebenAt),
       // nur lokal geführte Sync-Felder
       syncedAt: iso(p.syncedAt), dirty: bool(p.dirty),
@@ -173,7 +173,7 @@
     const privat = {};
     PRIVAT[art].forEach((path) => { const v = getPath(obj, path); if (v !== undefined && v !== '') setPath(privat, path, v); delPath(analyse, path); });
     delete analyse.syncedAt; delete analyse.dirty; delete analyse.space; delete analyse.kurs;
-    delete analyse.kursProbeId; delete analyse.abgegebenAt;
+    delete analyse.kursProbeId; delete analyse.abgegebenAt; delete analyse.muster;
     return { analyse, privat };
   }
   /** Gegenstück zu split. */

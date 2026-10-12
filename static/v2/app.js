@@ -303,7 +303,7 @@
       '<li><a class="item" href="#/wiese" aria-current="' + (['wiese', 'fotopunkte', 'pflanzen'].includes(r.name)) + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.camera.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Wiese mit Kamera</span><span class="s">Bestand, Stadium, Höhe, Fotopunkte</span></span></a></li>' +
       '<li><a class="item" href="#/bilanz" aria-current="' + (r.name === 'bilanz') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.table.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Rationscheck</span><span class="s">Energie & Protein der Ration</span></span></a></li>' +
       '<li><a class="item" href="#/schweiz" aria-current="' + (r.name === 'schweiz') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">CH</span><span><span class="t">Auswertung Schweiz</span><span class="s">Karte nach PLZ und Höhenzone</span></span></a></li>' +
-      '<li><a class="item" href="#/pool" aria-current="' + (r.name === 'pool') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.table.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Probenpool</span><span class="s">Öffentliche Proben mit Laborwerten</span></span></a></li>' +
+      '<li><a class="item" href="#/pool" aria-current="' + (r.name === 'pool') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.table.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Musterproben</span><span class="s">Öffentlicher Probenpool mit Laborwerten</span></span></a></li>' +
       '<li><a class="item" href="#/hilfe" aria-current="' + (r.name === 'hilfe') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">?</span><span><span class="t">Hilfe & Merkblätter</span><span class="s">Unterlagen, Pflanzentabelle, Quellen</span></span></a></li>' +
       '<li><a class="item" href="../"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">v1</span><span><span class="t">Zur bisherigen Version</span><span class="s">Futterwert-Rechner v1</span></span></a></li>' +
       '</ul>';
@@ -317,7 +317,7 @@
     const w = res.werte;
     const ton = tonOf(res);
     return '<li><a class="item typ-' + p.typ + '" href="#/p/' + p.id + '" aria-current="' + active + '">' + wheelSvg(p, res, { mini: true }).replace('class="rad rad-mini"', 'class="rad rad-mini mini"') +
-      '<span style="min-width:0"><span class="t">' + esc(titelOf(p)) + '</span><span class="s">' + typBadge(p.typ) + ' ' + esc(K3.TYPEN[p.typ].kurz + (bestandStadium(p) ? ' · ' + bestandStadium(p) : '')) + '</span></span>' +
+      '<span style="min-width:0"><span class="t">' + (p.muster ? '<span class="chip muster">Muster</span> ' : '') + esc(titelOf(p)) + '</span><span class="s">' + typBadge(p.typ) + ' ' + esc(K3.TYPEN[p.typ].kurz + (bestandStadium(p) ? ' · ' + bestandStadium(p) : '')) + '</span></span>' +
       '<span class="meta"><span class="num">' + (w && w.nel ? fmt(w.nel, 2) : '–') + '</span><br><span class="chip ' + ton + '" style="padding:0 7px;font-size:.7rem">' + esc(res.sperre.length ? 'Sperre' : res.vollstaendig ? res.klasse.label.replace(' Silage', '') : 'offen') + '</span></span></a></li>';
   }
 
@@ -434,7 +434,7 @@
     if (step.id === 'rad') body = stepRad(p);
     if (step.id === 'ergebnis') body = stepErgebnis(p);
     const next = steps[idx + 1]; const prev = steps[idx - 1];
-    return '<div class="bar"><a class="icon-btn" href="' + back + '" aria-label="Zurück zur Liste">' + I.back + '</a><h2>' + esc(titelOf(p)) + '<span class="sub">' + esc(typ.titel + ' · ' + (typ.quelle || 'AGFF ' + typ.merkblatt)) + '</span></h2>' +
+    return '<div class="bar"><a class="icon-btn" href="' + back + '" aria-label="Zurück zur Liste">' + I.back + '</a><h2>' + (p.muster ? '<span class="chip muster">Muster</span> ' : '') + esc(titelOf(p)) + '<span class="sub">' + esc(typ.titel + ' · ' + (typ.quelle || 'AGFF ' + typ.merkblatt)) + '</span></h2>' +
       '<button class="icon-btn" data-act="probe-menu" data-id="' + p.id + '" aria-label="Probe-Aktionen">' + I.more + '</button></div>' +
       '<nav class="steps" aria-label="Schritte">' + steps.map((s, i) => '<button class="step-chip' + (stepDone(p, s.id) ? ' done' : '') + '" data-go="#/p/' + p.id + '/' + s.id + '"' + (s === step ? ' aria-current="step"' : '') + '><span class="n">' + (stepDone(p, s.id) ? '✓' : i + 1) + '</span>' + s.t + '</button>').join('') + '</nav>' +
       '<div class="wizard" data-probe="' + p.id + '">' + window.Kurs.hinweisKarte(p) + (readOnly(p) ? '<div class="alert info" style="margin-bottom:14px">' + I.lock + '<div>' + (p.abgegebenAt ? 'Im Kurs <b>abgegeben</b> am ' + dateCH(p.abgegebenAt) + ' – gesperrt. Den Vergleich finden Sie unter «Ergebnis».' : 'Geteilt über einen <b>Nur-Ansehen-Link</b> – Sie können alles einsehen, aber nichts ändern.') + '</div></div>' : '') + body + '</div>' +
@@ -931,7 +931,7 @@
 
   function sheetProbeMenu(p) {
     const ro = readOnly(p);
-    sheet('<h2>' + esc(titelOf(p)) + '</h2><div class="stack">' +
+    sheet('<h2>' + esc(titelOf(p)) + '</h2><div class="stack">' + window.Auswahl.knopf({ art: 'probe', id: p.id, titel: titelOf(p) }, true) +
       '<button class="btn block" data-act="pdf-probe" data-id="' + p.id + '">' + I.pdf + ' PDF mit QR-Code</button>' +
       '<button class="btn block" data-act="qr-probe" data-id="' + p.id + '">' + I.share + ' QR-Code / Link zum Weitergeben</button>' +
       '<button class="btn block" data-act="dup-probe" data-id="' + p.id + '">Kopie als neue Probe' + (ro ? ' (ohne Anlass)' : '') + '</button>' +
@@ -1366,6 +1366,7 @@
     if (e.target.closest('[data-wi]') && window.Wiese.handle(e)) return;
     if (e.target.closest('[data-pf]') && window.Pflanzen.handle(e)) return;
     if (e.target.closest('[data-pool-foto]') && window.PoolOeffentlich.handle(e)) return;
+    if (e.target.closest('[data-aw]') && window.Auswahl.handle(e)) return;
     const t = e.target.closest('[data-close],[data-act],[data-set],[data-go],[data-fokus],[data-step],[data-sort],[data-o],[data-f]');
     if (!t) return;
     if (t.tagName === 'A' && t.dataset.act) e.preventDefault();

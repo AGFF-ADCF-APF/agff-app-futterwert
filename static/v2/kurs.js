@@ -72,7 +72,7 @@
     for (const p of r.proben) {
       const pv = p.status === 'erfasst' ? await dec(p.privat, 'probe|' + p.id) : {};
       const lab = p.labor ? await dec(p.labor, 'labor|' + p.id) : null;
-      proben.push(Object.assign({ id: p.id, nr: p.nr, status: p.status, eigene: p.eigene, ownerId: p.ownerId, typ: p.analyse.typ, abgaben: p.abgaben, meineAbgabe: p.meineAbgabe, hatLabor: p.hatLabor, labor: lab }, pv));
+      proben.push(Object.assign({}, pv, { id: p.id, nr: p.nr, status: p.status, eigene: p.eigene, ownerId: p.ownerId, typ: p.analyse.typ, abgaben: p.abgaben, meineAbgabe: p.meineAbgabe, hatLabor: p.hatLabor, labor: lab, poolId: p.poolId || null, muster: p.muster || null }));
     }
     const st = { meta, hinweise: r.hinweise, teilnehmende, proben, ich: r.ich, geladen: Date.now(), kursConsent: r.kurs.consentVersion || '' };
     cache.set(a.id, st);
@@ -83,6 +83,7 @@
     if (meta.titel) { a.titel = String(meta.titel).slice(0, 200); a.datum = meta.datum; a.ort = meta.ort; }
     app().db.proben.filter((p) => p.anlassId === a.id && p.kursProbeId).forEach((p) => {
       const kp = proben.find((x) => x.id === p.kursProbeId); if (kp && kp.meineAbgabe && !p.abgegebenAt) p.abgegebenAt = kp.meineAbgabe;
+      if (kp) { if (kp.muster) p.muster = true; else delete p.muster; }
     });
     app().save();
     const rt = app().route(); if (rt.name === 'anlass' || rt.name === 'home') app().refreshChrome();
@@ -262,6 +263,7 @@
     const A = app();
     const L = C.parseKursLink(token);
     if (!L) return A.toast('Ungültiger Kurs-Link.');
+    if (L.probe && await musterWeiche(L)) return;
     const a = A.db.anlaesse.find((x) => x.kurs && x.kurs.id === L.id);
     if (a && a.kurs.session) {
       try { await laden(a); a.kurs.error = null; } catch (e) { if (e.status === 404) { delete a.kurs.session; A.save(); return beitretenDialog(L, a); } }
@@ -270,6 +272,23 @@
     }
     if (L.probe) return etikettOhneAnmeldung(L, a);
     beitretenDialog(L, a);
+  }
+  /** Etikett einer Musterprobe (Quelle eines Pool-Eintrags): nicht in den Ursprungskurs, sondern zum Muster –
+   *  in einen eigenen Kurs, der das Muster übernommen hat, sonst zur öffentlichen Musterseite. */
+  async function musterWeiche(L) {
+    const A = app();
+    let pool = null;
+    try { pool = (await global.FutterIO.api('oeffentlich/kursprobe/' + L.id + '/' + L.probe)).pool; } catch (e) { return false; }
+    if (!pool) return false;
+    for (const a of A.db.anlaesse.filter((x) => x.kurs && x.kurs.session)) {
+      let st = cache.get(a.id);
+      if (!st || Date.now() - st.geladen > 60000) st = await laden(a).catch(() => null);
+      const kp = st && st.proben.find((x) => x.poolId === pool.id);
+      if (kp) { A.toast('Musterprobe – im Kurs «' + a.titel + '»'); await scan(a, kp.id); return true; }
+    }
+    if (pool.oeffentlich) { A.go('#/pool/' + pool.id); setTimeout(() => A.toast('Musterprobe' + (pool.sammlung ? ' «' + pool.sammlung + '»' : '')), 300); return true; }
+    A.sheet('<h2><span class="chip muster">Muster</span> Musterprobe</h2><p>Diese Probe ist ein Muster im Probenpool für Kursleitende' + (pool.sammlung ? ' (Sammlung «' + A.esc(pool.sammlung) + '»)' : '') + '. Zum Beurteilen bitte im Kurs anmelden, der das Muster verwendet (Kurs-QR-Code oder «Kurse per E-Mail wiederfinden»).</p><button class="btn primary block" data-close>OK</button>');
+    return true;
   }
   /** Etikett einer Kursprobe gescannt, auf diesem Gerät aber (noch) nicht im Kurs angemeldet. */
   async function etikettOhneAnmeldung(L, vorhanden) {
@@ -711,12 +730,14 @@
       erfasst.forEach((kp) => {
         const lp = lokale.find((p) => p.kursProbeId === kp.id);
         const abg = !!(kp.meineAbgabe || (lp && lp.abgegebenAt));
+        const muster = kp.muster ? '<span class="chip muster" title="' + esc(kp.muster.art === 'quelle' ? 'Diese Probe ist Muster im Probenpool' : 'Musterprobe aus dem Probenpool') + (kp.muster.sammlung ? ' «' + kp.muster.sammlung + '»' : '') + '">Muster</span> ' : '';
         const status = abg ? '<span class="chip gut">abgegeben ✓</span>' : lp ? '<span class="chip mittel">in Arbeit</span>' : kp.eigene ? '<span class="chip">von mir erfasst</span>' : '<span class="chip">offen</span>';
         h += '<li><a class="item typ-' + kp.typ + '" href="#" data-act="kurs-probe" data-id="' + a.id + '" data-kp="' + esc(kp.id) + '" aria-current="' + (activeId === kp.id) + '"><span class="avatar typ-avatar">' + kp.nr + '</span>' +
-          '<span style="min-width:0"><span class="t">' + esc(kp.bez || ('Probe Nr. ' + kp.nr)) + '</span><span class="s">' + (global.K3.TYPEN[kp.typ] ? A.typBadge(kp.typ) + ' ' : '') + esc(global.K3.TYPEN[kp.typ] ? global.K3.TYPEN[kp.typ].titel : '') + (kp.eigene ? ' · von mir erfasst' : '') + '</span></span>' +
+          '<span style="min-width:0"><span class="t">' + muster + esc(kp.bez || ('Probe Nr. ' + kp.nr)) + '</span><span class="s">' + (kp.muster && kp.muster.sammlung ? '<b class="muster-text">Muster ' + esc(kp.muster.sammlung) + '</b> · ' : '') + (global.K3.TYPEN[kp.typ] ? A.typBadge(kp.typ) + ' ' : '') + esc(global.K3.TYPEN[kp.typ] ? global.K3.TYPEN[kp.typ].titel : '') + (kp.eigene ? ' · von mir erfasst' : '') + '</span></span>' +
           '<span class="meta">' + status + '<br><span class="small muted">' + kp.abgaben + ' Abgabe' + (kp.abgaben === 1 ? '' : 'n') + '</span></span></a>' +
-          ((leitung || kp.eigene) ? '<span class="row" style="margin:0 0 6px 60px;gap:6px">' + (kp.poolId ? '<span class="chip">aus Pool</span>' : '<button class="btn sm ghost" data-act="kurs-erfassen" data-id="' + a.id + '" data-kp="' + esc(kp.id) + '">Angaben bearbeiten</button>') +
-            (leitung && !kp.poolId ? '<button class="btn sm ghost" data-act="kurs-in-pool" data-id="' + a.id + '" data-kp="' + esc(kp.id) + '">In Pool stellen</button>' : '') + '</span>' : '') + '</li>';
+          '<span class="row" style="margin:0 0 6px 60px;gap:6px">' + ((leitung || kp.eigene) ? (kp.poolId ? '<span class="chip muster">Muster aus dem Pool</span>' : '<button class="btn sm ghost" data-act="kurs-erfassen" data-id="' + a.id + '" data-kp="' + esc(kp.id) + '">Angaben bearbeiten</button>') +
+            (leitung && !kp.poolId && !kp.muster ? '<button class="btn sm ghost" data-act="kurs-in-pool" data-id="' + a.id + '" data-kp="' + esc(kp.id) + '">In Pool stellen</button>' : '') : '') +
+            (global.Auswahl ? global.Auswahl.knopf({ art: 'kurs', aid: a.id, kp: kp.id, titel: (kp.bez || ('Probe Nr. ' + kp.nr)) + ' (' + a.titel + ')' }) : '') + '</span></li>';
       });
       if (leitung && leer) h += '<li class="small muted" style="padding:8px 12px">' + leer + ' leere Etiketten noch nicht erfasst.</li>';
     }
@@ -791,6 +812,17 @@
     }
   }
 
+  /** Für den PDF-Export (auswahl.js): Angaben, Laborwerte und Sinnenprüfungen einer Kursprobe. */
+  async function exportDaten(aid, kpId) {
+    const A = app(); const a = A.anlassById(aid); if (!a || !a.kurs) return null;
+    let st = cache.get(a.id); if (!st) st = await laden(a);
+    const kp = st.proben.find((x) => x.id === kpId); if (!kp) return null;
+    let sinnen = []; let gesperrt = false;
+    try { await vergleichLaden(a, kpId); sinnen = (vergleichCache.get(kpId) || { liste: [] }).liste; } catch (e) { gesperrt = true; }
+    const eigene = A.db.proben.find((p) => p.anlassId === a.id && p.kursProbeId === kpId);
+    if (gesperrt && eigene) sinnen = [{ probe: eigene, name: 'eigene Beurteilung', ich: true }];
+    return { kurs: a.titel, kp, sinnen, gesperrt };
+  }
   async function vergleichLaden(a, kpId) {
     const k = await kk(a.kurs.secret);
     const r = await api(a.kurs.id + '/proben/' + kpId + '/beurteilungen', { headers: H(a) });
@@ -1248,5 +1280,5 @@
     });
   }
 
-  global.Kurs = { meineKurse, beitraegeAbgleichen, beitragAktiv, sammelAnlegen, etikettenNachSammel, mailLink, renderList, renderUebersicht, ergebnisExtra, hinweisKarte, nachRender, handle, beitreten, anlegen, istAbgegeben: (p) => !!(p && p.abgegebenAt), nameAusEmail, FORMATE };
+  global.Kurs = { exportDaten, meineKurse, beitraegeAbgleichen, beitragAktiv, sammelAnlegen, etikettenNachSammel, mailLink, renderList, renderUebersicht, ergebnisExtra, hinweisKarte, nachRender, handle, beitreten, anlegen, istAbgegeben: (p) => !!(p && p.abgegebenAt), nameAusEmail, FORMATE };
 })(window);

@@ -359,6 +359,9 @@ def kurs_lesen(kurs_id):
         meine = {r['probe_id']: r['abgegeben_at'] for r in conn.execute(
             'SELECT probe_id, abgegeben_at FROM kurs_beurteilungen WHERE kurs_id = ? AND teilnehmer_id = ?', (kurs_id, ich['id']))}
         foto_bytes = conn.execute('SELECT COALESCE(SUM(bytes), 0) FROM kurs_fotos WHERE kurs_id = ? AND teilnehmer_id = ?', (kurs_id, ich['id'])).fetchone()[0]
+        # Musterproben: aus dem Pool übernommen (pool_id) oder selbst Quelle eines Pool-Eintrags
+        pool_info = {r['id']: r for r in conn.execute('SELECT id, sammlung, oeffentlich, quelle_kurs, quelle_probe FROM pool_proben')}
+        quelle = {r['quelle_probe']: r for r in pool_info.values() if r['quelle_kurs'] == kurs_id}
     hinweise = _hinweise_aus(k['meta_analyse'])
     teilnehmende = []
     for p in personen:
@@ -378,10 +381,19 @@ def kurs_lesen(kurs_id):
                     'analyse': _box(r['analyse']) or {}, 'privat': _box(r['privat']),
                     'labor': _box(r['labor']) if (leitung or r['owner_id'] == ich['id'] or hinweise.get('labor') or meine.get(r['id'])) else None,
                     'hatLabor': bool(r['labor']), 'poolId': r['pool_id'] if 'pool_id' in r.keys() else None,
+                    'muster': _muster(r, pool_info, quelle),
                     'abgaben': abgaben.get(r['id'], 0), 'meineAbgabe': meine.get(r['id'])} for r in proben
                    if r['status'] == 'erfasst' or leitung],
         'retentionDays': RETENTION_DAYS,
     })
+
+
+def _muster(r, pool_info, quelle):
+    pid = r['pool_id'] if 'pool_id' in r.keys() else None
+    if pid and pid in pool_info:
+        return {'poolId': pid, 'sammlung': pool_info[pid]['sammlung'], 'art': 'uebernommen'}
+    q = quelle.get(r['id'])
+    return {'poolId': q['id'], 'sammlung': q['sammlung'], 'art': 'quelle'} if q else None
 
 
 @v2.route('/v2/api/kurse/<kurs_id>/proben/<probe_id>/status', methods=['GET'])

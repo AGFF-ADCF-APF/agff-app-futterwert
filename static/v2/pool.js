@@ -1,6 +1,6 @@
-/* Futter v2 – Öffentlicher Probenpool (z. B. «Ernte 2026»): für alle ohne Anmeldung.
- * Zeigt nur, was Kursleitende ausdrücklich öffentlich gestellt haben: Angaben zur Probe, Region,
- * Laborwerte, geschwärzte Laborberichte und Futterfotos – keine Beurteilungen, keine Namen.
+/* Futter v2 – Musterproben: öffentlicher Probenpool (z. B. «Ernte 2026») für alle ohne Anmeldung.
+ * Öffentlich sind nur die extrahierten Werte und Angaben zur Probe (Region, Schnitt, Bestand, Laborwerte) –
+ * keine Laborberichte, keine Fotos, keine Beurteilungen, keine Namen.
  */
 (function (global) {
   'use strict';
@@ -28,10 +28,10 @@
 
   function karte(e) {
     const l = e.labor || {};
-    return '<a class="pool-karte" href="#/pool/' + esc(e.id) + '"><div class="pool-kopf">' + app().typBadge(e.typ) + '<b>' + esc(e.titel) + '</b></div>' +
+    return '<div class="pool-karte"><a class="pool-link" href="#/pool/' + esc(e.id) + '"><div class="pool-kopf"><span class="chip muster">Muster</span>' + app().typBadge(e.typ) + '<b>' + esc(e.titel) + '</b></div>' +
       '<div class="small muted">' + esc([e.schnitt ? app().dateCH(e.schnitt) : '', e.schnittNr ? e.schnittNr + ' Schnitt' : '', e.konservierung].filter(Boolean).join(' · ')) + '</div>' +
       (ort(e) ? '<div class="small muted">' + esc(ort(e)) + '</div>' : '') +
-      (l.nel != null || l.rp != null ? '<div class="pool-kpi">' + [['NEL', l.nel, 1, 'MJ'], ['APDE', l.apde, 0, 'g'], ['RP', l.rp, 0, 'g']].filter((x) => x[1] != null).map((x) => '<span><small>' + x[0] + '</small><b>' + fmt(x[1], x[2]) + '</b><small>' + x[3] + '</small></span>').join('') + '</div>' : '') + '</a>';
+      (l.nel != null || l.rp != null ? '<div class="pool-kpi">' + [['NEL', l.nel, 1, 'MJ'], ['APDE', l.apde, 0, 'g'], ['RP', l.rp, 0, 'g']].filter((x) => x[1] != null).map((x) => '<span><small>' + x[0] + '</small><b>' + fmt(x[1], x[2]) + '</b><small>' + x[3] + '</small></span>').join('') + '</div>' : '') + '</a>' + auswahlKnopf(e) + '</div>';
   }
 
   function liste() {
@@ -47,21 +47,25 @@
     const zeilen = WERTE.filter(([k]) => l[k] != null).map(([k, n, u, d]) => '<tr><td>' + n + '</td><td class="num"><b>' + fmt(l[k], d) + '</b></td><td class="muted">' + u + '</td></tr>').join('');
     const fakten = [['Futterart', typ(e.typ)], ['Schnittdatum', e.schnitt ? app().dateCH(e.schnitt) : ''], ['Schnitt', e.schnittNr], ['Konservierung', e.konservierung], ['Bestand', e.bestand],
       ['Region', [(e.region || {}).plz, (e.region || {}).ort].filter(Boolean).join(' ')], ['Höhe', e.hoehenstufe || ((e.region || {}).hoehe ? e.region.hoehe + ' m ü. M.' : '')], ['Quelle', e.quelle]].filter((x) => x[1]);
-    return '<div class="bar"><a class="icon-btn" href="#/pool" aria-label="Zurück">' + app().I.back + '</a><h2>' + esc(e.titel) + '<span class="sub">' + esc(e.sammlung || 'Probenpool') + '</span></h2></div><div class="pad pool">' +
+    return '<div class="bar"><a class="icon-btn" href="#/pool" aria-label="Zurück">' + app().I.back + '</a><h2><span class="chip muster">Muster</span> ' + esc(e.titel) + '<span class="sub">Musterprobe · ' + esc(e.sammlung || 'Probenpool') + '</span></h2></div><div class="pad pool">' +
       '<table class="wi-tab">' + fakten.map(([k, v]) => '<tr><td>' + k + '</td><td>' + esc(v) + '</td></tr>').join('') + '</table>' +
       (e.beschreibung ? '<p>' + esc(e.beschreibung) + '</p>' : '') +
       (zeilen ? '<section class="q"><h3>Laborwerte</h3><table class="wi-tab pool-lab">' + zeilen + '</table></section>' : '') +
-      ((e.fotos || []).length ? '<section class="q"><h3>Fotos und Laborbericht</h3><div class="fotos">' + e.fotos.map((f) => '<button type="button" class="foto-thumb" data-pool-foto="' + esc(f.id) + '"><img alt="" loading="lazy" src="' + fotoUrl(e, f) + '"><span class="foto-art">' + (f.art === 'labor' ? 'Labor' : 'Futter') + '</span></button>').join('') + '</div></section>' : '') +
-      '<p class="hint">Öffentlicher Probenpool der Futterbeurteilung (AGFF). Laborwerte gemäss Prüfbericht; Laborberichte ohne Namen und Adressen. Selbst beurteilen? Probe im Kurs scannen oder eigene Probe anlegen.</p></div>';
+      '<div class="row" style="margin-top:8px">' + auswahlKnopf(e, true) + '</div>' +
+      '<p class="hint">Musterprobe im öffentlichen Probenpool der Futterbeurteilung (AGFF). Öffentlich sind nur die aus dem Laborbericht übernommenen Werte; Laborbericht und Beurteilungen sehen nur Kursmitglieder. Selbst beurteilen? Im Kurs anmelden, der das Muster verwendet.</p></div>';
   }
 
   function render(id) {
     laden();
-    if (!daten) return '<div class="bar"><h2>Probenpool</h2></div><div class="pad"><p class="muted">Wird geladen …</p></div>';
+    if (!daten) return '<div class="bar"><h2>Musterproben</h2></div><div class="pad"><p class="muted">Wird geladen …</p></div>';
     if (id) { const e = daten.find((x) => x.id === id); if (e) return detail(e); }
-    return '<div class="bar"><h2>Probenpool<span class="sub">Öffentliche Proben mit Laborwerten</span></h2></div><div class="pad pool">' + liste() +
-      '<p class="hint">Hier erscheinen Proben, die Kursleitende ausdrücklich öffentlich gestellt haben – ohne Namen und ohne Beurteilungen.</p></div>';
+    return '<div class="bar"><h2>Musterproben<span class="sub">Öffentlicher Probenpool mit Laborwerten</span></h2></div><div class="pad pool">' + liste() +
+      '<p class="hint">Musterproben, die Kursleitende öffentlich gestellt haben – nur die Werte aus dem Laborbericht und Angaben zur Probe, ohne Laborbericht, Namen und Beurteilungen. Mit «+ Auswahl» für ein PDF zusammenstellen.</p></div>';
   }
+
+  const auswahlKnopf = (e, gross) => (global.Auswahl ? global.Auswahl.knopf({ art: 'pool', id: e.id, titel: e.titel }, gross) : '');
+  /** Für den PDF-Export (auswahl.js) */
+  async function eintrag(id) { if (!daten) daten = (await global.FutterIO.api('oeffentlich/pool')).eintraege || []; return daten.find((x) => x.id === id) || null; }
 
   function handle(e) {
     const t = e.target.closest('[data-pool-foto]'); if (!t) return false;
@@ -70,5 +74,5 @@
     return true;
   }
 
-  global.PoolOeffentlich = { render, handle };
+  global.PoolOeffentlich = { render, handle, eintrag, WERTE };
 })(window);

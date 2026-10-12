@@ -208,7 +208,7 @@ OEFFENTLICH_FELDER = ('typ', 'titel', 'beschreibung', 'quelle', 'schnitt', 'schn
 
 def _oeffentlich(d):
     out = {k: d[k] for k in OEFFENTLICH_FELDER if k in d}
-    out['fotos'] = [{k: f[k] for k in ('id', 'art', 'mime', 'w', 'h') if k in f} for f in d.get('fotos', []) if f.get('art') == 'futter' or f.get('ger')]
+    out['fotos'] = []  # öffentlich nur die extrahierten Werte – keine Laborberichte, keine Fotos
     return out
 
 
@@ -242,13 +242,14 @@ def pool_oeffentlich_foto(pool_id, foto_id):
 
 @v2.route('/v2/api/oeffentlich/kursprobe/<kurs_id>/<probe_id>', methods=['GET'])
 def kursprobe_oeffentlich(kurs_id, probe_id):
-    """Etikett gescannt, nicht im Kurs angemeldet: gibt es einen öffentlichen Pool-Eintrag zu dieser Probe?"""
+    """Etikett gescannt: ist diese Kursprobe ein Muster im Pool (Quelle eines Pool-Eintrags)?"""
     _rate_hit('pool_pub', limit=300, window=600)
     if not ID_RE.match(kurs_id) or not ID_RE.match(probe_id):
         return jsonify({'error': 'NOT_FOUND'}), 404
     with _db() as conn:
-        r = conn.execute('SELECT id, sammlung FROM pool_proben WHERE oeffentlich = 1 AND quelle_kurs = ? AND quelle_probe = ?', (kurs_id, probe_id)).fetchone()
-    return jsonify({'pool': {'id': r['id'], 'sammlung': r['sammlung']} if r else None})
+        r = conn.execute('SELECT id, sammlung, oeffentlich FROM pool_proben WHERE quelle_kurs = ? AND quelle_probe = ?', (kurs_id, probe_id)).fetchone()
+    # Musterprobe: Etikett führt zum Muster (öffentlich) bzw. zu Kursen, die es übernommen haben
+    return jsonify({'pool': {'id': r['id'], 'sammlung': r['sammlung'], 'oeffentlich': bool(r['oeffentlich'])} if r else None})
 
 
 def _loeschen(pool_id):
