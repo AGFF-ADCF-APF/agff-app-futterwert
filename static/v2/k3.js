@@ -530,7 +530,8 @@
     if (!werte || !werte.nel || werte.apde == null) return null;
     const o = opts || {};
     const kg = Number(o.kuhGewicht) || 630;
-    let tsv = Number(o.tsvBasis) > 0 ? Number(o.tsvBasis) : null;
+    const eigen = Number(o.tsv) > 0;
+    let tsv = eigen ? Number(o.tsv) : Number(o.tsvBasis) > 0 ? Number(o.tsvBasis) : null;
     if (!tsv) {
       const key = o.typ === 'heu' ? (o.aufwuchs === 'f' ? 'heuf' : 'heu') : o.typ === 'gruen' ? (o.aufwuchs === 'f' ? 'gruenf' : 'gruen1') : 'silage';
       const [fa, fb] = TSV_MB3[key];
@@ -543,7 +544,7 @@
     const apdn = (werte.apdn * tsv - mAp) / 50;
     const min = Math.min(nel, apde, apdn);
     const limit = min === nel ? 'NEL' : min === apde ? 'APDE' : 'APDN';
-    return { tsv, nel, apde, apdn, mpp: Math.max(0, min), limit, kuhGewicht: kg };
+    return { tsv, nel, apde, apdn, mpp: Math.max(0, min), limit, kuhGewicht: kg, tsvEigen: eigen };
   }
 
   /**
@@ -578,11 +579,13 @@
     if (!werte || !werte.nev || werte.apde == null || werte.apdn == null) return null;
     const lg = Math.max(MAST.LG_MIN, Math.min(MAST.LG_MAX, Number((opts || {}).lebendgewicht) || 400));
     const apd = Math.min(werte.apde, werte.apdn);
-    const tzwE = maxZuwachs((t) => werte.nev * mastTsv(lg, t) - mastNevBedarf(lg, t));
-    const tzwP = maxZuwachs((t) => apd * mastTsv(lg, t) - mastApdBedarf(lg, t));
+    const fest = Number((opts || {}).tsv) > 0 ? Number(opts.tsv) : null;  // eigener Verzehr statt Formel
+    const tsvF = (t) => (fest || mastTsv(lg, t));
+    const tzwE = maxZuwachs((t) => werte.nev * tsvF(t) - mastNevBedarf(lg, t));
+    const tzwP = maxZuwachs((t) => apd * tsvF(t) - mastApdBedarf(lg, t));
     const tzw = tzwE == null || tzwP == null ? null : Math.min(tzwE, tzwP);
     const limit = tzwE == null ? 'NEV' : tzwP == null ? 'APD' : (tzwE <= tzwP ? 'NEV' : 'APD');
-    return { lebendgewicht: lg, tzwE, tzwP, tzw, limit, apdQuelle: werte.apde <= werte.apdn ? 'APDE' : 'APDN', tsv: mastTsv(lg, tzw || 0) };
+    return { lebendgewicht: lg, tzwE, tzwP, tzw, limit, apdQuelle: werte.apde <= werte.apdn ? 'APDE' : 'APDN', tsv: tsvF(tzw || 0), tsvEigen: !!fest };
   }
 
   global.K3 = {

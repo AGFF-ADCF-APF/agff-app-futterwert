@@ -109,6 +109,7 @@
       labor: cleanLabor(p.labor),
       kursProbeId: typeof p.kursProbeId === 'string' && ID_RE.test(p.kursProbeId) ? p.kursProbeId : undefined, muster: p.muster === true ? true : undefined,
       abgegebenAt: iso(p.abgegebenAt),
+      tsv: isObj(p.tsv) && (num(p.tsv.kuh, 3, 40) || num(p.tsv.mast, 1, 25)) ? compact({ kuh: num(p.tsv.kuh, 3, 40), mast: num(p.tsv.mast, 1, 25) }) : undefined,
       // nur lokal geführte Sync-Felder
       syncedAt: iso(p.syncedAt), dirty: bool(p.dirty),
     });

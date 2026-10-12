@@ -114,11 +114,45 @@
   const titelOf = (p) => (p.kopf && p.kopf.bez) || 'Probe ohne Namen';
   function mppOf(p, res) {
     if (!res.werte) return null;
-    return K3.milchPotenzial(res.werte, { kuhGewicht: db.prefs.kuhGewicht, tsvBasis: res.basis && res.basis.tsv, typ: p.typ === 'heu' || p.typ === 'gruen' ? p.typ : 'silage', aufwuchs: p.antworten.aufwuchs });
+    return K3.milchPotenzial(res.werte, { kuhGewicht: db.prefs.kuhGewicht, tsv: p.tsv && p.tsv.kuh, tsvBasis: res.basis && res.basis.tsv, typ: p.typ === 'heu' || p.typ === 'gruen' ? p.typ : 'silage', aufwuchs: p.antworten.aufwuchs });
   }
 
   const mastGewicht = () => Number(db.prefs.mastGewicht) || 400;
-  function mastOf(p, res) { return res.werte ? K3.mastPotenzial(res.werte, { lebendgewicht: mastGewicht() }) : null; }
+  function mastOf(p, res) { return res.werte ? K3.mastPotenzial(res.werte, { lebendgewicht: mastGewicht(), tsv: p.tsv && p.tsv.mast }) : null; }
+  /** Deutlicher Tier-Knopf in den Kästen Tierleistung: antippen → Gewicht und Verzehr anpassen. */
+  const tierKnopf = (p, art, gewicht) => '<button type="button" class="tier-btn" data-act="tier" data-tier="' + art + '" data-id="' + p.id + '" aria-label="' + (art === 'kuh' ? 'Milchkuh' : 'Mastmuni') + ': Gewicht und Verzehr anpassen">' +
+    '<span class="tier-ico" aria-hidden="true">' + (art === 'kuh' ? '🐄' : '🐂') + '</span><span class="tier-txt"><b>' + (art === 'kuh' ? 'Milchkuh' : 'Mastmuni') + '</b><small>' + gewicht + ' kg · anpassen</small></span></button>';
+  const verzehrText = (m, quelle) => 'Verzehr ' + fmt(m.tsv, 1) + ' kg TS ' + (m.tsvEigen ? '<b>(eigener Wert)</b>' : '(' + quelle + ')');
+  function sheetTier(p, art) {
+    if (!p) return;
+    const res = auswertung(p); const kuh = art === 'kuh';
+    const ohne = Object.assign({}, p, { tsv: undefined });
+    const schaetz = kuh ? mppOf(ohne, res) : mastOf(ohne, res);
+    const eigen = p.tsv && (kuh ? p.tsv.kuh : p.tsv.mast);
+    sheet('<h2><span style="font-size:1.6rem;vertical-align:-3px">' + (kuh ? '🐄' : '🐂') + '</span> ' + (kuh ? 'Milchkuh' : 'Mastmuni') + '</h2>' +
+      '<form id="tierForm" class="stack"><label class="field"><span>Lebendgewicht (kg)' + (kuh ? '' : ', ' + K3.MAST.LG_MIN + '–' + K3.MAST.LG_MAX) + ' <span class="muted">– gilt für alle Proben</span></span><input class="input" name="gewicht" inputmode="numeric" value="' + esc(kuh ? db.prefs.kuhGewicht : mastGewicht()) + '"></label>' +
+      '<fieldset class="stack" style="border:0;padding:0;margin:0"><legend class="small" style="font-weight:650;margin-bottom:6px">Verzehr dieses Futters <span class="muted">(nur diese Probe)</span></legend>' +
+      '<label class="toggle"><input type="radio" name="modus" value="auto"' + (eigen ? '' : ' checked') + '> <span>Schätzen' + (schaetz ? ': ' + fmt(schaetz.tsv, 1) + ' kg TS' : '') + ' <span class="muted small">' + (kuh ? '(aus dem NEL-Gehalt, AGFF-Merkblatt 3)' : '(Grünes Buch Kap. 10, aus Gewicht und Zuwachs)') + '</span></span></label>' +
+      '<label class="toggle"><input type="radio" name="modus" value="eigen"' + (eigen ? ' checked' : '') + '> <span>Eigener Wert</span></label>' +
+      '<label class="field"><span>kg TS pro Tag</span><input class="input" name="tsv" inputmode="decimal" value="' + esc(eigen ? String(eigen).replace('.', ',') : '') + '" placeholder="' + (schaetz ? fmt(schaetz.tsv, 1) : '') + '"></label></fieldset>' +
+      '<p class="hint">Der eigene Verzehr eignet sich z. B., wenn er auf dem Betrieb gemessen wurde oder das Futter besonders gern bzw. schlecht gefressen wird.</p>' +
+      '<div class="row"><button type="button" class="btn ghost grow" data-close>Abbrechen</button><button class="btn primary grow">Übernehmen</button></div></form>', (el) => {
+      const inp = el.querySelector('[name=tsv]');
+      inp.addEventListener('input', () => { el.querySelector('[name=modus][value=eigen]').checked = true; });
+      el.querySelector('#tierForm').addEventListener('submit', (e) => {
+        e.preventDefault(); const fd = new FormData(e.target);
+        const g = Number(String(fd.get('gewicht')).replace(',', '.'));
+        if (kuh) db.prefs.kuhGewicht = g >= 300 && g <= 1000 ? Math.round(g) : db.prefs.kuhGewicht;
+        else db.prefs.mastGewicht = Math.max(K3.MAST.LG_MIN, Math.min(K3.MAST.LG_MAX, Math.round(g) || mastGewicht()));
+        if (readOnly(p)) { save(); closeSheet(); rerenderDetail(true); return; }  // gesperrte Probe: nur Gewicht (gilt allgemein)
+        const v = Number(String(fd.get('tsv') || '').replace(',', '.'));
+        const t = Object.assign({}, p.tsv || {});
+        if (fd.get('modus') === 'eigen' && v > 0) { if (kuh && (v < 3 || v > 40)) { toast('Verzehr Milchkuh: 3–40 kg TS'); return; } if (!kuh && (v < 1 || v > 25)) { toast('Verzehr Mastmuni: 1–25 kg TS'); return; } t[art] = Math.round(v * 10) / 10; } else delete t[art];
+        if (Object.keys(t).length) p.tsv = t; else delete p.tsv;
+        touchProbe(p); closeSheet(); rerenderDetail(true);
+      });
+    });
+  }
   const fmtTzw = (t) => (t == null ? 'unter Erhaltung' : fmt(Math.round(t / 10) * 10, 0) + ' g');
   function mastText(m) {
     if (!m) return null;
@@ -724,12 +758,12 @@
     if (!m) return '';
     const vals = [['NEV', m.tzwE, 'Energie'], ['APD', m.tzwP, 'Protein (' + m.apdQuelle + ')']];
     const max = Math.max(1600, ...vals.map((v) => v[1] || 0));
-    return '<div class="card" style="margin-top:14px"><div class="row"><b class="grow">Mastpotenzial Muni ' + m.lebendgewicht + ' kg</b><span class="kpi-inline"><b style="font-size:1.5rem">' +
+    return '<div class="card" style="margin-top:14px"><div class="row">' + tierKnopf(p, 'mast', m.lebendgewicht) + '<b class="grow">Mastpotenzial</b><span class="kpi-inline"><b style="font-size:1.5rem">' +
       (m.tzw == null ? '–' : fmt(Math.round(m.tzw / 10) * 10, 0)) + '</b> g/Tag</span></div>' +
       (m.tzw == null ? '<div class="alert info" style="margin-top:8px">Dieses Futter allein deckt nicht einmal den Erhaltungsbedarf (' + (m.limit === 'APD' ? 'Protein' : 'Energie') + ') – Ergänzung nötig.</div>' : '') +
       '<div class="bars" style="margin-top:10px">' + vals.map(([k, v, t]) => '<div class="b" style="cursor:default" title="' + t + '"><span class="lbl">' + k + (k === m.limit ? ' · begrenzt' : '') + '</span><span class="track"><span class="val" style="width:' + Math.max(0, Math.min(100, ((v || 0) / max) * 100)) + '%;background:' + (k === m.limit ? 'var(--schlecht)' : 'var(--line-strong)') + '"></span></span><span class="n">' + (v == null ? '< Erh.' : fmt(Math.round(v / 10) * 10, 0)) + '</span></div>').join('') + '</div>' +
-      '<p class="small muted" style="margin:8px 0 0">Tageszuwachs (g), den ein Muni von ' + m.lebendgewicht + ' kg allein mit diesem Futter erreichen könnte – Verzehr ' + fmt(m.tsv, 1) + ' kg TS, Bedarf nach Agroscope (Grünes Buch, Kap. 10). ' +
-      'Hinweis: Agroscope-Versuche zeigen, dass der Energiebedarf moderner Mastmuni damit um rund 20 % überschätzt wird; reale Zunahmen dürften eher höher liegen. Gewicht unter «Daten & Datenschutz» anpassbar.</p></div>';
+      '<p class="small muted" style="margin:8px 0 0">Tageszuwachs (g), den ein Muni von ' + m.lebendgewicht + ' kg allein mit diesem Futter erreichen könnte – ' + verzehrText(m, 'Grünes Buch Kap. 10') + ', Bedarf nach Agroscope (Grünes Buch, Kap. 10). ' +
+      'Hinweis: Agroscope-Versuche zeigen, dass der Energiebedarf moderner Mastmuni damit um rund 20 % überschätzt wird; reale Zunahmen dürften eher höher liegen. Tier antippen, um Gewicht und Verzehr anzupassen.</p></div>';
   }
 
   /** Milchbildungspotenzial: alle drei Grenzen zeigen, die begrenzende hervorheben. */
@@ -738,9 +772,9 @@
     if (!m) return '';
     const vals = [['NEL', m.nel, 'Energie'], ['APDE', m.apde, 'Protein (Energie im Pansen)'], ['APDN', m.apdn, 'Protein (Stickstoff im Pansen)']];
     const max = Math.max(30, ...vals.map((v) => v[1]));
-    return '<div class="card" style="margin-top:14px"><div class="row"><b class="grow">Milchbildungspotenzial aus diesem Futter</b><span class="kpi-inline"><b style="font-size:1.5rem">' + fmt(m.mpp, 1) + '</b> kg/Tag</span></div>' +
+    return '<div class="card" style="margin-top:14px"><div class="row">' + tierKnopf(p, 'kuh', m.kuhGewicht) + '<b class="grow">Milchbildungspotenzial</b><span class="kpi-inline"><b style="font-size:1.5rem">' + fmt(m.mpp, 1) + '</b> kg/Tag</span></div>' +
       '<div class="bars" style="margin-top:10px">' + vals.map(([k, v, t]) => '<div class="b" style="cursor:default" title="' + t + '"><span class="lbl">' + k + (k === m.limit ? ' · begrenzt' : '') + '</span><span class="track"><span class="val" style="width:' + Math.max(0, Math.min(100, (v / max) * 100)) + '%;background:' + (k === m.limit ? 'var(--schlecht)' : 'var(--line-strong)') + '"></span></span><span class="n">' + fmt(Math.max(0, v), 1) + '</span></div>').join('') + '</div>' +
-      '<p class="small muted" style="margin:8px 0 0">Milch (kg/Tag), die eine Kuh von ' + m.kuhGewicht + ' kg allein mit diesem Futter bilden könnte – Verzehr ' + fmt(m.tsv, 1) + ' kg TS (Merkblatt 3), Bedarf nach Agroscope, wie Futterwert-Rechner v1. Der kleinste der drei Werte begrenzt; ergänzende Futtermittel können ihn ausgleichen.</p></div>';
+      '<p class="small muted" style="margin:8px 0 0">Milch (kg/Tag), die eine Kuh von ' + m.kuhGewicht + ' kg allein mit diesem Futter bilden könnte – ' + verzehrText(m, 'geschätzt aus NEL, Merkblatt 3') + ', Bedarf nach Agroscope, wie Futterwert-Rechner v1. Der kleinste der drei Werte begrenzt; ergänzende Futtermittel können ihn ausgleichen.</p></div>';
   }
 
   function stepErgebnis(p) {
@@ -1414,6 +1448,7 @@
       case 'edit-anlass': if (anlassReadOnly(id)) { toast('Nur-Ansehen-Link: Änderungen sind nicht möglich.'); break; } sheetAnlass(anlassById(id)); break;
       case 'anlass-menu': sheetAnlassMenu(anlassById(id)); break;
       case 'probe-menu': sheetProbeMenu(probeById(id)); break;
+      case 'tier': sheetTier(probeById(id), t.dataset.tier); break;
       case 'import': sheetImport(); break;
       case 'outdoor': {
         const on = document.documentElement.dataset.outdoor === '1';

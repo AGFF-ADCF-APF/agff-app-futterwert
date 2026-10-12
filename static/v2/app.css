@@ -584,3 +584,9 @@ html.cam-offen, html.cam-offen body { overflow: hidden; }
 .aw-liste li { display: flex; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
 .aw-art { flex: none; font-size: .72rem; font-weight: 800; padding: 2px 8px; border-radius: 99px; background: var(--surface-2); }
 .aw-liste .grow { flex: 1; min-width: 0; }
+.tier-btn { display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px 4px 6px; margin-right: 10px; border: 2px solid var(--brand); border-radius: 99px; background: var(--brand-soft); color: var(--ink); cursor: pointer; flex: none; }
+.tier-btn:hover { background: var(--surface); }
+.tier-ico { font-size: 1.9rem; line-height: 1; }
+.tier-txt { display: grid; text-align: left; line-height: 1.15; }
+.tier-txt small { color: var(--brand-ink); font-size: .74rem; }
+.card > .row:first-child { flex-wrap: wrap; row-gap: 8px; }
