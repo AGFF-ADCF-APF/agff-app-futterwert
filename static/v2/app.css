@@ -657,3 +657,8 @@ html.cam-offen, html.cam-offen body { overflow: hidden; }
   html[data-liste="zu"] .shell, html[data-liste="zu"] .shell[data-depth="1"], html[data-liste="zu"] .shell[data-depth="2"] { grid-template-columns: 260px 1fr; }
   html[data-liste="zu"] .shell .region-list { display: none !important; }
 }
+/* Tastaturkürzel: Ctrl halten blendet Schildchen ein */
+html.kb-hinweise [data-kb] { position: relative; }
+html.kb-hinweise [data-kb]::after { content: attr(data-kb); position: absolute; top: -8px; left: -6px; z-index: 5; min-width: 20px; padding: 2px 6px; border-radius: 6px; background: #facc15; color: #1f2937; font: 800 .74rem/1.2 var(--font); box-shadow: 0 1px 4px rgb(0 0 0 / .3); pointer-events: none; text-align: center; }
+.kb-tab kbd { display: inline-block; min-width: 1.6em; padding: 1px 6px; border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 6px; background: var(--surface-2); font: 700 .82rem var(--font); text-align: center; }
+.kb-tab td:last-child { text-align: left; }

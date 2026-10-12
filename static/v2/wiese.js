@@ -628,13 +628,44 @@
     function upd() { W.root.querySelector('.cam-t span').innerHTML = hilfe(); W.leiste(leiste()); W.neu(); }
     W.root.addEventListener('change', (e) => { if (e.target.dataset.hm === 'bcm') { const v = Number(String(e.target.value).replace(',', '.')); if (v >= 5 && v <= 300) { S.Bcm = v; rechnen(); W.leiste(leiste()); W.neu(); } } });
   }
+  /* Ertragsschätzung aus der Wuchshöhe (wie v1, Werte anpassbar):
+   * a) Futterdichte: Ertrag (kg TS/ha) = Höhe (cm, unverdichtet) × Futterdichte (kg TS/ha je cm; v1-Standard 100)
+   * b) Herbometer: verdichtete Höhe cmRPM ≈ unverdichtete Höhe / 1,7 (AGFF-Merkblatt 1 «Weide», 2023);
+   *    Ertrag = Formel aus v1 (Standard 140 · cmRPM + 500). Richtwerte MB1: 7,5–9 cmRPM ≈ 1300 kg TS/ha verfügbares Weidefutter. */
+  const ERTRAG_KEY = 'agffV2Ertrag';
+  function ertragParam() {
+    let z = {}; try { z = JSON.parse(localStorage.getItem(ERTRAG_KEY) || '{}') || {}; } catch (e) { z = {}; }
+    return { dichte: Number(z.dichte) > 0 ? Number(z.dichte) : 100, a: Number.isFinite(Number(z.a)) && z.a !== undefined ? Number(z.a) : 140, b: Number.isFinite(Number(z.b)) && z.b !== undefined ? Number(z.b) : 500 };
+  }
+  function ertragHtml(h) {
+    const e = ertragParam(); const rpm = h / 1.7;
+    const viaDichte = h * e.dichte; const viaRpm = e.a * rpm + e.b;
+    return '<section class="q" id="wiErtrag"><h3>Ertragsschätzung</h3>' +
+      '<table class="wi-tab"><tr><td>Über Futterdichte<br><span class="small muted">' + Math.round(h) + ' cm × ' + fmt(e.dichte, 0) + ' kg TS/ha je cm</span></td><td><b>≈ ' + fmt(Math.round(viaDichte / 10) * 10, 0) + ' kg TS/ha</b></td></tr>' +
+      '<tr><td>Über Herbometer-Höhe<br><span class="small muted">' + Math.round(h) + ' cm ÷ 1,7 ≈ ' + fmt(rpm, 1) + ' cmRPM · ' + fmt(e.a, 0) + ' × cmRPM + ' + fmt(e.b, 0) + '</span></td><td><b>≈ ' + fmt(Math.round(viaRpm / 10) * 10, 0) + ' kg TS/ha</b></td></tr></table>' +
+      '<details><summary class="small" style="cursor:pointer;font-weight:650">Werte anpassen</summary><div class="grid2" style="margin-top:8px">' +
+      '<label class="field"><span>Futterdichte (kg TS/ha je cm)</span><input class="input" inputmode="decimal" data-ertrag="dichte" value="' + e.dichte + '"></label>' +
+      '<label class="field"><span>Formel cmRPM: a · x + b</span><span class="row" style="gap:6px"><input class="input" inputmode="decimal" data-ertrag="a" value="' + e.a + '" aria-label="a"><input class="input" inputmode="decimal" data-ertrag="b" value="' + e.b + '" aria-label="b"></span></label></div></details>' +
+      '<p class="hint">Grobe Schätzung des stehenden Bestandes. Die Futterdichte hängt stark von Bestand (dicht/locker, Gräser/Kräuter) und Aufwuchs ab – am besten mit einer eigenen Schnittprobe (Mähen und Wiegen) eichen. Umrechnung unverdichtet → Herbometer (Faktor 1,7) und Richtwerte nach AGFF-Merkblatt 1 «Weide» (2023): Auftriebshöhe 7,5–9 cmRPM ≈ 1300 kg TS/ha verfügbares Weidefutter. Standardwerte wie im Futterwert-Rechner v1.</p></section>';
+  }
+  document.addEventListener('change', (e) => {
+    const t = e.target.closest('[data-ertrag]'); if (!t) return;
+    const z = ertragParam(); const v = Number(String(t.value).replace(',', '.'));
+    if (Number.isFinite(v)) z[t.dataset.ertrag] = v;
+    try { localStorage.setItem(ERTRAG_KEY, JSON.stringify(z)); } catch (er) { /* privat */ }
+    const box = document.getElementById('wiErtrag'); const h = Number(box && box.closest('.sheet') && box.closest('.sheet').dataset.hoehe);
+    if (box && h) { box.outerHTML = ertragHtml(h); const d = document.querySelector('#wiErtrag details'); if (d) d.open = true; }
+  });
+
   function hoeheSheet() {
     const p = HS.pid ? app().probeById(HS.pid) : null;
     const m = HS.werte.reduce((s, x) => s + x, 0) / HS.werte.length;
-    app().sheet('<h2>Wuchshöhe</h2><p class="wi-gross">≈ ' + Math.round(m) + ' cm</p><p class="small muted" style="margin-top:0">Mittel aus ' + HS.werte.length + ' Messung' + (HS.werte.length > 1 ? 'en' : '') + ': ' + HS.werte.join(' · ') + ' cm</p>' +
-      '<p class="hint">Gemessen wird die unverdichtete mittlere Bestandeshöhe in der Ebene der Karte bzw. des Massstabs. Über der Karte (29 cm) wird extrapoliert – dort ist die Messung ungenauer. Einen Ertrag leitet die App daraus bewusst nicht ab: Dafür braucht es geeichte Verfahren (z. B. Herbometer mit verdichteter Höhe).</p>' +
+    const el = app().sheet('<h2>Wuchshöhe</h2><p class="wi-gross">≈ ' + Math.round(m) + ' cm</p><p class="small muted" style="margin-top:0">Mittel aus ' + HS.werte.length + ' Messung' + (HS.werte.length > 1 ? 'en' : '') + ': ' + HS.werte.join(' · ') + ' cm</p>' +
+      ertragHtml(m) +
+      '<p class="hint">Gemessen wird die unverdichtete mittlere Bestandeshöhe in der Ebene der Karte bzw. des Massstabs. Über der Karte (29 cm) wird extrapoliert – dort ist die Messung ungenauer. Für ein gutes Mittel mehrere Stellen der Parzelle messen.</p>' +
       '<div class="stack"><button class="btn block" data-wi="hoehe-weiter">Weitere Messung</button>' +
       (p ? '<button class="btn primary block" data-wi="hoehe-ok">Zur Probe übernehmen</button>' : '') + '<button class="btn ghost block" data-wi="hoehe-weg">' + (p ? 'Verwerfen' : 'Schliessen') + '</button></div>');
+    if (el) el.dataset.hoehe = m;
   }
 
   // =====================================================================
@@ -907,7 +938,7 @@
       '<div class="wi-karten">' +
       karte('raster', 'Bestand schätzen', 'Punktraster antippen: Gräser, Raigras, Klee, Kräuter, Lücken → Vorschlag Bestandestyp') +
       karte('stadium', 'Stadium vergleichen', 'Leitpflanze im Live-Bild neben die AGFF-Vergleichsbilder halten') +
-      karte('hoehe', 'Wuchshöhe messen', 'Mit Messkarte oder Doppelmeter im Bild') +
+      karte('hoehe', 'Wuchshöhe und Ertrag', 'Höhe mit Messkarte oder Doppelmeter im Bild, daraus Ertragsschätzung (kg TS/ha)') +
       karte('karte-pdf', 'Messkarte drucken', 'A4 mit vier Eckmarken: Raster 50 × 50 cm, Höhe, Farbabgleich') +
       karte('fotopunkte', 'Fotopunkte', 'Dieselbe Stelle über die Zeit, mit Vorher-Bild als Ausrichtungshilfe') +
       karte('pflanzen', 'Pflanzen bestimmen', 'Wichtige Futterpflanzen nach Merkmalen, mit Kamera-Lupe') +
@@ -928,7 +959,7 @@
     return '<div class="bar"><div class="brand"><img src="assets/icon.svg" alt=""><div><b>Wiesenbeurteilung</b><span class="sub">Bestand · Stadium · Pflanzen <span class="badge-beta">v2 Beta 1</span></span></div></div>' +
       '<button class="icon-btn" data-act="outdoor" title="Modus «Draussen»: hoher Kontrast" aria-label="Modus Draussen umschalten">' + I.sun + '</button></div>' + umschalter +
       '<div class="pad stack"><button class="btn primary block" data-wi="raster" style="min-height:56px">' + I.camera + ' Bestand schätzen (Punktraster)</button>' +
-      '<div class="row"><button class="btn sm grow" data-wi="stadium">Stadium vergleichen</button><button class="btn sm grow" data-wi="hoehe">Wuchshöhe messen</button></div></div>' +
+      '<div class="row"><button class="btn sm grow" data-wi="stadium">Stadium vergleichen</button><button class="btn sm grow" data-wi="hoehe">Höhe &amp; Ertrag</button></div></div>' +
       '<div class="section-title" style="padding:0 12px">Werkzeuge</div><ul class="list" style="padding:0 8px">' +
       li('#/pflanzen', '🌿', 'Pflanzen bestimmen', 'AGFF-Schlüssel, Suche, Porträts', r.name === 'pflanzen') +
       li('#/fotopunkte', '📍', 'Fotopunkte', FP.length ? FP.length + ' Punkte · Vorher/Nachher' : 'Dieselbe Stelle über die Zeit', r.name === 'fotopunkte') +
@@ -1008,7 +1039,6 @@
   function stadiumKnopf(p) {
     const a = p.antworten;
     return '<div class="wi-inline">' + (a.aufwuchs === '1' ? '<button class="btn" data-wi="stadium" data-probe="' + p.id + '">' + app().I.camera + ' Mit Kamera vergleichen</button>' : '') +
-      '<button class="btn" data-wi="hoehe" data-probe="' + p.id + '">Wuchshöhe messen</button>' +
       (a.wuchshoehe ? '<span class="small muted">Wuchshöhe ≈ ' + a.wuchshoehe + ' cm' + (a.hoeheN > 1 ? ' (' + a.hoeheN + ' Messungen)' : '') + '</span>' : '') + '</div>';
   }
   function fotoIds() { return fpLaden().flatMap((p) => p.fotos.map((f) => f.id)).concat(refsLaden().map((r) => r.id)); }

@@ -1,8 +1,8 @@
-/* Futter v2 – «Auswertung Schweiz»: anonyme Beiträge auf der CH-Karte (PLZ-Region) und nach Höhenzone.
+/* Futter v2 – «Auswertung Schweiz»: anonyme Beiträge auf der CH-Karte (PLZ-Region) und nach Höhenstufe.
  *
  * Datenschutz: Der Server liefert Kennwerte nur für Gruppen ab 5 Beiträgen (k-Anonymität); kleinere Gruppen
  * erscheinen nur als Anzahl. Regionen = erste zwei Ziffern der PLZ (Mittelpunkt aus dem amtlichen Ortschaftenverzeichnis).
- * Höhenzonen sind eine Näherung über die Höhe (Tal < 600 m, Hügel 600–800 m, Berg ≥ 800 m), nicht die amtlichen Zonen.
+ * Höhenstufen: unter 600 m (Grenze nach AGFF-Merkblatt 3), 600–1000, 1000–1400, über 1400 m – nach Höhe, nicht die amtlichen Zonen.
  */
 (function (global) {
   'use strict';
@@ -82,9 +82,9 @@
   // ---------- Höhenzonen ----------
   function hoehenGrafik(d) {
     const H = 2600, y = (m) => 20 + (1 - m / H) * 210; // 0 m → y=230, 2600 m → y=20
-    const zonen = [['tal', 0, 600, '#dcefdc', 'Talgebiet'], ['huegel', 600, 800, '#eef0cf', 'Hügelgebiet'], ['berg', 800, H, '#efe4d6', 'Berggebiet']];
+    const zonen = [['h1', 0, 600, '#dcefdc', 'unter 600 m'], ['h2', 600, 1000, '#eef0cf', '600–1000 m'], ['h3', 1000, 1400, '#f1e7d2', '1000–1400 m'], ['h4', 1400, H, '#ece4dc', 'über 1400 m']];
     const zinfo = Object.fromEntries((d.zonen || []).map((z) => [z.id, z]));
-    let s = '<svg class="sw-hoehe" viewBox="0 0 360 246" role="img" aria-label="Proben nach Höhenzone mit Höhenskala">';
+    let s = '<svg class="sw-hoehe" viewBox="0 0 360 246" role="img" aria-label="Proben nach Höhenstufe mit Höhenskala">';
     zonen.forEach(([id, lo, hi, fill]) => { s += '<rect x="40" y="' + y(hi) + '" width="316" height="' + (y(lo) - y(hi)) + '" fill="' + fill + '"/>'; });
     // stilisierte Landschaft: Tal – Hügel – Berge mit Schnee
     s += '<path d="M40 ' + y(420) + ' C70 ' + y(430) + ' 95 ' + y(470) + ' 120 ' + y(650) + ' S150 ' + y(760) + ' 170 ' + y(700) + ' S195 ' + y(900) + ' 215 ' + y(1250) + ' L245 ' + y(2050) + ' L262 ' + y(1700) + ' L288 ' + y(2450) + ' L312 ' + y(1900) + ' L330 ' + y(2150) + ' L356 ' + y(1500) + ' L356 230 L40 230 Z" fill="#7aa98a" fill-opacity=".55"/>';
@@ -92,7 +92,7 @@
     // Skala
     for (let m = 0; m <= 2500; m += 500) s += '<line x1="34" x2="40" y1="' + y(m) + '" y2="' + y(m) + '" stroke="#74837d"/><text x="31" y="' + (y(m) + 2.5) + '" text-anchor="end" font-size="7" fill="#4b5a54">' + m + '</text>';
     s += '<text x="8" y="14" font-size="7" fill="#4b5a54">m ü. M.</text>';
-    [600, 800].forEach((m) => { s += '<line x1="40" x2="356" y1="' + y(m) + '" y2="' + y(m) + '" stroke="#74837d" stroke-dasharray="3 2" stroke-width=".7"/>'; });
+    [600, 1000, 1400].forEach((m) => { s += '<line x1="40" x2="356" y1="' + y(m) + '" y2="' + y(m) + '" stroke="#74837d" stroke-dasharray="3 2" stroke-width=".7"/>'; });
     // Profil: Balken je 200 m (Länge = Anzahl, Farbe = Median NEL)
     const pmax = Math.max(1, ...(d.profil || []).map((p) => p.n));
     (d.profil || []).forEach((p) => {
@@ -102,7 +102,7 @@
     });
     // Zonen-Beschriftung rechts
     zonen.forEach(([id, lo, hi, , name]) => {
-      const z = zinfo[id] || { n: 0 }; const ym = id === 'berg' ? y(1000) : (y(lo) + y(hi)) / 2;
+      const z = zinfo[id] || { n: 0 }; const ym = id === 'h4' ? y(1900) : (y(lo) + y(hi)) / 2;
       s += '<text x="352" y="' + (ym - 1) + '" text-anchor="end" font-size="8" font-weight="700" fill="#17221e">' + name + '</text>' +
         '<text x="352" y="' + (ym + 8) + '" text-anchor="end" font-size="6.8" fill="#17221e">' + z.n + ' Proben' + (z.nel ? ' · NEL ' + fmt(z.nel.p50, 1) : '') + '</text>';
     });
@@ -123,7 +123,7 @@
       '<div class="kpi"><div class="l">NEL geschätzt (Median)</div><div class="v">' + fmt(d.gesamt.nel && d.gesamt.nel.p50) + ' <small>MJ</small></div></div>' +
       '<div class="kpi"><div class="l">NEL Labor (Median)</div><div class="v">' + fmt(d.gesamt.laborNel && d.gesamt.laborNel.p50) + ' <small>MJ</small></div></div></div>';
     h += '<div class="section-title">Nach PLZ-Region</div><div class="card sw-karte-box">' + karte(d) + '</div>' + regionDetail(d);
-    h += '<div class="section-title">Nach Höhenzone</div><div class="card">' + hoehenGrafik(d) +
+    h += '<div class="section-title">Nach Höhenstufe</div><div class="card">' + hoehenGrafik(d) +
       '<p class="small muted" style="margin:6px 0 0">Balken: Anzahl Proben je 200 m Höhe, Farbe = Median NEL (ab ' + d.kMin + ' Proben). Zonen als Näherung über die Höhe: Tal unter 600 m, Hügel 600–800 m, Berg ab 800 m – nicht die amtlichen Zonen des Produktionskatasters.' + (d.ohneHoehe ? ' ' + d.ohneHoehe + ' Proben ohne Höhenangabe.' : '') + '</p></div>';
     h += '<div class="sw-zonen">' + (d.zonen || []).map((z) => '<div class="card"><b>' + esc(z.name) + '</b> <span class="small muted">' + (z.bis >= 5000 ? 'ab ' + z.von : z.von + '–' + z.bis) + ' m · ' + z.n + ' Proben</span>' +
       (z.n >= d.kMin ? kennzeilen(z) : '<p class="small muted" style="margin:6px 0 0">Kennwerte ab ' + d.kMin + ' Proben.</p>') + '</div>').join('') + '</div>';

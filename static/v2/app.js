@@ -398,7 +398,7 @@
       '<div class="section-title" style="padding:0 12px">Daten & Datenschutz</div><ul class="list" style="padding:0 8px 24px">' +
       '<li><a class="item" href="#/daten" aria-current="' + (r.name === 'daten') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.lock.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Speicherort, Sicherung, v1-Daten</span><span class="s">' + (storageOk ? 'Daten liegen nur in diesem Browser' : 'Browserspeicher nicht verfügbar!') + '</span></span></a></li>' +
       '<li><a class="item" href="#/bilanz" aria-current="' + (r.name === 'bilanz') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.table.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Rationscheck</span><span class="s">Energie & Protein der Ration</span></span></a></li>' +
-      '<li><a class="item" href="#/schweiz" aria-current="' + (r.name === 'schweiz') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">CH</span><span><span class="t">Auswertung Schweiz</span><span class="s">Karte nach PLZ und Höhenzone</span></span></a></li>' +
+      '<li><a class="item" href="#/schweiz" aria-current="' + (r.name === 'schweiz') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">CH</span><span><span class="t">Auswertung Schweiz</span><span class="s">Karte nach PLZ und Höhenstufe</span></span></a></li>' +
       '<li><a class="item" href="#/pool" aria-current="' + (r.name === 'pool') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.table.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Musterproben</span><span class="s">Öffentlicher Probenpool mit Laborwerten</span></span></a></li>' +
       '<li><a class="item" href="#/hilfe" aria-current="' + (r.name === 'hilfe') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">?</span><span><span class="t">Hilfe & Merkblätter</span><span class="s">Unterlagen, Pflanzentabelle, Quellen</span></span></a></li>' +
       '<li><a class="item" href="../"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">v1</span><span><span class="t">Zur bisherigen Version</span><span class="s">Futterwert-Rechner v1</span></span></a></li>' +
@@ -468,6 +468,7 @@
       DOKS.map(([g, l]) => q(g, '', '<ul class="doks">' + l.map(([f, t, h]) => '<li><a href="assets/docs/' + f + '" download><span class="doc-ico">PDF</span><span><b>' + esc(t) + '</b><span class="small muted">' + esc(h) + '</span></span></a></li>').join('') + '</ul>')).join('') +
       q('Pflanzen: wichtigste Eigenschaften', 'Alle Arten der vier AGFF-Bestimmungsschlüssel mit Weg im Schlüssel, Merkmalen, Giftigkeit, Raster-Klasse und futterbaulichem Wert (eAGFF).',
         '<div class="row"><button class="btn" data-pf="export" data-v="csv">Tabelle für Excel (CSV)</button><button class="btn" data-pf="export" data-v="pdf">Tabelle als PDF</button><a class="btn ghost" href="#/pflanzen">Pflanzen bestimmen</a></div>') +
+      q('Tastatur am Computer', 'Ziffern wählen Optionen, Enter geht weiter, Alt+←/→ wechselt den Schritt, «?» zeigt alle Kürzel. Ctrl kurz halten blendet die Kürzel an den Knöpfen ein.', '<button class="btn" data-act="tastatur">Alle Tastaturkürzel</button>') +
       q('Weitere Quellen', '', '<ul class="ext">' +
         ext('https://www.eagff.ch', 'eAGFF – Wissensplattform Futterbau', 'Pflanzenporträts, Fotos, Bestimmungsschlüssel (AGFF)') +
         ext('https://www.agroscope.admin.ch/de/fuetterungsempfehlungen-fuer-wiederkaeuer', 'Fütterungsempfehlungen für Wiederkäuer («Grünes Buch»)', 'Agroscope – Nährwertberechnung, Verzehr, Bedarf') +
@@ -1516,6 +1517,7 @@
       }
       case 'meine-kurse': window.Kurs.meineKurse(); break;
       case 'app': appWechseln(t.dataset.val); break;
+      case 'tastatur': window.Tastatur.uebersicht(); break;
       case 'liste-umschalten': {
         const zu = document.documentElement.dataset.liste !== 'zu';
         if (zu) document.documentElement.dataset.liste = 'zu'; else delete document.documentElement.dataset.liste;

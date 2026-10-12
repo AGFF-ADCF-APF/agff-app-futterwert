@@ -184,7 +184,9 @@ def vergleich():
 
 
 # Höhenzonen: Näherung über die Höhe (die amtlichen landwirtschaftlichen Zonen folgen dem Produktionskataster)
-ZONEN = [('tal', 'Talgebiet', 0, 600), ('huegel', 'Hügelgebiet', 600, 800), ('berg', 'Berggebiet', 800, 5000)]
+# Höhenstufen: 600 m nach AGFF-Merkblatt 3 (bis/über 600 m); darüber in 400-m-Stufen (Gliederung der App,
+# bewusst nicht «Tal/Hügel/Berg», da die amtlichen landwirtschaftlichen Zonen nicht allein von der Höhe abhängen)
+ZONEN = [('h1', 'unter 600 m', 0, 600), ('h2', '600–1000 m', 600, 1000), ('h3', '1000–1400 m', 1000, 1400), ('h4', 'über 1400 m', 1400, 5000)]
 
 
 def _kennwerte(daten):
