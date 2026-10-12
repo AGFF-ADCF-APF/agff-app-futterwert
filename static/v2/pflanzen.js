@@ -223,7 +223,109 @@
   };
 
   const SCHLUESSEL = [GRAS_V, GRAS_G, LEGUM, KRAUT];
-  let Z = { key: 'gv', offen: [], arten: [], az: false };
+
+  // ---------- Suche: Namen (DE, Synonyme, Latein, FR, IT) und Merkmale aus den Beschreibungen ----------
+  const GRUPPE = { gv: 'gras', gg: 'gras', lv: 'leg', kv: 'kraut' };
+  const GRUPPE_NAME = { gras: 'Gräser', leg: 'Leguminosen', kraut: 'Kräuter' };
+  const SYNONYME = {
+    'Timothe': ['Wiesenlieschgras', 'Wiesen-Lieschgras'], 'Fromental': ['Glatthafer', 'Französisches Raigras'], 'Schotenklee': ['Hornklee', 'Gewöhnlicher Hornklee'],
+    'Wiesenblacke / Grosser Ampfer': ['Stumpfblättrige Blacke', 'Blacke', 'Ampfer'], 'Ruchgras': ['Geruchgras', 'Gewöhnliches Ruchgras'], 'Baumtropfen / Geissfuss': ['Giersch'],
+    'Hopfenklee (Gelbklee)': ['Gelbklee', 'Hopfen-Schneckenklee'], 'Wiesenrispengras': ['Wiesenrispe'], 'Gemeines Rispengras': ['Gemeine Rispe'], 'Einjähriges Rispengras': ['Einjährige Rispe'],
+    'Bärenklau': ['Wiesen-Bärenklau'], 'Wiesenkerbel': ['Kerbel'], 'Wiesenlöwenzahn': ['Löwenzahn', 'Pfaffenröhrli', 'Chrottepösche'], 'Fioringras': ['Weisses Straussgras'],
+    'Weissklee': ['Kriechender Klee'], 'Rotklee': ['Wiesenklee'], 'Binsen': ['Flatterbinse'], 'Seggen, Waldsimse': ['Segge', 'Waldbinse', 'Sauergras'],
+    'Ackerschachtelhalm': ['Katzenschwanz', 'Zinnkraut'], 'Sumpfschachtelhalm': ['Katzenschwanz'], 'Blaues Pfeifengras / Besenried': ['Pfeifengras', 'Besenried'],
+  };
+  const norm = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/ß/g, 'ss');
+  let INDEX = null;
+  function suchIndex() {
+    if (INDEX) return INDEX;
+    INDEX = [];
+    SCHLUESSEL.forEach((K) => {
+      (function lauf(n, pfad, weg) {
+        (n.arten || []).forEach((a) => INDEX.push({ K, pfad, weg, a }));
+        (n.kinder || []).forEach((k, i) => lauf(k, pfad === '' ? String(i) : pfad + '.' + i, weg.concat(k.nr ? k.nr + ' ' + k.t : k.t)));
+      })(K, '', []);
+    });
+    return INDEX;
+  }
+  /** Felder je Fundstelle mit Gewicht: Namen zählen mehr als Merkmale. */
+  function felder(e) {
+    const i = info(e.a.n) || {};
+    return [['name', e.a.n, 10], ['syn', (SYNONYME[e.a.n] || []).join(' · '), 8], ['lat', i.lat, 8], ['fr', i.fr, 7], ['it', i.it, 7], ['titel', i.titel !== e.a.n ? i.titel : '', 6],
+      ['d', [e.a.d, e.a.o, e.a.x].filter(Boolean).join(' '), 3], ['weg', e.weg.join(' › '), 2], ['auff', i.auff, 1.5], ['wert', i.wert, 1], ['vork', i.vork, 1]].filter((f) => f[1]);
+  }
+  function treffer(q) {
+    const terme = norm(q).split(/[\s,;/]+/).filter((t) => t.length >= 2);
+    if (!terme.length) return [];
+    const res = [];
+    suchIndex().forEach((e) => {
+      const fs = felder(e).map(([k, t, w]) => [k, t, w, norm(t)]);
+      let score = 0; const fund = {};
+      for (const t of terme) {
+        let best = 0;
+        for (const [k, , w, n] of fs) {
+          const pos = n.indexOf(t); if (pos < 0) continue;
+          const wortanfang = pos === 0 || /[^a-z0-9]/.test(n[pos - 1]);
+          const s = w * (wortanfang ? 1 : 0.6) * (n === t ? 1.5 : 1);
+          if (s > best) best = s; fund[k] = true;
+        }
+        if (!best) return; score += best;  // jeder Begriff muss vorkommen
+      }
+      res.push({ e, score, fund });
+    });
+    // je Art und Gruppe nur einmal (Gräser kommen in zwei Schlüsseln vor): beste Fundstelle, weitere Wege merken
+    const g = new Map();
+    res.forEach((r) => { const k = GRUPPE[r.e.K.id] + '|' + r.e.a.n; const alt = g.get(k); if (!alt) g.set(k, Object.assign(r, { wege: [r.e] })); else { alt.wege.push(r.e); if (r.score > alt.score) Object.assign(alt, { e: r.e, score: r.score, fund: r.fund }); } });
+    return { terme, liste: Array.from(g.values()).sort((x, y) => y.score - x.score) };
+  }
+  /** Hervorheben (unabhängig von Gross/Klein und Akzenten). */
+  function markiert(text, terme) {
+    text = String(text || ''); const zeichen = Array.from(text); let n = ''; const map = [];
+    zeichen.forEach((c, i) => { const m = norm(c); for (let j = 0; j < m.length; j++) { n += m[j]; map.push(i); } });
+    const an = new Array(zeichen.length).fill(false);
+    terme.forEach((t) => { let p = n.indexOf(t); while (p >= 0) { for (let j = p; j < p + t.length; j++) an[map[j]] = true; p = n.indexOf(t, p + 1); } });
+    let out = ''; let auf = false;
+    zeichen.forEach((c, i) => { if (an[i] && !auf) { out += '<mark>'; auf = true; } if (!an[i] && auf) { out += '</mark>'; auf = false; } out += esc(c); });
+    return out + (auf ? '</mark>' : '');
+  }
+  function ausschnitt(text, terme, max) {
+    const n = norm(text); let p = -1; terme.forEach((t) => { const q = n.indexOf(t); if (q >= 0 && (p < 0 || q < p)) p = q; });
+    if (p < 0 || text.length <= max) return text.length > max ? text.slice(0, max) + '…' : text;
+    const von = Math.max(0, p - Math.floor(max / 3)); return (von > 0 ? '…' : '') + text.slice(von, von + max) + (von + max < text.length ? '…' : '');
+  }
+  function suchErgebnisHtml() {
+    const q = Z.suche.q || '';
+    if (norm(q).trim().length < 2) return '<p class="small muted pf-such-tipp">Name (deutsch, französisch, italienisch oder lateinisch) oder Merkmal eingeben, z. B. «Öhrchen», «behaart», «Ausläufer», «dactyle».</p>';
+    const r = treffer(q); const gr = GRUPPE[Z.key];
+    if (!r.liste.length) return '<p class="small muted pf-such-tipp">Keine Treffer.</p>';
+    const hier = r.liste.filter((x) => GRUPPE[x.e.K.id] === gr);
+    const top = r.liste[0].score;
+    const andere = r.liste.filter((x) => GRUPPE[x.e.K.id] !== gr && x.score >= top * 0.5).slice(0, 6);
+    const zeile = (x) => {
+      const e = x.e; const i = info(e.a.n) || {};
+      const namen = [i.lat && '<i>' + markiert(i.lat, r.terme) + '</i>', i.fr && 'FR ' + markiert(i.fr, r.terme), i.it && 'IT ' + markiert(i.it, r.terme), SYNONYME[e.a.n] && x.fund.syn && markiert(SYNONYME[e.a.n].join(', '), r.terme)].filter(Boolean).join(' · ');
+      const merkmal = ['d', 'auff', 'wert', 'vork', 'weg'].find((k) => x.fund[k] && !x.fund.name && !x.fund.lat && !x.fund.fr && !x.fund.it && !x.fund.syn);
+      const quelle = merkmal && ({ d: [e.a.d, e.a.o, e.a.x].filter(Boolean).join(' '), auff: i.auff, wert: i.wert, vork: i.vork, weg: e.weg.join(' › ') })[merkmal];
+      return '<li><button type="button" class="pf-treffer-zeile" data-pf="gehe" data-k="' + e.K.id + '" data-p="' + esc(e.pfad) + '" data-n="' + esc(e.a.n) + '">' +
+        '<span class="pf-tz-kopf"><b>' + markiert(e.a.n, r.terme) + '</b><span class="chip">' + esc(e.K.titel) + '</span>' + (e.a.g ? '<span class="chip kritisch">giftig</span>' : '') + '</span>' +
+        (namen ? '<span class="small muted">' + namen + '</span>' : '') +
+        (quelle ? '<span class="small pf-tz-merkmal">' + markiert(ausschnitt(quelle, r.terme, 110), r.terme) + '</span>' : '') + '</button></li>';
+    };
+    return '<div class="pf-such-liste">' + (hier.length ? '<div class="pf-frage small">' + GRUPPE_NAME[gr] + ' (' + hier.length + ')</div><ul>' + hier.slice(0, 20).map(zeile).join('') + '</ul>' : '<p class="small muted pf-such-tipp">Keine Treffer in der Gruppe ' + GRUPPE_NAME[gr] + '.</p>') +
+      (andere.length ? '<div class="pf-frage small">Auch passend in anderen Gruppen</div><ul>' + andere.map(zeile).join('') + '</ul>' : '') + '</div>';
+  }
+  function suchDock() {
+    if (!Z.suche.offen) return '<div class="pf-such-dock"><button type="button" class="pf-such-badge" data-pf="suche" aria-label="Pflanzen suchen">' + svgLupe + '</button></div>';
+    return '<div class="pf-such-dock offen"><div class="pf-such-ergebnis" id="pfSuchErgebnis">' + suchErgebnisHtml() + '</div>' +
+      '<div class="pf-such-feld">' + svgLupe + '<input id="pfSuche" class="input" type="text" inputmode="search" enterkeyhint="search" autocomplete="off" spellcheck="false" placeholder="Name oder Merkmal …" value="' + esc(Z.suche.q || '') + '" aria-label="Pflanzen suchen"><button type="button" class="icon-btn" data-pf="suche-zu" aria-label="Suche schliessen">✕</button></div></div>';
+  }
+  const svgLupe = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>';
+  document.addEventListener('input', (e) => {
+    if (e.target.id !== 'pfSuche') return;
+    Z.suche.q = e.target.value;
+    const el = document.getElementById('pfSuchErgebnis'); if (el) el.innerHTML = suchErgebnisHtml();
+  });
+  let Z = { key: 'gv', offen: [], arten: [], az: false, suche: { offen: false, q: '' } };
   // Zeichnungen (AGFF-Schlüssel, edition lmz) und Fotos/Kurzinfos (eAGFF, © AGFF/Agroscope) – bei Bedarf geladen
   let D = null; let ladend = false;
   function daten() {
@@ -305,7 +407,7 @@
       '<div class="row" style="justify-content:flex-end;margin:-4px 0 6px">' + lupe + (Z.offen.length || Z.arten.length ? '<button class="btn sm ghost" data-pf="zu">Alles zuklappen</button>' : '') + '</div>' +
       '<div class="pf-baum">' + zweige(K, '', 0) + '</div>';
     h += '<div class="row" style="margin-top:12px"><button class="btn sm ghost" data-pf="az">Alle Arten A–Z</button><button class="btn sm ghost" data-pf="export" data-v="csv">Tabelle (Excel)</button><button class="btn sm ghost" data-pf="export" data-v="pdf">Tabelle (PDF)</button></div>' +
-      '<p class="hint">Nach: ' + esc(K.quelle) + ' (AGFF, edition lmz 2016). Zeichnungen © edition lmz; Fotos und Kurzinfos aus <a href="https://www.eagff.ch" target="_blank" rel="noopener noreferrer">eAGFF</a> (© AGFF, Agroscope, e-pics ETH-Bibliothek – Nachweis beim Bild). Die Zuordnung zu den Raster-Klassen stammt von dieser App.</p>';
+      suchDock() + '<p class="hint">Nach: ' + esc(K.quelle) + ' (AGFF, edition lmz 2016). Zeichnungen © edition lmz; Fotos und Kurzinfos aus <a href="https://www.eagff.ch" target="_blank" rel="noopener noreferrer">eAGFF</a> (© AGFF, Agroscope, e-pics ETH-Bibliothek – Nachweis beim Bild). Die Zuordnung zu den Raster-Klassen stammt von dieser App.</p>';
     return h;
   }
 
@@ -323,7 +425,18 @@
     const t = e.target.closest('[data-pf]'); if (!t) return false;
     const a = t.dataset.pf;
     if (a === 'zurueck') { sheet(rueckSheet); return true; }
-    if (a === 'key') { Z = { key: t.dataset.v, offen: [], arten: [], az: false }; neu(); }
+    if (a === 'key') { Z = { key: t.dataset.v, offen: [], arten: [], az: false, suche: Z.suche }; neu(); }
+    if (a === 'suche') { Z.suche.offen = true; neu(false); setTimeout(() => { const i = document.getElementById('pfSuche'); if (i) i.focus(); }, 30); }
+    if (a === 'suche-zu') { Z.suche = { offen: false, q: '' }; neu(false); }
+    if (a === 'gehe') {  // Treffer im Schlüssel aufklappen und hinscrollen
+      const k = t.dataset.k; const p = t.dataset.p; const n = t.dataset.n;
+      const teile = p === '' ? [] : p.split('.'); const pfade = teile.map((x, j) => teile.slice(0, j + 1).join('.'));
+      if (Z.key !== k) Z = { key: k, offen: [], arten: [], az: false, suche: Z.suche };
+      Z.az = false; pfade.forEach((x) => { if (!Z.offen.includes(x)) Z.offen.push(x); });
+      const ak = p + '|' + n; if (!Z.arten.includes(ak)) Z.arten.push(ak);
+      Z.suche.offen = false; neu(false);
+      setTimeout(() => { const el = Array.from(document.querySelectorAll('[data-pf="art"]')).find((b) => b.dataset.v === ak); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); el.classList.add('pf-blink'); } }, 50);
+    }
     if (a === 'auf') {  // Kriterium auf- bzw. zuklappen (beim Zuklappen auch alles darunter)
       const k = t.dataset.v;
       if (Z.offen.includes(k)) { Z.offen = Z.offen.filter((x) => x !== k && !x.startsWith(k + '.')); Z.arten = Z.arten.filter((x) => !(x.startsWith(k + '|') || x.startsWith(k + '.'))); }

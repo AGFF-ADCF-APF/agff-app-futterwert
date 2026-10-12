@@ -615,3 +615,22 @@ html.cam-offen, html.cam-offen body { overflow: hidden; }
 .pf-name[aria-expanded="true"] { border-style: solid; border-color: var(--brand); }
 .pf-portraet { margin: 6px 0 4px; }
 .pf-portraet .pf-art-kopf > b, .pf-portraet .pf-art-kopf > .pf-sym { display: none; }
+.pf-such-dock { position: sticky; bottom: calc(10px + var(--safe-b)); z-index: 32; display: flex; justify-content: flex-start; margin-top: 14px; pointer-events: none; }
+.pf-such-dock > * { pointer-events: auto; }
+.pf-such-badge { width: 54px; height: 54px; border-radius: 50%; border: 0; background: var(--brand); color: var(--on-brand); display: grid; place-items: center; box-shadow: 0 4px 14px rgb(0 0 0 / .25); cursor: pointer; }
+.pf-such-dock.offen { display: grid; gap: 6px; width: 100%; }
+.pf-such-feld { display: flex; align-items: center; gap: 6px; background: var(--surface); border: 2px solid var(--brand); border-radius: 99px; padding: 4px 6px 4px 14px; box-shadow: 0 4px 14px rgb(0 0 0 / .2); color: var(--brand-ink); }
+.pf-such-feld .input { border: 0; background: transparent; min-height: 40px; flex: 1; min-width: 0; padding: 0 4px; box-shadow: none; }
+.pf-such-ergebnis { max-height: min(55vh, 520px); overflow-y: auto; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius); box-shadow: 0 6px 20px rgb(0 0 0 / .18); padding: 8px 10px; }
+.pf-such-ergebnis ul { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 4px; }
+.pf-such-tipp { margin: 4px 2px; }
+.pf-treffer-zeile { width: 100%; display: grid; gap: 2px; text-align: left; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+.pf-treffer-zeile:hover, .pf-treffer-zeile:focus-visible { border-color: var(--brand); }
+.pf-tz-kopf { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pf-tz-merkmal { color: var(--ink-2); }
+.pflanzen mark { background: #fde68a; color: inherit; border-radius: 3px; padding: 0 1px; }
+:root[data-theme="dark"] .pflanzen mark { background: #8a6d00; }
+.pf-blink { animation: pfBlink 1.6s ease-out 1; }
+@keyframes pfBlink { 0%, 40% { box-shadow: 0 0 0 4px #fde68a; } 100% { box-shadow: none; } }
+.pf-such-feld .input:focus, .pf-such-feld .input:focus-visible { outline: none; box-shadow: none; border: 0; }
+.pf-such-feld:focus-within { box-shadow: 0 0 0 3px var(--brand-soft), 0 4px 14px rgb(0 0 0 / .2); }
