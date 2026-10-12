@@ -511,5 +511,5 @@
     return data;
   }
 
-  global.FutterIO = { MARKER, pack, unpack, bundle, appUrl, qrSvg, makePdf, readFile, readPdf, fromV1, api, svgToPng, loadScript, fmt, pdfText };
+  global.FutterIO = { MARKER, pack, unpack, bundle, appUrl, qrSvg, qrPdf: drawQr, makePdf, readFile, readPdf, fromV1, api, svgToPng, loadScript, fmt, pdfText };
 })(window);
