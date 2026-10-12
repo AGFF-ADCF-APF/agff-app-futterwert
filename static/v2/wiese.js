@@ -395,15 +395,21 @@
     const sp = [['1a', 'Borstenförmig', '< 2 mm', ['Rotschwingel', 'Gem. Rispengras', 'Borstgras']],
       ['1b', 'Doppelrille', '«Skispur»', ['Wiesenrispengras', 'Gem. Rispengras', 'Einj. Rispengras']],
       ['2', 'Behaart', 'Blatt, Scheide, Knoten', ['Wolliges Honiggras', 'Goldhafer', 'Fromental', 'Weiche Trespe']],
-      ['3', 'Glänzend', 'Unterseite; oben gerillt', ['Engl. Raigras', 'Ital. Raigras', 'Wiesenschwingel', 'Kammgras']],
-      ['4', 'Matt', 'Unterseite = Oberseite', ['Knaulgras', 'Timothe', 'Wiesenfuchsschwanz', 'Straussgräser']]];
+      ['3', 'Glänzend', 'Blattunterseite', ['Engl. Raigras', 'Ital. Raigras', 'Wiesenschwingel', 'Kammgras']],
+      ['4', 'Matt', 'Unterseite wie Oberseite', ['Knaulgras', 'Timothe', 'Wiesenfuchsschwanz', 'Straussgräser']]];
     const cw = B / 5;
     sp.forEach(([nr, t1, t2, arten], i) => {
       const x = X + i * cw; if (i) { doc.setDrawColor(225); doc.setLineWidth(0.2); doc.line(x, y + 10, x, y + 81); }
       doc.setFillColor(31, 138, 76); doc.circle(x + 6, y + 14, 3.3, 'F'); fett(); txt(nr, x + 6, y + 15.2, 7.5, 255, { align: 'center' });
       txt(t1, x + 11, y + 13.6, 8, 15); normal(); txt(t2, x + 11, y + 17, 6.5, 90);
       const b = bilder[i];
-      if (b) { const mm = (px) => px / 300 * 25.4 * 1.5; let w = mm(b.w); let h = mm(b.h); const max = cw - 6; if (w > max) { h *= max / w; w = max; } doc.addImage(b.url, 'PNG', x + (cw - w) / 2, y + 22 + (26 - h) / 2, w, h); }
+      if (b) {
+        const mm = (px) => px / 300 * 25.4 * 1.5; let w = mm(b.w); let h = mm(b.h); const max = cw - 6; if (w > max) { h *= max / w; w = max; }
+        const ix = x + (cw - w) / 2; const iy = y + 22 + (26 - h) / 2; doc.addImage(b.url, 'PNG', ix, iy, w, h);
+        // Beschriftung wie im AGFF-Schlüssel: Unterschied Spalte 3 / 4 sonst kaum sichtbar
+        if (nr === '3') { txt('oben stark gerillt', x + cw / 2, iy - 2, 6.5, 40, { align: 'center' }); fett(); txt('unten glänzend', x + cw / 2, iy + h + 4, 6.8, 20, { align: 'center' }); normal(); }
+        if (nr === '4') { txt('glatt', ix + w * 0.22, iy - 2, 6.5, 40, { align: 'center' }); txt('fein gerillt', ix + w * 0.77, iy - 2, 6.5, 40, { align: 'center' }); fett(); txt('unten matt', x + cw / 2, iy + h + 4, 6.8, 20, { align: 'center' }); normal(); }
+      }
       arten.forEach((a, j) => txt(a, x + 3, y + 56 + j * 5.2, 7.5, 25));
     });
     txt('Zeichnungen: AGFF-Schlüssel Wiesengräser vegetativ (© edition lmz)', X + B - 2, y + 82, 5.5, 130, { align: 'right' });
