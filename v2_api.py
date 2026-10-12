@@ -423,7 +423,7 @@ def v2_basis():
 
 # --- Freigabe-Bereiche (nur mit Zustimmung; Zugriff nur mit Lese-/Bearbeiten-Link) ----
 mimetypes.add_type("image/webp", ".webp")  # fehlt in python:slim
-ASSET_BUILD = 'b1-53'  # gleich wie ?v= in templates/v2/index.html
+ASSET_BUILD = 'b1-58'  # gleich wie ?v= in templates/v2/index.html
 
 
 @v2.route('/v2/api/config')
@@ -469,11 +469,14 @@ def v2_create_space():
     if not (HASH_RE.match(rh) and HASH_RE.match(wh)) or rh == wh:
         return jsonify({'error': 'BAD_KEYS'}), 400
     import v2_mail as M  # spät importiert (v2_mail importiert dieses Modul)
-    email = M.email_norm(body.get('email'))
-    if not M.email_ok(email):
-        return jsonify({'error': 'EMAIL_REQUIRED'}), 400
-    if not M.code_pruefen('space', email, body.get('code')):
-        return jsonify({'error': 'CODE_INVALID'}), 400
+    import v2_konto as KO
+    email = KO.konto_email()  # angemeldet: Adresse ist bereits bestätigt
+    if not email:
+        email = M.email_norm(body.get('email'))
+        if not M.email_ok(email):
+            return jsonify({'error': 'EMAIL_REQUIRED'}), 400
+        if not M.code_pruefen('space', email, body.get('code')):
+            return jsonify({'error': 'CODE_INVALID'}), 400
     space_id = secrets.token_urlsafe(9)
     now = _now()
     with _db() as conn:
@@ -690,8 +693,11 @@ def v2_foto_put(space_id, foto_id):
             return jsonify({'error': 'NOT_FOUND'}), 404
         n, total = conn.execute('SELECT COUNT(*), COALESCE(SUM(bytes), 0) FROM e2e_fotos WHERE space_id = ? AND id != ?',
                                 (space_id, foto_id)).fetchone()
-        if n >= MAX_FOTOS_PER_SPACE or total + len(data) > MAX_FOTO_TOTAL:
-            return jsonify({'error': 'QUOTA'}), 409
+        import v2_konto as KO  # Zusatz-Kontingent des Eigentümers (Antrag)
+        space = conn.execute('SELECT owner_email_hmac FROM e2e_spaces WHERE id = ?', (space_id,)).fetchone()
+        limit = KO.foto_limit(space['owner_email_hmac'] if space else None, MAX_FOTO_TOTAL)
+        if n >= MAX_FOTOS_PER_SPACE or total + len(data) > limit:
+            return jsonify({'error': 'QUOTA', 'bytes': total, 'limit': limit, 'bereich': 'gruppe'}), 409
         import v2_admin as ADM
         if not ADM.foto_platz_frei(len(data)):
             return jsonify({'error': 'SERVER_VOLL'}), 507

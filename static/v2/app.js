@@ -56,6 +56,7 @@
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
       try { localStorage.setItem(STORE_KEY, JSON.stringify(db)); } catch (e) { storageOk = false; toast('Speichern im Browser nicht möglich – bitte PDF/JSON sichern.'); }
+      if (window.Konto) window.Konto.geaendert('futter');
     }, 150);
     if (!db._persistAsked && navigator.storage && navigator.storage.persist) { db._persistAsked = true; navigator.storage.persist().catch(() => {}); }
   }
@@ -267,6 +268,7 @@
     const h = location.hash.replace(/^#/, '');
     if (h.startsWith('import=')) return { name: 'import', payload: h.slice(7) };
     if (h.startsWith('s=')) return { name: 'join', token: h.slice(2) };
+    if (h.startsWith('login=')) return { name: 'login', token: h.slice(6) };
     if (h.startsWith('k=')) return { name: 'kurs', token: h.slice(2) };
     if (h.startsWith('km=')) return { name: 'kursmail', token: h.slice(3) };
     if (h.startsWith('space=')) return { name: 'join', token: '' }; // Format aus Beta-Test, nicht mehr gültig
@@ -291,6 +293,7 @@
     const r = parseHash();
     if (r.name === 'import') { history.replaceState(null, '', location.pathname + '#/'); handleImportPayload(r.payload); ui.route = { name: 'home' }; }
     else if (r.name === 'join') { history.replaceState(null, '', location.pathname + '#/'); joinSpace(r.token); ui.route = { name: 'home' }; }
+    else if (r.name === 'login') { history.replaceState(null, '', location.pathname + '#/daten'); ui.route = { name: 'daten' }; window.Konto.linkLogin(r.token); }
     else if (r.name === 'kursmail') { history.replaceState(null, '', location.pathname + '#/'); ui.route = { name: 'home' }; render(); window.Kurs.mailLink(r.token); return; }
     else if (r.name === 'kurs') { history.replaceState(null, '', location.pathname + '#/'); ui.route = { name: 'home' }; render(); window.Kurs.beitreten(r.token); return; }
     else ui.route = r;
@@ -703,6 +706,7 @@
     touchProbe(p); closeSheet(); rerenderDetail(true);
   }
 
+  const quotaGemeldet = new Set();
   async function fotosHochladen(a, k) {
     const sid = a.space.id;
     for (const t of (db.fotoTombstones || []).filter((x) => x.sid === sid)) {
@@ -713,7 +717,10 @@
       for (const f of (p.fotos || []).filter((x) => x.up === false)) {
         const b = await F.blob(f.id); if (!b) continue;
         const r = await fetch('api/spaces/' + sid + '/fotos/' + f.id, { method: 'PUT', headers: Object.assign({ 'Content-Type': 'application/octet-stream' }, writeH(k)), body: await F.fuerServer(f, b), credentials: 'omit' });
-        if (!r.ok) { const e = new Error(r.status === 409 ? 'Speicherplatz der Freigabe für Fotos ist voll' : 'Foto-Upload fehlgeschlagen (' + r.status + ')'); e.status = r.status; throw e; }
+        if (!r.ok) {
+          if (r.status === 409 && window.Konto && !quotaGemeldet.has(sid)) { quotaGemeldet.add(sid); const j = await r.json().catch(() => ({})); window.Konto.quotaHinweis(Object.assign({ bereich: 'gruppe' }, j)); }
+          const e = new Error(r.status === 409 ? 'Speicherplatz der Gruppe für Fotos ist voll' : 'Foto-Upload fehlgeschlagen (' + r.status + ')'); e.status = r.status; throw e;
+        }
         f.up = true; p.dirty = true;
       }
     }
@@ -989,7 +996,8 @@
     const v1local = (() => { try { return JSON.parse(localStorage.getItem('agffLocalSavedProbes') || '[]').length; } catch (e) { return 0; } })();
     const spaces = db.anlaesse.filter((a) => a.space);
     return '<div class="bar"><a class="icon-btn back-btn hide-wide" href="#/" aria-label="Zurück">' + I.back + '</a><h2>Daten & Datenschutz</h2></div><div class="wizard">' +
-      q('Wo liegen meine Daten?', '', '<div class="card stack"><p style="margin:0">Alle Anlässe und Proben werden <b>nur in diesem Browser</b> auf diesem Gerät gespeichert (' + fmt(bytes / 1024, 1) + ' kB). Es gibt kein Konto und kein Tracking.</p>' +
+      q('Konto und Cloud-Speicherung', 'Optional: Daten in der Cloud sichern und auf mehreren Geräten nutzen – Futter und Wiese getrennt.', window.Konto.datenHtml()) +
+      q('Wo liegen meine Daten?', '', '<div class="card stack"><p style="margin:0">Ohne Anmeldung werden alle Anlässe und Proben <b>nur in diesem Browser</b> auf diesem Gerät gespeichert (' + fmt(bytes / 1024, 1) + ' kB). Kein Tracking.</p>' +
         '<p class="small muted" style="margin:0">Achtung: Wenn Sie die Browserdaten löschen oder ein anderes Gerät verwenden, sind die Daten dort nicht vorhanden. Sichern Sie wichtige Beurteilungen als PDF – die PDF enthält alle Eingaben und kann wieder importiert werden.</p>' +
         (spaces.length ? '<p class="small" style="margin:0"><b>' + spaces.length + ' Anlass/Anlässe</b> haben Sie mit Ihrer Zustimmung zusätzlich auf dem Server gespeichert: ' + spaces.map((a) => esc(a.titel)).join(', ') + '. Löschen über das Menü des Anlasses.</p>' : '') +
         '<a href="' + esc(CFG.privacyUrl) + '" target="_blank" rel="noopener">Datenschutzerklärung</a></div>') +
@@ -1161,6 +1169,7 @@
   }
   /** Vor dem ersten Speichern: E-Mail bestätigen (Schutz vor Missbrauch des Speicherplatzes). */
   function spaceEmail(a) {
+    if (window.Konto && window.Konto.angemeldet()) { createSpace(a, window.Konto.email(), null).catch((er) => toast('Speichern fehlgeschlagen: ' + er.message)); return; }
     sheet('<h2>E-Mail bestätigen</h2><p class="small" style="margin-top:0">Zum Schutz vor Missbrauch braucht das Speichern auf dem Server eine bestätigte E-Mail-Adresse. Sie wird verschlüsselt gespeichert und nicht weitergegeben.</p>' +
       '<form id="spMail" class="stack"><label class="field"><span>E-Mail-Adresse</span><input class="input" type="email" name="email" required autocomplete="email" value="' + esc(db.prefs.email || '') + '"></label>' +
       '<div class="row"><button type="button" class="btn ghost grow" data-close>Abbrechen</button><button class="btn primary grow">Code anfordern</button></div></form>', (el) => {
@@ -1637,6 +1646,7 @@
     if (e.target.closest('[data-wi]') && window.Wiese.handle(e)) return;
     if (e.target.closest('[data-pf]') && window.Pflanzen.handle(e)) return;
     if (e.target.closest('[data-au]') && window.Aufnahme.handle(e)) return;
+    if (e.target.closest('[data-ko]') && window.Konto.handle(e)) return;
     if (e.target.closest('[data-pool-foto]') && window.PoolOeffentlich.handle(e)) return;
     if (e.target.closest('[data-aw]') && window.Auswahl.handle(e)) return;
     const t = e.target.closest('[data-close],[data-act],[data-set],[data-go],[data-fokus],[data-step],[data-sort],[data-o],[data-f]');

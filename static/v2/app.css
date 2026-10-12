@@ -738,3 +738,22 @@ html.kb-hinweise [data-kb]::after { content: attr(data-kb); position: absolute; 
 
 @media (max-width: 600px) { .aufnahme .au-zeile { grid-template-columns: 1fr; } .aufnahme .au-ziel { grid-template-columns: 90px 1fr; } .aufnahme .au-ziel > span:last-child { grid-column: 1 / -1; } }
 .aufnahme section.q { scroll-margin-top: 64px; }
+
+/* Code-Eingabe (6 Kästchen) */
+.code6 { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.code6-felder { display: flex; gap: 8px; justify-content: center; }
+.code6-feld { width: 46px; height: 56px; text-align: center; font-size: 1.6rem; font-weight: 700; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; border: 2px solid var(--line-strong); border-radius: 12px; background: var(--surface); color: var(--ink); caret-color: var(--brand); }
+.code6-feld:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+.code6-felder .code6-feld:nth-child(3) { margin-right: 8px; }
+.code6-einf svg { vertical-align: -4px; }
+@media (max-width: 380px) { .code6-feld { width: 40px; height: 50px; font-size: 1.35rem; } .code6-felder { gap: 5px; } }
+
+/* Konto und Cloud */
+.ko-karte .ko-app { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 8px 0; border-top: 1px solid var(--line); }
+.ko-karte .ko-app .toggle { flex: 1 1 220px; }
+.ko-balken { height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; margin: 4px 0; }
+.ko-balken i { display: block; height: 100%; background: var(--brand); }
+.ko-balken i.voll { background: var(--schlecht); }
+.ko-liste { list-style: none; padding: 0; margin: 8px 0 0; }
+.ko-liste li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.linkbtn { background: none; border: 0; padding: 0; color: var(--schlecht); text-decoration: underline; cursor: pointer; font: inherit; }

@@ -19,7 +19,7 @@
   const KEY_REF = 'agffV2Referenzen';
   const ID_RE = /^[A-Za-z0-9_-]{6,64}$/;
   const lesen = (k) => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
-  const schreiben = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { toast('Speichern im Browser nicht möglich.'); return false; } };
+  const schreiben = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); if (global.Konto) global.Konto.geaendert('wiese'); return true; } catch (e) { toast('Speichern im Browser nicht möglich.'); return false; } };
 
   // =====================================================================
   // Vollbild-Ansichten (Kamera, Werkzeug auf Standbild)
@@ -431,8 +431,13 @@
     for (let h = 0; h <= 10; h++) { doc.setLineWidth(h % 2 ? 0.08 : 0.16); doc.line(lx + h / 2, ly, lx + h / 2, ly - (h % 10 === 0 ? 3.5 : h % 2 ? 1.2 : 2.2)); }
     txt('0', lx, ly + 3, 6, 30, { align: 'center' }); txt('5 mm', lx + 5, ly + 3, 6, 30); txt('gegen das Licht halten', lx + 16, ly - 0.5, 6.3, 100);
     doc.setFillColor(35, 35, 35);
-    [[0.8, '< 1 mm, derb', 'Wiesenschwingel'], [2, 'ca. 2 mm, durchsichtig', 'Ital. Raigras'], [3, '1–3 mm, robust', 'Wiesenfuchsschwanz'], [1, '0,5–1,5, gestutzt', 'Rotes Straussgras'], [4, '1–4 mm, spitz', 'Ausläufer-Str., Fioringras'], [0, 'kurz, gestutzt', 'Wiesenrispengras'], [0, 'zugespitzt', 'Gem. Rispengras']]
-      .forEach(([l, a, n], i) => { const yy = ly + 7.5 + i * 3.6; if (l) doc.rect(lx, yy - 2, l, 2.2, 'F'); fett(); txt(a, lx + 6, yy, 6.5, 15); normal(); txt(n, lx + 36, yy, 6.5, 70); });
+    [[0.8, '< 1 mm, derb', 'Wiesenschwingel'], [2, 'ca. 2 mm, durchsichtig', 'Ital. Raigras'], [3, '1–3 mm, robust', 'Wiesenfuchsschwanz'], [1, '0,5–1,5, gestutzt', 'Rotes Straussgras'], [4, '1–4 mm, spitz', 'Ausläufer-Str., Fioringras']]
+      .forEach(([l, a, n], i) => { const yy = ly + 7 + i * 3.5; doc.rect(lx, yy - 2, l, 2.2, 'F'); fett(); txt(a, lx + 6, yy, 6.5, 15); normal(); txt(n, lx + 36, yy, 6.5, 70); });
+    // ohne Massangabe im Schlüssel – deutlich abgesetzt, damit sie nicht zu einem Balken gelesen werden
+    doc.setDrawColor(200); doc.setLineWidth(0.2); doc.line(lx, ly + 22.6, lx + 80, ly + 22.6);
+    txt('ohne Mass im Schlüssel:', lx, ly + 25.6, 6, 110);
+    fett(); txt('kurz, gestutzt', lx + 26, ly + 25.6, 6.5, 15); normal(); txt('Wiesenrispengras', lx + 45, ly + 25.6, 6.5, 70);
+    fett(); txt('zugespitzt', lx + 26, ly + 28.8, 6.5, 15); normal(); txt('Gem. Rispengras', lx + 45, ly + 28.8, 6.5, 70);
 
     // ---- Ährchenlänge (AGFF-Schlüssel ab Rispenschieben) ----
     y = 156; box(X, y, B, 40, 'Ährchenlänge ab Rispenschieben (echte Grösse, ohne Grannen)');
@@ -1270,7 +1275,7 @@
   function allesLoeschen() { try { localStorage.removeItem(KEY_FP); localStorage.removeItem(KEY_REF); } catch (e) { /* ignore */ } FP = []; RS = null; HS = null; if (global.Aufnahme) global.Aufnahme.allesLoeschen(); }
 
   global.Wiese = {
-    render, renderFotopunkte, renderNav, renderListe, handle, rasterFuer, fotopunkte: () => fpLaden(), plausi, nachRender: bilderEinsetzen, bestandKnopf, stadiumKnopf, farbabgleich, fotoIds, sicherung, wiederherstellen, allesLoeschen, kamera, zu,
+    render, renderFotopunkte, renderNav, renderListe, handle, rasterFuer, fotopunkte: () => fpLaden(), neuLaden: () => { FP = fpLaden(); }, plausi, nachRender: bilderEinsetzen, bestandKnopf, stadiumKnopf, farbabgleich, fotoIds, sicherung, wiederherstellen, allesLoeschen, kamera, zu,
     // für Tests
     _t: { vorschlag, homographie, invers, proj, karteFinden, KARTE, exg, unsicher },
   };

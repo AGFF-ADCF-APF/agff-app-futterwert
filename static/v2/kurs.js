@@ -507,7 +507,7 @@
             msg.textContent = 'Lade Foto hoch …';
             const b = await F().blob(f.id);
             const r = await fetch('api/kurse/' + a.kurs.id + '/fotos/' + f.id + '?probe=' + encodeURIComponent(pid) + '&art=' + f.art, { method: 'PUT', headers: Object.assign({ 'Content-Type': 'application/octet-stream' }, H(a)), body: await F().fuerServer(f, b), credentials: 'omit' });
-            if (!r.ok) { let j = {}; try { j = await r.json(); } catch (er) { /* leer */ } throw new Error(j.error || 'Foto-Upload ' + r.status); }
+            if (!r.ok) { let j = {}; try { j = await r.json(); } catch (er) { /* leer */ } if (j.error === 'QUOTA' && global.Konto) global.Konto.quotaHinweis(Object.assign({ bereich: 'kurs' }, j)); throw new Error(j.error || 'Foto-Upload ' + r.status); }
             f.up = true;
           }
           privat.fotos = d.fotos.map((f) => { const c = Object.assign({}, f); delete c.up; return c; });
@@ -814,7 +814,7 @@
         if (!b) continue;
         const r = await fetch('api/kurse/' + a.kurs.id + '/fotos/' + f.id + '?probe=' + encodeURIComponent(p.kursProbeId) + '&art=' + (f.art === 'labor' ? 'labor' : 'futter') + '&zu=beurteilung',
           { method: 'PUT', headers: Object.assign({ 'Content-Type': 'application/octet-stream' }, H(a)), body: await F().fuerServer(f, b), credentials: 'omit' });
-        if (!r.ok) { let j = {}; try { j = await r.json(); } catch (er) { /* leer */ } throw new Error(j.error || 'Foto-Upload ' + r.status); }
+        if (!r.ok) { let j = {}; try { j = await r.json(); } catch (er) { /* leer */ } if (j.error === 'QUOTA' && global.Konto) global.Konto.quotaHinweis(Object.assign({ bereich: 'kurs' }, j)); throw new Error(j.error || 'Foto-Upload ' + r.status); }
       }
       const box = Object.keys(privat).length ? privat : null;
       await api(a.kurs.id + '/proben/' + p.kursProbeId + '/beurteilung', { method: 'PUT', headers: H(a), body: { data: { analyse, privat: box } } });
@@ -1245,7 +1245,7 @@
       if (!b) return false;
       const r = await fetch('api/kurse/' + a.kurs.id + '/fotos/' + f.id + '?probe=' + encodeURIComponent(kpId) + '&art=' + (f.art === 'labor' ? 'labor' : 'futter') + (zu ? '&zu=' + zu : ''),
         { method: 'PUT', headers: Object.assign({ 'Content-Type': 'application/octet-stream' }, H(a)), body: await F().fuerServer(f, b), credentials: 'omit' });
-      if (!r.ok) { let j = {}; try { j = await r.json(); } catch (er) { /* leer */ } throw new Error(j.error || 'Foto-Upload ' + r.status); }
+      if (!r.ok) { let j = {}; try { j = await r.json(); } catch (er) { /* leer */ } if (j.error === 'QUOTA' && global.Konto) global.Konto.quotaHinweis(Object.assign({ bereich: 'kurs' }, j)); throw new Error(j.error || 'Foto-Upload ' + r.status); }
       return true;
     };
     for (const [i, p] of ps.entries()) {

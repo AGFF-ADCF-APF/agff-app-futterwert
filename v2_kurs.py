@@ -372,7 +372,7 @@ def kurs_lesen(kurs_id):
         'kurs': {'id': k['id'], 'meta': {'analyse': _box(k['meta_analyse']) or {}, 'privat': _box(k['meta_privat'])}, 'updatedAt': k['updated_at'],
                  'consentVersion': k['consent_version']},
         'hinweise': hinweise,
-        'ich': {'id': ich['id'], 'rolle': ich['rolle'], 'fotoBytes': foto_bytes, 'fotoLimit': FOTO_PRO_PERSON,
+        'ich': {'id': ich['id'], 'rolle': ich['rolle'], 'fotoBytes': foto_bytes, 'fotoLimit': __import__('v2_konto').foto_limit(ich['email_hmac'], FOTO_PRO_PERSON),
                 'consentVersion': ich['consent_version'], 'consentAktuell': KURS_CONSENT_VERSION},
         'linkBekannt': bool(k['link_enc']),
         'teilnehmende': teilnehmende,
@@ -676,8 +676,10 @@ def kurs_foto_put(kurs_id, foto_id):
             return _err('NOT_FOUND', 404)
         belegt = conn.execute('SELECT COALESCE(SUM(bytes), 0) FROM kurs_fotos WHERE kurs_id = ? AND teilnehmer_id = ? AND id != ?',
                               (kurs_id, ich['id'], foto_id)).fetchone()[0]
-        if belegt + len(data) > FOTO_PRO_PERSON:
-            return _err('QUOTA', 409)
+        import v2_konto as KO  # Zusatz-Kontingent (Antrag) für die verknüpfte Adresse
+        limit = KO.foto_limit(ich['email_hmac'], FOTO_PRO_PERSON)
+        if belegt + len(data) > limit:
+            return jsonify({'error': 'QUOTA', 'bytes': belegt, 'limit': limit, 'bereich': 'kurs'}), 409
     if not ADM.foto_platz_frei(len(data) - (alt['bytes'] if alt else 0)):
         return _err('SERVER_VOLL', 507)
     os.makedirs(_foto_dir(kurs_id), exist_ok=True)

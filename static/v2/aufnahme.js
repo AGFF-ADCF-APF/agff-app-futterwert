@@ -133,7 +133,7 @@
 
   // ---------- Speicher ----------
   function laden() { try { const z = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(z) ? z.map(clean).filter(Boolean) : []; } catch (e) { return []; } }
-  function speichern(L) { try { localStorage.setItem(KEY, JSON.stringify(L)); return true; } catch (e) { app().toast('Speichern im Browser nicht möglich.'); return false; } }
+  function speichern(L) { try { localStorage.setItem(KEY, JSON.stringify(L)); if (global.Konto) global.Konto.geaendert('wiese'); return true; } catch (e) { app().toast('Speichern im Browser nicht möglich.'); return false; } }
   const str = (v, n) => (typeof v === 'string' ? v.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').slice(0, n) : undefined);
   const pz = (v) => (typeof v === 'number' && isFinite(v) && v >= 0 && v <= 100 ? Math.round(v) : undefined);
   const zahl = (v, a, b) => (typeof v === 'number' && isFinite(v) && v >= a && v <= b ? v : undefined);

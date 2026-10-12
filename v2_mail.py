@@ -130,13 +130,14 @@ def code_pruefen(zweck, email, code):
 
 
 # --- Versand -------------------------------------------------------------------------
-def senden(to_addr, betreff, text):
+def senden(to_addr, betreff, text, html=None):
     if os.environ.get('V2_MAIL_DRYRUN') == '1':  # nur für automatische Tests
         _DRYRUN_OUTBOX.append((to_addr, betreff, text))
         if os.environ.get('V2_MAIL_DRYRUN_FILE'):
             m = re.search(r'\b(\d{6})\b', text)
             with open(os.environ['V2_MAIL_DRYRUN_FILE'], 'a') as fh:
-                fh.write(json.dumps({'to': to_addr, 'betreff': betreff, 'code': m.group(1) if m else None}) + '\n')
+                ml = re.search(r'(\S*)#login=([A-Za-z0-9_.-]+)', text)
+                fh.write(json.dumps({'to': to_addr, 'betreff': betreff, 'code': m.group(1) if m else None, 'login': ml.group(2) if ml else None, 'loginBase': ml.group(1) if ml else None}) + '\n')
         return
     host, user, pw = os.environ.get('SMTP_HOST'), os.environ.get('SMTP_USER'), os.environ.get('SMTP_PASS')
     sender = os.environ.get('SMTP_FROM') or user
@@ -150,6 +151,8 @@ def senden(to_addr, betreff, text):
     msg['Auto-Submitted'] = 'auto-generated'
     msg.set_content(text + '\n-- \nAGFF Futterbeurteilung v2 · apps.graswachstum.ch\n'
                     'Diese Nachricht wurde automatisch versendet. Bitte nicht antworten.\n')
+    if html:
+        msg.add_alternative(html, subtype='html')
 
     def run():
         try:
@@ -177,6 +180,34 @@ def code_senden(zweck, email, wozu, link=None):
            f'Ihr Code für die Futterbeurteilung ({wozu}) lautet:\n\n    {code}\n\n'
            'Der Code ist 15 Minuten gültig. Geben Sie ihn in der App ein.\n\n'
            'Falls Sie keinen Code angefordert haben, können Sie diese E-Mail ignorieren.\n')
+
+
+def login_senden(email, code, link):
+    """Anmelde-E-Mail: Code (15 Minuten) und Anmelde-Knopf (Link 24 Monate gültig, widerrufbar)."""
+    from html import escape
+    text = (f'Ihr Anmeldecode für die AGFF Futterbeurteilung:\n\n    {code}\n\n'
+            'Der Code ist 15 Minuten gültig.\n\n'
+            f'Oder direkt anmelden (auf diesem Gerät antippen):\n{link}\n\n'
+            'Der Anmelde-Link bleibt 24 Monate gültig, damit Sie sich später wieder anmelden können. '
+            'Behandeln Sie diese E-Mail wie einen Schlüssel: nicht weiterleiten. '
+            'In der App unter «Daten › Konto» können Sie Links und Geräte jederzeit widerrufen.\n\n'
+            'Falls Sie sich nicht anmelden wollten, können Sie diese E-Mail ignorieren.\n')
+    l = escape(link, quote=True)
+    html = ('<!doctype html><html><body style="margin:0;background:#f2f5f1;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1d2925">'
+            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:24px 12px">'
+            '<table role="presentation" width="100%" style="max-width:480px;background:#ffffff;border-radius:14px;padding:24px" cellpadding="0" cellspacing="0"><tr><td>'
+            '<p style="margin:0 0 4px;font-size:13px;color:#5b6b66">AGFF Futterbeurteilung</p>'
+            '<h1 style="margin:0 0 18px;font-size:20px">Anmelden</h1>'
+            f'<p style="margin:0 0 8px;font-size:14px">Ihr Code (15 Minuten gültig):</p>'
+            f'<div style="font-size:34px;letter-spacing:10px;font-weight:700;font-family:Menlo,Consolas,monospace;background:#e3f1ea;color:#0f5a43;border-radius:10px;padding:14px 0;text-align:center;-webkit-user-select:all;user-select:all">{escape(code)}</div>'
+            '<p style="margin:6px 0 22px;font-size:12px;color:#5b6b66;text-align:center">Code antippen bzw. doppelklicken und kopieren – die App fügt ihn mit «Einfügen» ein.</p>'
+            '<p style="margin:0 0 10px;font-size:14px">Oder ohne Code direkt anmelden:</p>'
+            f'<p style="margin:0 0 18px;text-align:center"><a href="{l}" style="display:inline-block;background:#1f8a4c;color:#ffffff;text-decoration:none;font-weight:600;font-size:16px;padding:14px 28px;border-radius:12px">In der App anmelden</a></p>'
+            '<p style="margin:0 0 8px;font-size:12px;color:#5b6b66">Der Anmelde-Knopf bleibt <b>24 Monate</b> gültig – so können Sie sich später auf jedem Gerät wieder anmelden. '
+            'Behandeln Sie diese E-Mail wie einen Schlüssel und leiten Sie sie nicht weiter. Widerrufen: in der App unter «Daten › Konto».</p>'
+            '<p style="margin:0;font-size:12px;color:#5b6b66">Falls Sie sich nicht anmelden wollten, ignorieren Sie diese E-Mail.</p>'
+            '</td></tr></table></td></tr></table></body></html>')
+    senden(email_norm(email), f'Anmeldecode: {code}', text, html)
 
 
 def admin_adresse():

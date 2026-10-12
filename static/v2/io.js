@@ -502,9 +502,11 @@
   }
 
   // ---------- Server ----------
+  /** Angemeldet (Konto): Sitzung mitsenden – z. B. Gruppe ohne zweiten E-Mail-Code anlegen */
+  function kontoKopf() { try { const k = JSON.parse(localStorage.getItem('agffV2Konto') || 'null'); return k && /^[A-Za-z0-9_-]{43}$/.test(k.token || '') ? { 'X-Konto': k.token } : {}; } catch (e) { return {}; } }
   async function api(path, opts) {
     const o = opts || {};
-    const headers = Object.assign({ 'Content-Type': 'application/json' }, o.headers || {});
+    const headers = Object.assign({ 'Content-Type': 'application/json' }, kontoKopf(), o.headers || {});
     const r = await fetch('api/' + path, { method: o.method || 'GET', headers, body: o.body ? JSON.stringify(o.body) : undefined, cache: 'no-store', credentials: 'omit' });
     let data = null; try { data = await r.json(); } catch (e) { /* leer */ }
     if (!r.ok) { const err = new Error((data && data.error) || ('HTTP ' + r.status)); err.status = r.status; err.data = data; throw err; }
