@@ -43,6 +43,13 @@
       const raw = localStorage.getItem(STORE_KEY);
       if (raw) db = Model.cleanDb(JSON.parse(raw));
     } catch (e) { storageOk = false; }
+    // Geräte-Kennung (zufällig) für «Eigene» / «Andere Proben» in Gruppen; bisherige lokale Proben gehören diesem Gerät
+    if (!db.prefs.ich) {
+      db.prefs.ich = uid();
+      const geteilt = new Set(db.anlaesse.filter((a) => a.space || a.kurs).map((a) => a.id));
+      db.proben.forEach((p) => { if (!p.autor && (!geteilt.has(p.anlassId) || !p.syncedAt)) p.autor = db.prefs.ich; });
+      if (storageOk) save();
+    }
   }
   let saveTimer = null;
   function save() {
@@ -66,7 +73,7 @@
 
   function neueProbe(typ, aid, antworten) {
     const n = probenOf(aid).length + 1;
-    const pr = { id: uid(), typ, anlassId: aid, createdAt: now(), updatedAt: now(), kopf: { bez: 'Probe ' + n, beurteiler: db.prefs.beurteiler || '' }, antworten: antworten || {}, rad: {} };
+    const pr = { id: uid(), typ, anlassId: aid, autor: db.prefs.ich, createdAt: now(), updatedAt: now(), kopf: { bez: 'Probe ' + n, beurteiler: db.prefs.beurteiler || '' }, antworten: antworten || {}, rad: {} };
     db.proben.push(pr); touchProbe(pr);
     return pr;
   }
@@ -385,7 +392,7 @@
       appUmschalter('futter') +
       '<div class="pad stack">' +
       '<button class="btn primary block" data-act="new-probe" style="min-height:56px">' + I.plus + ' Neue Probe beurteilen</button>' +
-      '<div class="row"><button class="btn sm grow" data-act="new-anlass">' + I.plus + ' Neuer Anlass</button><button class="btn sm grow" data-act="import">' + I.upload + ' Importieren</button></div>' +
+      '<div class="row"><button class="btn sm grow" data-act="new-anlass">' + I.share + ' Futterprobe teilen</button><button class="btn sm grow" data-act="import">' + I.upload + ' Importieren</button></div>' +
       '</div>' +
       '<div class="section-title" style="margin-top:4px;padding:0 12px;display:flex;justify-content:space-between;align-items:center">Anlässe<button class="btn sm ghost" data-act="meine-kurse" style="min-height:30px;font-size:.78rem">Kurse per E-Mail wiederfinden</button></div><ul class="list" style="padding:0 8px">' +
       (anl.length ? anl.map((a) => {
@@ -417,6 +424,17 @@
       '<span class="meta"><span class="num">' + (w && w.nel ? fmt(w.nel, 2) : '–') + '</span><br><span class="chip ' + ton + '" style="padding:0 7px;font-size:.7rem">' + esc(res.sperre.length ? 'Sperre' : res.vollstaendig ? res.klasse.label.replace(' Silage', '') : 'offen') + '</span></span></a></li>';
   }
 
+  /** Gruppe (geteilter Anlass): eigene Proben zuerst, dann die der anderen Mitglieder. */
+  const istEigen = (p) => p.autor ? p.autor === db.prefs.ich : !p.syncedAt;
+  function gruppenListe(a, list, activeId) {
+    const eigene = list.filter(istEigen); const andere = list.filter((p) => !istEigen(p));
+    const kopf = (t, n) => '<li class="list-kopf">' + t + ' <span class="muted">(' + n + ')</span></li>';
+    const teilen = a.space.mode === 'w' && teilbareProben(a).length ? '<li><button class="btn sm ghost block" data-act="proben-teilen" data-id="' + a.id + '">' + I.plus + ' Bereits erfasste Proben teilen …</button></li>' : '';
+    return '<ul class="list" style="padding:8px">' + kopf('Eigene Proben', eigene.length) + eigene.map((p) => probeItem(p, p.id === activeId)).join('') +
+      (eigene.length ? '' : '<li class="empty small">Noch keine eigenen Proben in dieser Gruppe.</li>') + teilen +
+      kopf('Andere Proben', andere.length) + (andere.length ? andere.map((p) => probeItem(p, p.id === activeId)).join('') : '<li class="empty small">Noch keine Proben anderer Mitglieder.</li>') + '</ul>';
+  }
+
   function renderList(aid, r) {
     if (aid === undefined) {
       // Kein Kontext: zuletzt bearbeitete Proben
@@ -436,7 +454,8 @@
       window.Statistik.speicherHinweis(a, list.length) +
       (a ? '<div class="pad" style="padding-bottom:0"><button class="btn sm block ' + (a.space ? 'ghost' : '') + '" data-act="' + (a.space ? 'share-space' : 'consent') + '" data-id="' + a.id + '">' + (a.space ? s.ico + ' ' + esc(s.t) : I.phone + ' Nur auf diesem Gerät · Teilen …') + '</button></div>' : '') +
       '<div class="pad" style="padding-bottom:0"><div class="seg" role="tablist"><button aria-pressed="true">Proben</button><a class="btn ghost sm" style="flex:1;min-height:42px" href="#/' + (a ? 'a/' + a.id : 'e') + '/uebersicht">' + I.table + ' Übersicht</a></div></div>' +
-      '<ul class="list" style="padding:8px">' + (list.length ? list.map((p) => probeItem(p, p.id === activeId)).join('') : '<li class="empty small">Noch keine Proben. Tippen Sie auf «Probe hinzufügen».</li>') + '</ul>' +
+      (a && a.space ? gruppenListe(a, list, activeId)
+        : '<ul class="list" style="padding:8px">' + (list.length ? list.map((p) => probeItem(p, p.id === activeId)).join('') : '<li class="empty small">Noch keine Proben. Tippen Sie auf «Probe hinzufügen».</li>') + '</ul>') +
       '<div class="fab-wrap"><button class="btn primary fab" data-act="new-probe" data-anlass="' + (aid || '') + '">' + I.plus + ' Probe hinzufügen</button></div>';
   }
 
@@ -1012,8 +1031,8 @@
   function sheetAnlass(a, nachSpeichern) {
     const isNew = !a;
     a = a || { titel: '', datum: new Date().toISOString().slice(0, 10), ort: '', notiz: '' };
-    sheet('<h2>' + (isNew ? 'Neuer Anlass' : 'Anlass bearbeiten') + '</h2><form id="anlassForm" class="stack">' +
-      '<label class="field"><span>Titel *</span><input class="input" name="titel" required value="' + esc(a.titel) + '" placeholder="z. B. Silage-Kurs Rütti, Betriebsbesuch Muster"></label>' +
+    sheet('<h2>' + (isNew ? 'Neue Gruppe' : a.space ? 'Gruppe bearbeiten' : 'Anlass bearbeiten') + '</h2><form id="anlassForm" class="stack">' +
+      '<label class="field"><span>Titel *</span><input class="input" name="titel" required value="' + esc(a.titel) + '" placeholder="z. B. Betrieb Muster, Silo-Kontrolle 2026, Arbeitskreis Emmental"></label>' +
       '<div class="grid2"><label class="field"><span>Datum</span><input class="input" type="date" name="datum" value="' + esc(a.datum) + '"></label><label class="field"><span>Ort</span><input class="input" name="ort" value="' + esc(a.ort) + '"></label></div>' +
       '<label class="field"><span>Notiz</span><textarea class="input" name="notiz">' + esc(a.notiz) + '</textarea></label>' +
       '<div class="row"><button type="button" class="btn ghost grow" data-close>Abbrechen</button><button class="btn primary grow">' + (isNew ? 'Anlegen' : 'Speichern') + '</button></div></form>', (el) => {
@@ -1024,7 +1043,7 @@
         Object.assign(target, { titel: String(fd.get('titel')).trim(), datum: fd.get('datum'), ort: String(fd.get('ort')).trim(), notiz: String(fd.get('notiz')).trim(), updatedAt: now() });
         if (isNew) db.anlaesse.push(target); else if (target.space) { target.space.metaDirty = true; scheduleSync(target); }
         save(); closeSheet(); go('#/a/' + target.id);
-        if (nachSpeichern) nachSpeichern();
+        if (nachSpeichern) nachSpeichern(target);
       });
     });
   }
@@ -1037,7 +1056,8 @@
       '<button class="btn block" data-act="bilanz-anlass" data-id="' + a.id + '">Rationscheck mit diesen Proben</button>' +
       '<button class="btn block" data-act="pdf-anlass" data-id="' + a.id + '">' + I.pdf + ' PDF aller Proben (mit QR-Codes)</button>' +
       '<button class="btn block" data-act="export-anlass" data-id="' + a.id + '">Als JSON-Datei exportieren</button>' +
-      (a.space ? '<button class="btn block" data-act="share-space" data-id="' + a.id + '">' + I.share + ' Freigabe-Links fürs Büro / Team</button><button class="btn block" data-act="sync-now" data-id="' + a.id + '">Jetzt synchronisieren</button>' +
+      (a.space && !ro ? '<button class="btn block" data-act="proben-teilen" data-id="' + a.id + '">' + I.plus + ' Bereits erfasste Proben teilen</button>' : '') +
+      (a.space ? '<button class="btn block" data-act="share-space" data-id="' + a.id + '">' + I.share + ' ' + (ro ? 'Freigabe-Link' : 'Mitglieder einladen (Code, QR, Links)') + '</button><button class="btn block" data-act="sync-now" data-id="' + a.id + '">Jetzt synchronisieren</button>' +
         (ro ? '' : '<button class="btn block" data-act="space-rotate" data-id="' + a.id + '">' + I.lock + ' Links erneuern (alte Links sperren)</button><button class="btn danger block" data-act="space-delete" data-id="' + a.id + '">Vom Server löschen (lokal behalten)</button>')
         : '<button class="btn block" data-act="consent" data-id="' + a.id + '">' + I.cloud + ' Auf Server speichern & teilen …</button>') +
       '<button class="btn danger block" data-act="delete-anlass" data-id="' + a.id + '">' + (a.space ? 'Von diesem Gerät entfernen' : 'Anlass löschen') + '</button>' +
@@ -1107,7 +1127,7 @@
       const k = await C.keys('w', secret);
       const r = await IO.api('spaces', { method: 'POST', body: Object.assign({ consent: { accepted: true, version: CFG.consentVersion }, email, code }, await C.hashes(k)) });
       a.space = { id: r.id, mode: 'w', secret, consentAt: r.consentAt, consentVersion: CFG.consentVersion, metaDirty: true };
-      probenOf(a.id).forEach((p) => { p.dirty = true; });
+      probenOf(a.id).forEach((p) => { p.dirty = true; if (!p.autor) p.autor = db.prefs.ich; });
       save(); closeSheet();
       await syncAnlass(a);
       render(); sheetShare(a);
@@ -1209,18 +1229,27 @@
   }
   async function sheetShare(a, tab) {
     const links = await shareLinks(a);
-    tab = links.w ? (tab || 'r') : 'r';
+    tab = links.w ? (tab || 'w') : 'r';
     const link = links[tab];
-    const el = sheet('<h2>' + I.share.replace('<svg', '<svg width="24" height="24" style="vertical-align:-5px"') + ' Freigabe-Links</h2>' +
+    let code = null;
+    if (links.w) {
+      try {
+        const k = await keysFor(a);
+        code = (await IO.api('spaces/' + a.space.id + '/beitritt', { headers: writeH(k) })).code ||
+          (await IO.api('spaces/' + a.space.id + '/beitritt', { method: 'POST', headers: writeH(k), body: { secret: a.space.secret } })).code;
+      } catch (e) { code = null; }
+    }
+    const el = sheet('<h2>' + I.share.replace('<svg', '<svg width="24" height="24" style="vertical-align:-5px"') + ' ' + (links.w ? 'Mitglieder einladen' : 'Freigabe-Links') + '</h2>' +
+      (code ? '<div class="beitritt-code"><span class="small muted">Beitrittscode</span><b>' + codeAnzeige(code) + '</b><span class="small muted">In der App: «Futterprobe teilen» › «Bestehende Gruppe» – gibt Bearbeiten-Zugriff wie der Bearbeiten-Link.</span></div>' : '') +
       (links.w ? '<div class="seg" style="margin-bottom:12px"><button data-act="share-tab" data-tab="r" data-id="' + a.id + '" aria-pressed="' + (tab === 'r') + '">Nur ansehen</button><button data-act="share-tab" data-tab="w" data-id="' + a.id + '" aria-pressed="' + (tab === 'w') + '">Bearbeiten</button></div>' : '') +
       '<p class="small" style="margin-top:0">' + (tab === 'w'
-        ? '<b>Bearbeiten-Link:</b> Wer ihn hat, kann alle Angaben von «' + esc(a.titel) + '» sehen, ändern und löschen. Nur an Vertrauenspersonen weitergeben.'
+        ? '<b>Bearbeiten-Link / QR-Code:</b> Wer ihn hat, kann alle Angaben von «' + esc(a.titel) + '» sehen, ändern und löschen und eigene Proben beitragen. Nur an Vertrauenspersonen weitergeben.'
         : '<b>Nur-Ansehen-Link:</b> Zeigt «' + esc(a.titel) + '» inklusive aller Namen und Notizen, erlaubt aber keine Änderungen – z. B. für die Übersicht im Büro.') +
-      ' Der Schlüssel steckt im Link selbst; der Server kann die persönlichen Angaben nicht lesen.</p>' +
+      '</p>' +
       '<div class="qr-box" id="shareQr"></div><div class="copy-field" style="margin-top:12px"><input class="input" readonly value="' + esc(link) + '" id="shareLink"><button class="btn" data-act="copy" data-target="#shareLink">Kopieren</button></div>' +
       (navigator.share ? '<button class="btn block" style="margin-top:10px" data-act="native-share" data-url="' + esc(link) + '" data-title="' + esc(a.titel) + '">Teilen …</button>' : '') +
       '<a class="btn block" style="margin-top:10px" href="mailto:' + encodeURIComponent(db.prefs.email || '') + '?subject=' + encodeURIComponent('Futterbeurteilung: ' + a.titel) + '&body=' + encodeURIComponent('Link zum Wiederöffnen (' + (tab === 'w' ? 'Bearbeiten' : 'nur ansehen') + '):\n' + link + '\n\nWer diesen Link hat, kann die Daten öffnen. Vertraulich aufbewahren.') + '">Link an mich mailen (später wieder abrufen)</a>' +
-      '<p class="hint">' + esc(syncState(a).t) + '. Gespeichert seit ' + dateCH(a.space.consentAt) + '.' + (links.w ? ' Link gelangt in falsche Hände? → Menü › «Links erneuern».' : '') + '</p><button class="btn ghost block" data-close>Schliessen</button>');
+      '<p class="hint">' + esc(syncState(a).t) + '. Gespeichert seit ' + dateCH(a.space.consentAt) + '.' + (links.w ? ' Link oder Code in falschen Händen? → Menü › «Links erneuern» (sperrt auch den Code).' : '') + '</p><button class="btn ghost block" data-close>Schliessen</button>');
     const svg = await IO.qrSvg(link); if (svg) el.querySelector('#shareQr').innerHTML = svg;
   }
 
@@ -1246,6 +1275,7 @@
     const L = C.parseLink(token);
     if (!L) return toast('Ungültiger oder veralteter Freigabe-Link.');
     let a = db.anlaesse.find((x) => x.space && x.space.id === L.id);
+    const neu = !a;
     if (a) {
       // Bearbeiten-Link schlägt Nur-Ansehen; neuer Schlüssel ersetzt alten
       if (L.mode === 'w' || a.space.mode === 'r') { a.space.mode = L.mode; a.space.secret = L.secret; spaceKeys.delete(a.id); }
@@ -1261,6 +1291,96 @@
     await syncAnlass(a);
     if (a.space.error) toast(a.space.error); else toast('«' + a.titel + '» geladen' + (a.space.mode === 'r' ? ' (nur ansehen).' : '.'));
     save(); go('#/a/' + a.id);
+    // Neu beigetreten mit Bearbeiten-Zugriff: bereits erfasste Proben auch teilen?
+    if (neu && !a.space.error && a.space.mode === 'w' && teilbareProben(a).length) setTimeout(() => sheetTeilenFrage(a), 250);
+  }
+
+  // ---------- Gruppen: beitreten mit Code / QR, bestehende Proben teilen ----------
+  const codeAnzeige = (c) => (c ? c.slice(0, 4) + '-' + c.slice(4) : '');
+  function sheetBeitreten() {
+    sheet('<h2>Gruppe beitreten</h2><p class="small" style="margin-top:0">Geben Sie den 8-stelligen Code ein, den Sie von der Gruppe erhalten haben – oder scannen Sie deren QR-Code.</p>' +
+      '<form id="gbForm" class="stack"><input class="input code-feld" name="code" required autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="11" placeholder="XXXX-XXXX" aria-label="Beitrittscode">' +
+      '<p class="small" id="gbMsg" style="color:var(--schlecht);margin:0" aria-live="polite"></p>' +
+      '<button class="btn primary block">Beitreten</button>' +
+      '<button type="button" class="btn block" data-act="gruppe-scan">' + I.camera + ' QR-Code scannen</button>' +
+      '<button type="button" class="btn ghost block" data-close>Abbrechen</button></form>' +
+      '<p class="hint">Mit dem Beitritt sehen und bearbeiten Sie alle Proben der Gruppe; Ihre Proben werden auf dem Server gespeichert (Löschung ' + Math.round((CFG.retentionDays || 730) / 30.4) + ' Monate nach der letzten Änderung). <a href="' + esc(CFG.privacyUrl) + '" target="_blank" rel="noopener">Datenschutz</a></p>', (el) => {
+      const f = el.querySelector('#gbForm'); const inp = f.querySelector('input');
+      inp.addEventListener('input', () => { const c = inp.value.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 8); inp.value = c.length > 4 ? c.slice(0, 4) + '-' + c.slice(4) : c; });
+      f.addEventListener('submit', async (e) => {
+        e.preventDefault(); const msg = el.querySelector('#gbMsg'); const b = f.querySelector('.primary');
+        const code = inp.value.replace(/-/g, '');
+        if (!/^[2-9A-HJ-NP-Z]{8}$/.test(code)) { msg.textContent = 'Der Code hat 8 Zeichen (Ziffern 2–9 und Buchstaben ohne I und O).'; return; }
+        b.disabled = true; msg.textContent = '';
+        try {
+          const r = await IO.api('gruppen/beitreten', { method: 'POST', body: { code } });
+          closeSheet(); await joinSpace(r.id + '.w.' + r.secret);
+        } catch (er) {
+          msg.textContent = er.message === 'RATE_LIMITED' ? 'Zu viele Versuche – bitte in 15 Minuten erneut versuchen.' : er.status === 404 ? 'Code unbekannt oder nicht mehr gültig. Bitte bei der Gruppe nachfragen.' : 'Keine Verbindung – bitte später erneut versuchen.';
+          b.disabled = false;
+        }
+      });
+    });
+  }
+  /** QR-Code im Browser lesen (wo verfügbar), sonst Hinweis auf die Kamera-App. */
+  async function qrScannen() {
+    const ok = 'BarcodeDetector' in window && (await window.BarcodeDetector.getSupportedFormats().catch(() => [])).includes('qr_code');
+    if (!ok) { sheet('<h2>QR-Code scannen</h2><p>Öffnen Sie die <b>Kamera-App</b> Ihres Handys und richten Sie sie auf den QR-Code der Gruppe – der Link öffnet die App und tritt der Gruppe bei.</p><p class="small muted">Dieser Browser kann QR-Codes nicht selbst lesen. Alternativ den 8-stelligen Code eingeben.</p><div class="row"><button class="btn grow" data-act="gruppe-beitreten">Code eingeben</button><button class="btn ghost grow" data-close>Schliessen</button></div>'); return; }
+    const det = new window.BarcodeDetector({ formats: ['qr_code'] }); let zuletzt = 0; let fertig = false;
+    await window.Wiese.kamera({
+      titel: 'QR-Code der Gruppe', hilfe: 'QR-Code ins Bild halten – er wird automatisch erkannt.',
+      zeichnen: (ctx, w, h, api, t) => {
+        if (fertig || t - zuletzt < 400) return; zuletzt = t;
+        const c = api.bildVon(900); if (!c) return;
+        det.detect(c).then((codes) => {
+          const v = codes.map((x) => x.rawValue).find((x) => /#(s|k)=/.test(x || ''));
+          if (!v || fertig) return; fertig = true; api.schliessen();
+          let u; try { u = new URL(v); } catch (e) { return; }
+          if (u.origin !== location.origin) { toast('Dieser QR-Code gehört nicht zur Futterbeurteilung.'); return; }
+          const h2 = u.hash.slice(1);
+          if (h2.startsWith('s=')) joinSpace(h2.slice(2)); else location.hash = h2;
+        }).catch(() => {});
+      },
+    });
+  }
+  /** Proben, die in eine Gruppe verschoben werden dürfen: nur lokale (Einzelproben oder nicht geteilte Anlässe). */
+  function teilbareProben(gruppe) {
+    return db.proben.filter((p) => { if (p.anlassId === gruppe.id || p.kursProbeId || p.muster) return false; const a = p.anlassId && anlassById(p.anlassId); return !a || (!a.space && !a.kurs); });
+  }
+  function sheetTeilenFrage(a) {
+    const n = teilbareProben(a).length;
+    sheet('<h2>Willkommen in «' + esc(a.titel) + '»</h2><p>Sollen auch Proben, die Sie vorher erfasst haben, in dieser Gruppe geteilt werden? (' + n + ' ' + (n === 1 ? 'Probe' : 'Proben') + ' auf diesem Gerät)</p>' +
+      '<div class="row"><button class="btn ghost grow" data-close>Nein, nur neue</button><button class="btn primary grow" data-act="proben-teilen" data-id="' + a.id + '">Ja, auswählen …</button></div>');
+  }
+  function sheetProbenTeilen(a) {
+    if (!a || !a.space || a.space.mode !== 'w') return;
+    const alle = teilbareProben(a).sort((x, y) => ((y.kopf.schnitt || y.createdAt) > (x.kopf.schnitt || x.createdAt) ? 1 : -1));
+    const typen = [...new Set(alle.map((p) => p.typ))];
+    const herk = (p) => { const x = p.anlassId && anlassById(p.anlassId); return x ? x.titel : 'Einzelprobe'; };
+    const gewaehlt = new Set(); let filter = '';
+    const el = sheet('<h2>Proben teilen</h2><p class="small" style="margin-top:0">Gewählte Proben werden in die Gruppe «' + esc(a.titel) + '» verschoben und mit allen Mitgliedern geteilt (inkl. Fotos und Notizen).</p>' +
+      (typen.length > 1 ? '<div class="seg teil-filter" role="group" aria-label="Futterart"><button type="button" data-f="" aria-pressed="true">Alle</button>' + typen.map((t) => '<button type="button" data-f="' + t + '" aria-pressed="false">' + esc(K3.TYPEN[t].kurz) + '</button>').join('') + '</div>' : '') +
+      '<div class="row" style="margin:8px 0"><button type="button" class="btn sm ghost" data-alle="1">Alle sichtbaren wählen</button><button type="button" class="btn sm ghost" data-alle="0">Keine</button></div>' +
+      '<ul class="list teil-liste">' + (alle.length ? alle.map((p) => '<li data-typ="' + p.typ + '"><label class="item teil-item"><input type="checkbox" value="' + p.id + '"><span style="min-width:0"><span class="t">' + esc(titelOf(p)) + '</span><span class="s">' + typBadge(p.typ) + ' ' + esc([K3.TYPEN[p.typ].kurz, p.kopf.schnitt ? dateCH(p.kopf.schnitt) : '', herk(p)].filter(Boolean).join(' · ')) + '</span></span></label></li>').join('') : '<li class="empty small">Keine weiteren Proben auf diesem Gerät.</li>') + '</ul>' +
+      '<div class="row" style="margin-top:10px"><button type="button" class="btn ghost grow" data-close>Abbrechen</button><button type="button" class="btn primary grow" id="teilenOk" disabled>Teilen</button></div>');
+    const ok = el.querySelector('#teilenOk');
+    const zaehlen = () => { gewaehlt.clear(); el.querySelectorAll('.teil-liste input:checked').forEach((c) => gewaehlt.add(c.value)); ok.disabled = !gewaehlt.size; ok.textContent = gewaehlt.size ? gewaehlt.size + ' ' + (gewaehlt.size === 1 ? 'Probe' : 'Proben') + ' teilen' : 'Teilen'; };
+    el.addEventListener('change', zaehlen);
+    el.querySelectorAll('[data-f]').forEach((b) => b.addEventListener('click', () => {
+      filter = b.dataset.f; el.querySelectorAll('[data-f]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      el.querySelectorAll('.teil-liste li[data-typ]').forEach((li) => { li.hidden = !!filter && li.dataset.typ !== filter; });
+    }));
+    el.querySelectorAll('[data-alle]').forEach((b) => b.addEventListener('click', () => {
+      el.querySelectorAll('.teil-liste li[data-typ]').forEach((li) => { if (!li.hidden) li.querySelector('input').checked = b.dataset.alle === '1'; }); zaehlen();
+    }));
+    ok.addEventListener('click', async () => {
+      const ps = [...gewaehlt].map(probeById).filter(Boolean);
+      ps.forEach((p) => { p.anlassId = a.id; if (!p.autor) p.autor = db.prefs.ich; p.dirty = true; p.updatedAt = now(); });
+      a.updatedAt = now(); save(); closeSheet(); go('#/a/' + a.id);
+      toast(ps.length + (ps.length === 1 ? ' Probe wird' : ' Proben werden') + ' geteilt …');
+      await syncAnlass(a); refreshChrome();
+      toast(a.space.error ? 'Teilen fehlgeschlagen: ' + a.space.error : ps.length + (ps.length === 1 ? ' Probe' : ' Proben') + ' in «' + a.titel + '» geteilt.');
+    });
   }
 
   // ---------- Import ----------
@@ -1530,12 +1650,16 @@
         setTimeout(() => { const f = document.querySelector('[data-k="kopf.bez"]'); if (f && window.matchMedia('(pointer: fine)').matches) { f.focus(); f.select(); } }, 120); break;
       }
       case 'new-anlass':
-        sheet('<h2>Neuer Anlass</h2><div class="typ-cards">' +
-          '<button class="typ-card" data-act="new-anlass-eigen"><span class="ico" style="background:var(--brand-soft);color:var(--brand-ink)">' + I.wheel.replace('<svg', '<svg width="26" height="26"') + '</span><span><b>Für mich / mein Team</b><span class="small muted">Eigene Proben sammeln, z. B. Betriebsbesuch oder Silo-Kontrolle. Bleibt im Browser; bei Bedarf über den Server teilen.</span></span></button>' +
-          '<button class="typ-card" data-act="kurs-anlegen"><span class="ico" style="background:#f6c35b;color:#1d2925">' + I.table.replace('<svg', '<svg width="26" height="26"') + '</span><span><b>Kurs</b><span class="small muted">Mehrere Personen erfassen Proben per QR-Etikett und beurteilen sie gegenseitig – mit Vergleich. Für freigeschaltete Kursleitende.</span></span></button>' +
+        sheet('<h2>Futterprobe teilen</h2><p class="small muted" style="margin-top:0">Proben gemeinsam mit anderen erfassen und vergleichen.</p><div class="typ-cards">' +
+          '<button class="typ-card" data-act="gruppe-beitreten"><span class="ico" style="background:var(--brand-soft);color:var(--brand-ink)">' + I.share.replace('<svg', '<svg width="26" height="26"') + '</span><span><b>Bestehende Gruppe</b><span class="small muted">Beitreten mit dem QR-Code oder dem 8-stelligen Code, den Sie erhalten haben. Danach können Sie auch bereits erfasste Proben teilen.</span></span></button>' +
+          '<button class="typ-card" data-act="new-anlass-eigen"><span class="ico" style="background:var(--brand-soft);color:var(--brand-ink)">' + I.plus.replace('<svg', '<svg width="26" height="26"') + '</span><span><b>Neue Gruppe</b><span class="small muted">Für Betrieb, Team oder Silo-Kontrolle: Proben gemeinsam sammeln. Andere treten mit QR-Code oder Code bei.</span></span></button>' +
+          '<button class="typ-card" data-act="kurs-anlegen"><span class="ico" style="background:#f6c35b;color:#1d2925">' + I.table.replace('<svg', '<svg width="26" height="26"') + '</span><span><b>Neuer Kurs</b><span class="small muted">Mehrere Personen erfassen Proben per QR-Etikett und beurteilen sie gegenseitig – mit Vergleich. Für freigeschaltete Kursleitende.</span></span></button>' +
           '</div><button class="btn ghost block" data-close style="margin-top:10px">Abbrechen</button>');
         break;
-      case 'new-anlass-eigen': closeSheet(); sheetAnlass(null); break;
+      case 'gruppe-beitreten': sheetBeitreten(); break;
+      case 'gruppe-scan': closeSheet(); qrScannen(); break;
+      case 'proben-teilen': sheetProbenTeilen(anlassById(id)); break;
+      case 'new-anlass-eigen': closeSheet(); sheetAnlass(null, (a) => setTimeout(() => sheetConsent(a), 200)); break;
       case 'edit-anlass': if (anlassReadOnly(id)) { toast('Nur-Ansehen-Link: Änderungen sind nicht möglich.'); break; } sheetAnlass(anlassById(id)); break;
       case 'anlass-menu': sheetAnlassMenu(anlassById(id)); break;
       case 'probe-menu': sheetProbeMenu(probeById(id)); break;

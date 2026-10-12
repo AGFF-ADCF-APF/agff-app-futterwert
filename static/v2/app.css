@@ -678,3 +678,14 @@ html.kb-hinweise [data-kb]::after { content: attr(data-kb); position: absolute; 
 .fp-nav-klein { font-size: .8rem; opacity: .7; }
 .fp-nav-knoepfe { margin-top: 6px; }
 .fp-mini-pfeil { width: 1.05em; height: 1.05em; vertical-align: -.15em; display: inline-block; }
+
+/* Gruppen: Beitrittscode, Probenauswahl, Listenabschnitte */
+.beitritt-code { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px; margin-bottom: 12px; border-radius: 14px; background: var(--brand-soft); text-align: center; }
+.beitritt-code b { font-size: 1.9rem; letter-spacing: .12em; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--brand-ink); }
+.code-feld { font-size: 1.6rem; text-align: center; letter-spacing: .14em; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; text-transform: uppercase; }
+.teil-filter { flex-wrap: wrap; }
+.teil-liste { max-height: 48vh; overflow: auto; padding: 0; }
+.teil-liste li[hidden] { display: none; }
+.teil-item { display: flex; gap: 12px; align-items: center; cursor: pointer; }
+.teil-item input { width: 22px; height: 22px; flex: none; accent-color: var(--brand); }
+.list-kopf { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-2); padding: 10px 8px 4px; }

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Datenschutz – Futterbeurteilung v2</title>
   <meta name="robots" content="noindex">
-  <link rel="stylesheet" href="assets/app.css?v=b1-50">
+  <link rel="stylesheet" href="assets/app.css?v=b1-51">
 </head>
 <body>
 <div class="doc">
@@ -25,11 +25,12 @@
   <p>PDF-Berichte werden direkt in Ihrem Browser erzeugt. Sie enthalten neben der Darstellung die Eingaben in kodierter Form, damit die Beurteilung später wieder importiert werden kann. Der QR-Code enthält die Eingaben im Teil der Adresse nach dem «#»; dieser Teil wird vom Browser nicht an den Server übermittelt. Beachten Sie: Wer den PDF-Bericht oder QR-Code erhält, kann die enthaltenen Angaben lesen.</p>
 
   <h2>4. Speicherung auf dem Server (nur mit Einwilligung)</h2>
-  <p>Nur wenn Sie für einen Anlass ausdrücklich «Auf Server speichern» wählen und zustimmen, wird er auf dem Server von apps.graswachstum.ch gespeichert. [Serverstandort / Hoster ergänzen]</p>
+  <p>Nur wenn Sie für eine Gruppe (früher «Anlass») ausdrücklich «Auf Server speichern» wählen und zustimmen, wird er auf dem Server von apps.graswachstum.ch gespeichert. [Serverstandort / Hoster ergänzen]</p>
   <ul>
     <li><b>Gespeichert werden</b> alle Angaben des Anlasses: Titel und Ort, Probenbezeichnungen, Herkunft/Betrieb, Namen der Beurteilenden, Notizen, Fotos und die Beurteilungen. Die Übertragung ist verschlüsselt (HTTPS). Auf dem Server haben nur Personen mit Link sowie der Betreiber (für Betrieb, Sicherung und Support) Zugriff. Die Daten sind in den Sicherungen des Servers enthalten.</li>
     <li>Die Beurteilungsdaten ohne Personenbezug (Futterart, Bestand, Stadium, Antworten der Beurteilungsräder, Messwerte, Schnittdatum) werden getrennt gespeichert und können für anonyme, zusammenfassende Auswertungen verwendet werden. Der Server weist Daten zurück, die in diesen Feldern Freitext enthalten.</li>
     <li><b>Zugriff:</b> Es gibt einen Bearbeiten- und einen Nur-Ansehen-Link. Wer einen Link besitzt, sieht alle Angaben des Anlasses. Der Server speichert nur Prüfwerte (Hashes) der Zugriffsschlüssel. Links können jederzeit erneuert werden; alte Links sind danach ungültig.</li>
+    <li><b>Gruppen-Beitrittscode:</b> Zusätzlich zum Link gibt es einen 8-stelligen Code, der wie der Bearbeiten-Link Zugriff gibt. Der Server speichert ihn nur als Prüfwert und zusammen mit dem Link-Schlüssel verschlüsselt; Fehlversuche werden begrenzt. Beim Erneuern der Links wird auch der Code ungültig. Wer beitritt, kann eigene, bereits erfasste Proben auswählen und in die Gruppe verschieben; nur diese werden geteilt. Damit «Eigene» und «Andere Proben» unterschieden werden können, trägt jede Probe eine zufällige Kennung des Geräts (ohne Personenbezug).</li>
     <li><b>Zweck und Rechtsgrundlage:</b> Zugriff von mehreren Geräten und gemeinsames Erfassen; Ihre Einwilligung (Version und Zeitpunkt werden gespeichert).</li>
     <li><b>Löschung:</b> Automatisch {{ (retention_days / 30.4)|round|int }} Monate nach der letzten Änderung, jederzeit selbst über «Vom Server löschen».</li>
     <li><b>Schutz vor Missbrauch:</b> Anfragen werden pro Absender begrenzt; dafür wird ein gekürzter Hashwert der IP-Adresse kurzzeitig im Arbeitsspeicher gehalten, nicht gespeichert.</li>

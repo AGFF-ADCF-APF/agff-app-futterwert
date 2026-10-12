@@ -32,7 +32,7 @@
 
   /** Felder je Schutzklasse (Pfade relativ zur Probe bzw. zum Anlass). */
   const PRIVAT = {
-    probe: ['kopf.bez', 'kopf.herkunft', 'kopf.beurteiler', 'kopf.notiz', 'kopf.v1ProbeNr', 'kopf.plz', 'kopf.hoehe', 'fotos', 'labor', 'teilen', 'beitrag'],
+    probe: ['kopf.bez', 'kopf.herkunft', 'kopf.beurteiler', 'kopf.notiz', 'kopf.v1ProbeNr', 'kopf.plz', 'kopf.hoehe', 'fotos', 'labor', 'teilen', 'beitrag', 'autor'],
     anlass: ['titel', 'ort', 'notiz'],
   };
 
@@ -102,6 +102,7 @@
       kopf: compact({ bez: str(k.bez, 120), herkunft: str(k.herkunft, 200), beurteiler: str(k.beurteiler, 120), schnitt: date(k.schnitt), notiz: str(k.notiz, 4000), v1ProbeNr: str(k.v1ProbeNr, 120),
         plz: typeof k.plz === 'string' && /^\d{4}$/.test(k.plz) ? k.plz : undefined, hoehe: num(k.hoehe, 0, 4000) }),
       teilen: bool(p.teilen),
+      autor: typeof p.autor === 'string' && ID_RE.test(p.autor) ? p.autor : undefined,  // zufällige Geräte-Kennung: «Eigene» vs. «Andere» in Gruppen
       beitrag: isObj(p.beitrag) && ID_RE.test(p.beitrag.id || '') && SECRET_RE.test(p.beitrag.token || '') ? compact({ id: p.beitrag.id, token: p.beitrag.token, stand: str(p.beitrag.stand, 20000) }) : undefined,
       antworten: cleanAntworten(p.antworten, p.typ),
       rad: cleanRad(p.rad, p.typ),
@@ -143,7 +144,7 @@
   function cleanPrefs(p) {
     p = isObj(p) ? p : {};
     return { email: typeof p.email === 'string' && /^[^@\s]{1,64}@[^@\s]{1,190}$/.test(p.email) ? p.email : undefined, beurteiler: str(p.beurteiler, 120) || '', kuhGewicht: num(p.kuhGewicht, 300, 1200) || 630, ocrConsent: typeof p.ocrConsent === 'string' ? p.ocrConsent.slice(0, 20) : undefined,
-      beitragen: bool(p.beitragen), beitragConsent: typeof p.beitragConsent === 'string' ? p.beitragConsent.slice(0, 20) : undefined, nudgeNie: bool(p.nudgeNie), nudgeEinzelBis: iso(p.nudgeEinzelBis), mastGewicht: num(p.mastGewicht, K3.MAST.LG_MIN, K3.MAST.LG_MAX) || 400, tierAnsicht: oneOf(p.tierAnsicht, ['kuh', 'mast']) };
+      beitragen: bool(p.beitragen), beitragConsent: typeof p.beitragConsent === 'string' ? p.beitragConsent.slice(0, 20) : undefined, nudgeNie: bool(p.nudgeNie), nudgeEinzelBis: iso(p.nudgeEinzelBis), mastGewicht: num(p.mastGewicht, K3.MAST.LG_MIN, K3.MAST.LG_MAX) || 400, tierAnsicht: oneOf(p.tierAnsicht, ['kuh', 'mast']), ich: typeof p.ich === 'string' && ID_RE.test(p.ich) ? p.ich : undefined };
   }
 
   /** Bereinigt eine komplette lokale Datenbank (beim Laden und beim Wiederherstellen einer Sicherung). */

@@ -98,7 +98,7 @@ def init_v2_db():
 
 def _migrate_spaces(conn):
     cols = {r[1] for r in conn.execute('PRAGMA table_info(e2e_spaces)')}
-    for c in ('owner_email_hmac', 'owner_email_enc'):
+    for c in ('owner_email_hmac', 'owner_email_enc', 'beitritt_hmac', 'beitritt_enc'):
         if c not in cols:
             conn.execute(f'ALTER TABLE e2e_spaces ADD COLUMN {c} TEXT')
 
@@ -423,7 +423,7 @@ def v2_basis():
 
 # --- Freigabe-Bereiche (nur mit Zustimmung; Zugriff nur mit Lese-/Bearbeiten-Link) ----
 mimetypes.add_type("image/webp", ".webp")  # fehlt in python:slim
-ASSET_BUILD = 'b1-50'  # gleich wie ?v= in templates/v2/index.html
+ASSET_BUILD = 'b1-51'  # gleich wie ?v= in templates/v2/index.html
 
 
 @v2.route('/v2/api/config')
@@ -575,9 +575,104 @@ def v2_rotate(space_id):
         conn.execute('DELETE FROM e2e_records WHERE space_id = ?', (space_id,))
         for r in recs:
             _store(conn, space_id, r['id'], r['data'], str(r.get('updatedAt') or '')[:40])
-        conn.execute('UPDATE e2e_spaces SET read_hash = ?, write_hash = ?, epoch = epoch + 1, updated_at = ? WHERE id = ?',
+        # Links erneuert → auch der Beitrittscode gilt nicht mehr (er führt zum alten Link)
+        conn.execute('UPDATE e2e_spaces SET read_hash = ?, write_hash = ?, epoch = epoch + 1, beitritt_hmac = NULL, beitritt_enc = NULL, updated_at = ? WHERE id = ?',
                      (rh, wh, _now(), space_id))
     return jsonify({'status': 'rotated', 'epoch': space['epoch'] + 1})
+
+
+# --- Gruppen: Beitritt mit 8-stelligem Code statt Link ---------------------
+# Der Code führt zum Bearbeiten-Link der Gruppe. Der Server speichert ihn nur als HMAC (Suche) und zusammen mit dem
+# Link-Geheimnis verschlüsselt mit dem Server-Schlüssel. Raten wird durch Ratenbegrenzung verhindert:
+# 32^8 ≈ 1.1·10^12 Codes, höchstens 10 Versuche je Gerät/Adresse in 15 Minuten.
+CODE_ZEICHEN = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'  # ohne 0/O und 1/I (verwechselbar)
+CODE_RE = re.compile(r'^[' + CODE_ZEICHEN + ']{8}$')
+
+
+def _code_norm(code):
+    return re.sub(r'[\s-]', '', str(code or ''))[:20].upper()
+
+
+def _code_hmac(code):
+    import v2_mail as M
+    return hmac.new(M._server_key(), b'gruppe|' + code.encode(), hashlib.sha256).hexdigest()
+
+
+def _write_token_aus(secret):
+    """Wie im Browser (crypto.js keys): HKDF-SHA256(secret, salt «agff-futter-v2», info «auth-write») → base64url."""
+    import base64
+    from cryptography.hazmat.primitives import hashes as H
+    from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+    raw = base64.urlsafe_b64decode(secret + '=' * (-len(secret) % 4))
+    bits = HKDF(algorithm=H.SHA256(), length=32, salt=b'agff-futter-v2', info=b'auth-write').derive(raw)
+    return base64.urlsafe_b64encode(bits).decode().rstrip('=')
+
+
+def _beitritt_lesen(space):
+    import v2_mail as M
+    if not space['beitritt_enc']:
+        return None
+    try:
+        return json.loads(M.text_dec(space['beitritt_enc'], b'gruppe-beitritt') or 'null')
+    except ValueError:
+        return None
+
+
+@v2.route('/v2/api/spaces/<space_id>/beitritt', methods=['GET', 'POST', 'DELETE'])
+def v2_beitritt(space_id):
+    """GET: aktueller Code (oder null) · POST {secret, neu}: Code erstellen bzw. erneuern · DELETE: Code abschalten.
+    Nur mit Bearbeiten-Zugriff; beim Erstellen muss das Link-Geheimnis zum Bearbeiten-Token passen."""
+    import v2_mail as M
+    with _db() as conn:
+        space = _auth(conn, space_id, need_write=True)
+        if not space:
+            return jsonify({'error': 'NOT_FOUND'}), 404
+        if request.method == 'GET':
+            b = _beitritt_lesen(space)
+            return jsonify({'code': b['code'] if b else None})
+        if request.method == 'DELETE':
+            conn.execute('UPDATE e2e_spaces SET beitritt_hmac = NULL, beitritt_enc = NULL WHERE id = ?', (space_id,))
+            return jsonify({'code': None})
+        _rate_hit('beitritt_neu', limit=20, window=3600)
+        body = _json_body() or {}
+        secret = body.get('secret')
+        if not isinstance(secret, str) or not TOKEN_RE.match(secret) or len(secret) != 43 or \
+                not hmac.compare_digest(space['write_hash'], _sha(_write_token_aus(secret))):
+            return jsonify({'error': 'BAD_KEYS'}), 400
+        b = _beitritt_lesen(space)
+        if b and b.get('secret') == secret and not body.get('neu'):
+            return jsonify({'code': b['code']})
+        for _ in range(5):
+            code = ''.join(secrets.choice(CODE_ZEICHEN) for _ in range(8))
+            if not conn.execute('SELECT 1 FROM e2e_spaces WHERE beitritt_hmac = ?', (_code_hmac(code),)).fetchone():
+                break
+        conn.execute('UPDATE e2e_spaces SET beitritt_hmac = ?, beitritt_enc = ? WHERE id = ?',
+                     (_code_hmac(code), M.text_enc(json.dumps({'code': code, 'secret': secret}), b'gruppe-beitritt'), space_id))
+    return jsonify({'code': code})
+
+
+@v2.route('/v2/api/gruppen/beitreten', methods=['POST'])
+def v2_gruppe_beitreten():
+    """Code → Bearbeiten-Link der Gruppe (id + Geheimnis). Gleiche Antwort für «falsch» und «nicht vorhanden»."""
+    _rate_hit('beitritt', limit=10, window=900)
+    code = _code_norm((_json_body() or {}).get('code'))
+    if not CODE_RE.match(code):
+        return jsonify({'error': 'NOT_FOUND'}), 404
+    with _db() as conn:
+        _purge_expired(conn)
+        space = conn.execute('SELECT * FROM e2e_spaces WHERE beitritt_hmac = ?', (_code_hmac(code),)).fetchone()
+        b = _beitritt_lesen(space) if space else None
+    if not b or b.get('code') != code:
+        with _rate_lock:  # Fehlversuche zusätzlich über alle Geräte begrenzen (gegen verteiltes Raten)
+            q = _rate[('beitritt_fehl', '*')]
+            t = time.monotonic()
+            while q and t - q[0] > 3600:
+                q.popleft()
+            q.append(t)
+            if len(q) > 300:
+                raise RateLimited()
+        return jsonify({'error': 'NOT_FOUND'}), 404
+    return jsonify({'id': space['id'], 'secret': b['secret']})
 
 
 # --- Fotos (JPEG/WebP ohne Metadaten; Zugriff nur mit Link) ---
