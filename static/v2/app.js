@@ -483,8 +483,25 @@
       '<button class="icon-btn" data-act="probe-menu" data-id="' + p.id + '" aria-label="Probe-Aktionen">' + I.more + '</button></div>' +
       '<nav class="steps" aria-label="Schritte">' + steps.map((s, i) => '<button class="step-chip' + (stepDone(p, s.id) ? ' done' : '') + '" data-go="#/p/' + p.id + '/' + s.id + '"' + (s === step ? ' aria-current="step"' : '') + '><span class="n">' + (stepDone(p, s.id) ? '✓' : i + 1) + '</span>' + s.t + '</button>').join('') + '</nav>' +
       '<div class="wizard" data-probe="' + p.id + '">' + window.Kurs.hinweisKarte(p) + (readOnly(p) ? '<div class="alert info" style="margin-bottom:14px">' + I.lock + '<div>' + (p.abgegebenAt ? 'Im Kurs <b>abgegeben</b> am ' + dateCH(p.abgegebenAt) + ' – gesperrt. Den Vergleich finden Sie unter «Ergebnis».' : 'Geteilt über einen <b>Nur-Ansehen-Link</b> – Sie können alles einsehen, aber nichts ändern.') + '</div></div>' : '') + body + '</div>' +
-      '<div class="actionbar">' + (prev ? '<button class="btn" data-go="#/p/' + p.id + '/' + prev.id + '">' + I.back + ' ' + prev.t + '</button>' : '<a class="btn" href="' + back + '">Liste</a>') +
-      (next ? '<button class="btn primary" data-go="#/p/' + p.id + '/' + next.id + '">' + next.t + ' →</button>' : '<button class="btn primary" data-act="pdf-probe" data-id="' + p.id + '">' + I.pdf + ' PDF</button>') + '</div>';
+      (step.id === 'rad' && next && !readOnly(p) ? radActionbar(p, prev, next)
+        : '<div class="actionbar">' + (prev ? '<button class="btn" data-go="#/p/' + p.id + '/' + prev.id + '">' + I.back + ' ' + prev.t + '</button>' : '<a class="btn" href="' + back + '">Liste</a>') +
+      (next ? '<button class="btn primary" data-go="#/p/' + p.id + '/' + next.id + '">' + next.t + ' →</button>' : '<button class="btn primary" data-act="pdf-probe" data-id="' + p.id + '">' + I.pdf + ' PDF</button>') + '</div>');
+  }
+
+  /** Rad: geteilter Weiter-Knopf – Hauptknopf dreht zum nächsten offenen Faktor, daneben direkt zum Ergebnis. */
+  function radActionbar(p, prev, next) {
+    const typ = K3.TYPEN[p.typ]; const sel = K3.radAuswahl(p);
+    const offen = (f) => !f.ph && !sel[f.id];
+    const i = Math.max(0, typ.rad.findIndex((f) => f.id === ui.fokus[p.id]));
+    const reihe = typ.rad.slice(i + 1).concat(typ.rad.slice(0, i + 1));
+    const naechster = reihe.find(offen);
+    const name = (x) => (x.gruppe === 'Feldbedingungen' || x.gruppe === 'Sauberkeit' ? x.optionen[0].mitte : x.gruppe).replace(/-/g, '');
+    const zurueck = '<button class="btn rad-zurueck" data-go="#/p/' + p.id + '/' + prev.id + '" aria-label="Zurück: ' + esc(prev.t) + '">' + I.back + '</button>';
+    if (!naechster) return '<div class="actionbar">' + zurueck + '<button class="btn primary" data-go="#/p/' + p.id + '/' + next.id + '">' + next.t + ' →</button></div>';
+    const rest = typ.rad.filter(offen).length;
+    return '<div class="actionbar">' + zurueck +
+      '<div class="split-btn"><button class="btn primary" data-fokus="' + naechster.id + '"><span class="split-haupt">Weiter: ' + esc(name(naechster)) + '</span><small>noch ' + rest + ' offen</small></button>' +
+      '<button class="btn split-neben" data-go="#/p/' + p.id + '/' + next.id + '" title="Offene Faktoren überspringen">' + next.t + ' ⏭</button></div></div>';
   }
 
   const opt = (o) => '<button type="button" class="opt' + (o.cls ? ' ' + o.cls : '') + '" aria-pressed="' + !!o.on + '" data-set="' + esc(o.set) + '" data-val="' + esc(o.val) + '">' +
