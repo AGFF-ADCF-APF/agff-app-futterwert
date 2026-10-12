@@ -390,7 +390,7 @@
     if (logo) doc.addImage(logo, 'PNG', X + B - 14, 7, 14, 14 * 249.29 / 256.98);
 
     // ---- Kurzschlüssel ----
-    let y = 26; box(X, y, B, 84, 'Gräser vegetativ – Spalten von links nach rechts prüfen, die erste passende gilt');
+    let y = 26; box(X, y, B, 78, 'Gräser vegetativ – Spalten von links nach rechts prüfen, die erste passende gilt');
     const bilder = await Promise.all(['1a', '1b', '2', '3', '4'].map((k) => bildPng('assets/bilder/schluessel-gv-' + k + '.png')));
     const sp = [['1a', 'Borstenförmig', '< 2 mm', ['Rotschwingel', 'Gem. Rispengras', 'Borstgras']],
       ['1b', 'Doppelrille', '«Skispur»', ['Wiesenrispengras', 'Gem. Rispengras', 'Einj. Rispengras']],
@@ -399,7 +399,7 @@
       ['4', 'Matt', 'Unterseite wie Oberseite', ['Knaulgras', 'Timothe', 'Wiesenfuchsschwanz', 'Straussgräser']]];
     const cw = B / 5;
     sp.forEach(([nr, t1, t2, arten], i) => {
-      const x = X + i * cw; if (i) { doc.setDrawColor(225); doc.setLineWidth(0.2); doc.line(x, y + 10, x, y + 81); }
+      const x = X + i * cw; if (i) { doc.setDrawColor(225); doc.setLineWidth(0.2); doc.line(x, y + 10, x, y + 75); }
       doc.setFillColor(31, 138, 76); doc.circle(x + 6, y + 14, 3.3, 'F'); fett(); txt(nr, x + 6, y + 15.2, 7.5, 255, { align: 'center' });
       txt(t1, x + 11, y + 13.6, 8, 15); normal(); txt(t2, x + 11, y + 17, 6.5, 90);
       const b = bilder[i];
@@ -410,45 +410,55 @@
         if (nr === '3') { txt('oben stark gerillt', x + cw / 2, iy - 2, 6.5, 40, { align: 'center' }); fett(); txt('unten glänzend', x + cw / 2, iy + h + 4, 6.8, 20, { align: 'center' }); normal(); }
         if (nr === '4') { txt('glatt', ix + w * 0.22, iy - 2, 6.5, 40, { align: 'center' }); txt('fein gerillt', ix + w * 0.77, iy - 2, 6.5, 40, { align: 'center' }); fett(); txt('unten matt', x + cw / 2, iy + h + 4, 6.8, 20, { align: 'center' }); normal(); }
       }
-      arten.forEach((a, j) => txt(a, x + 3, y + 56 + j * 5.2, 7.5, 25));
+      arten.forEach((a, j) => txt(a, x + 3, y + 54 + j * 4.8, 7.5, 25));
     });
-    txt('Zeichnungen: AGFF-Schlüssel Wiesengräser vegetativ (© edition lmz)', X + B - 2, y + 82, 5.5, 130, { align: 'right' });
+    txt('Zeichnungen: AGFF-Schlüssel Wiesengräser vegetativ (© edition lmz)', X + B - 2, y + 76.5, 5.5, 130, { align: 'right' });
 
-    // ---- Messen: Blattbreite und Blatthäutchen ----
-    y = 114; box(X, y, 104, 50, 'Blattbreite (echte Grösse)'); box(X + 108, y, 70, 50, 'Blatthäutchen');
+    // ---- Messen: Blattbreite/Haare und Blatthäutchen (Werte aus dem AGFF-Schlüssel vegetativ) ----
+    y = 107; box(X, y, 86, 46, 'Blattbreite und Haare (echte Grösse)'); box(X + 90, y, 88, 46, 'Blatthäutchen');
     doc.setFillColor(35, 35, 35);
-    const bx = X + 4; let by = y + 14;
-    doc.rect(bx, by - 1, 40, 2, 'F'); txt('< 2 mm', bx + 44, by + 1, 7.5, 15); txt('borstenförmig (1a)', bx + 60, by + 1, 6.5, 90);
-    by += 9; doc.rect(bx, by - 1.5, 20, 3, 'F'); doc.rect(bx + 20, by - 2, 20, 4, 'F'); txt('3–4 mm', bx + 44, by + 1, 7.5, 15); txt('parallel: Engl. Raigras', bx + 60, by + 1, 6.5, 90);
-    by += 13; doc.triangle(bx, by - 2.5, bx + 40, by - 5, bx + 40, by + 5, 'F'); doc.triangle(bx, by - 2.5, bx, by + 2.5, bx + 40, by + 5, 'F');
-    txt('5–10 mm', bx + 44, by + 1, 7.5, 15); txt('konisch: Ital. Raigras,', bx + 60, by - 1, 6.5, 90); txt('Wiesenschwingel …', bx + 60, by + 2.5, 6.5, 90);
-    // Blatthäutchen: Skala 0–10 mm in echter Grösse (0,5-mm-Teilung) und typische Längen als Balken
-    const lx = X + 114; const ly = y + 19;
-    doc.setDrawColor(0); doc.setLineWidth(0.2); doc.line(lx, ly, lx + 10, ly);
-    for (let h = 0; h <= 20; h++) { doc.setLineWidth(h % 2 ? 0.08 : 0.16); doc.line(lx + h / 2, ly, lx + h / 2, ly - (h % 10 === 0 ? 3.5 : h % 2 ? 1.2 : 2.2)); }
-    txt('0', lx, ly + 3.2, 6, 30, { align: 'center' }); txt('10 mm', lx + 10, ly + 3.2, 6, 30, { align: 'left' });
-    txt('Gegen das Licht an die Skala halten', lx + 15, ly - 0.5, 6.5, 90);
+    const bx = X + 4; let by = y + 13;
+    doc.rect(bx, by - 1, 30, 2, 'F'); fett(); txt('< 2 mm', bx + 33, by + 1, 7, 15); normal(); txt('Spalte 1a', bx + 48, by + 1, 6.5, 90);
+    by += 7; doc.rect(bx, by - 1.5, 15, 3, 'F'); doc.rect(bx + 15, by - 2, 15, 4, 'F'); fett(); txt('3–4 mm', bx + 33, by + 1, 7, 15); normal(); txt('parallel: Engl. Raigras,', bx + 48, by - 0.4, 6.5, 90); txt('Kammgras', bx + 48, by + 2.6, 6.5, 90);
+    by += 10; doc.triangle(bx, by - 2.5, bx + 30, by - 5, bx + 30, by + 5, 'F'); doc.triangle(bx, by - 2.5, bx, by + 2.5, bx + 30, by + 5, 'F');
+    fett(); txt('5–10 mm', bx + 33, by + 1, 7, 15); normal(); txt('konisch: Ital. Raigras, Wiesen-', bx + 48, by - 0.4, 6.5, 90); txt('und Rohrschwingel, W.-Fuchsschw.', bx + 48, by + 2.6, 6.5, 90);
+    by += 9; doc.setDrawColor(35); doc.setLineWidth(0.15); for (let i = 0; i < 6; i++) { doc.line(bx + i * 2, by, bx + i * 2 + 0.2, by - 0.5); doc.line(bx + 16 + i * 2.4, by, bx + 16.4 + i * 2.4, by - 1.2); }
+    doc.setLineWidth(0.3); doc.line(bx, by, bx + 12, by); doc.line(bx + 16, by, bx + 30, by);
+    fett(); txt('Haare', bx + 33, by + 1, 7, 15); normal(); txt('0,5 mm: Wolliges Honiggras', bx + 48, by - 0.4, 6.5, 90); txt('> 1 mm: Goldhafer, Fromental …', bx + 48, by + 2.6, 6.5, 90);
+    // Blatthäutchen: Skala 0–5 mm in echter Grösse, typische Längen als Balken
+    const lx = X + 94; const ly = y + 15;
+    doc.setDrawColor(0); doc.setLineWidth(0.2); doc.line(lx, ly, lx + 5, ly);
+    for (let h = 0; h <= 10; h++) { doc.setLineWidth(h % 2 ? 0.08 : 0.16); doc.line(lx + h / 2, ly, lx + h / 2, ly - (h % 10 === 0 ? 3.5 : h % 2 ? 1.2 : 2.2)); }
+    txt('0', lx, ly + 3, 6, 30, { align: 'center' }); txt('5 mm', lx + 5, ly + 3, 6, 30); txt('gegen das Licht halten', lx + 16, ly - 0.5, 6.3, 100);
     doc.setFillColor(35, 35, 35);
-    [[1, '< 1 mm', 'Wiesenschwingel'], [2, 'ca. 2 mm', 'Ital. Raigras'], [4, '1–4 mm, spitz', 'Gem. Rispengras']].forEach(([l, a, b], i) => { const yy = ly + 10 + i * 6; doc.rect(lx, yy - 2.2, l, 2.4, 'F'); fett(); txt(a, lx + 7, yy, 7, 15); normal(); txt(b, lx + 27, yy, 7, 70); });
+    [[0.8, '< 1 mm, derb', 'Wiesenschwingel'], [2, 'ca. 2 mm, durchsichtig', 'Ital. Raigras'], [3, '1–3 mm, robust', 'Wiesenfuchsschwanz'], [1, '0,5–1,5, gestutzt', 'Rotes Straussgras'], [4, '1–4 mm, spitz', 'Ausläufer-Str., Fioringras'], [0, 'kurz, gestutzt', 'Wiesenrispengras'], [0, 'zugespitzt', 'Gem. Rispengras']]
+      .forEach(([l, a, n], i) => { const yy = ly + 7.5 + i * 3.6; if (l) doc.rect(lx, yy - 2, l, 2.2, 'F'); fett(); txt(a, lx + 6, yy, 6.5, 15); normal(); txt(n, lx + 36, yy, 6.5, 70); });
+
+    // ---- Ährchenlänge (AGFF-Schlüssel ab Rispenschieben) ----
+    y = 156; box(X, y, B, 40, 'Ährchenlänge ab Rispenschieben (echte Grösse, ohne Grannen)');
+    const aehr = (x0, titel, rows) => { fett(); txt(titel, x0, y + 11, 7, 31); normal(); rows.forEach(([l, a, n], i) => { const yy = y + 15.5 + i * 3.8; doc.setFillColor(35, 35, 35); doc.rect(x0, yy - 1.9, l, 2, 'F'); fett(); txt(a, x0 + 27, yy, 6.5, 15); normal(); txt(n, x0 + 38, yy, 6.5, 70); }); };
+    aehr(X + 4, 'Ähren', [[5, '4–7', 'Timothe (5), Kammgras, Ruchgras'], [7, '7 *', 'Wiesenfuchsschwanz'], [14, '10–18', 'Engl. Raigras, Quecke'], [22, '22 *', 'Ital. Raigras'], [25, '> 18', 'Fiederzwenke']]);
+    aehr(X + 92, 'Rispen', [[2.5, '2,5', 'Rotes Straussgras'], [4, '4', 'Wiesen-, Gem., Einj. Rispengras'], [5, '5', 'Wolliges Honiggras (samtig)'], [8, '6–8 *', 'Goldhafer, Fromental, Rotschwingel'], [10, '10', 'Wiesen-, Rohrschwingel'], [25, '17–25 *', 'Flaumhafer, Trespen']]);
+    txt('* mit Grannen · Werte aus dem AGFF-Schlüssel Wiesengräser ab Rispenschieben', X + B - 2, y + 38.5, 5.5, 130, { align: 'right' });
 
     // ---- 5-m-Kreis ----
-    y = 168; box(X, y, B, 56, 'Ertragsanteile schätzen – 5-m-Kreis (AGFF-Merkblatt 8)');
-    const kx = X + 26; const ky = y + 32; const kr = 19;
+    y = 199; box(X, y, B, 41, 'Ertragsanteile schätzen – 5-m-Kreis (AGFF-Merkblatt 8)');
+    const kx = X + 22; const ky = y + 24; const kr = 14;
     doc.setFillColor(170, 210, 140); sektor(doc, kx, ky, kr, -90, 0); doc.setFillColor(210, 232, 190); sektor(doc, kx, ky, kr, 0, 45);
     doc.setDrawColor(60); doc.setLineWidth(0.35); doc.circle(kx, ky, kr); doc.setLineWidth(0.2); doc.line(kx - kr, ky, kx + kr, ky); doc.line(kx, ky - kr, kx, ky + kr);
     doc.setLineDashPattern([0.8, 0.8], 0); doc.line(kx, ky, kx + kr * Math.SQRT1_2, ky + kr * Math.SQRT1_2); doc.setLineDashPattern([], 0);
-    fett(); txt('25 %', kx + 9.5, ky - 7, 8, 20, { align: 'center' }); txt('12,5 %', kx + 12, ky + 5.5, 7, 20, { align: 'center' }); normal();
+    fett(); txt('25 %', kx + 7.5, ky - 5.5, 7.5, 20, { align: 'center' }); txt('12,5 %', kx + 10, ky + 4.5, 6.5, 20, { align: 'center' }); normal();
     const schritte = ['Kreis von ca. 5 m Durchmesser abtreten, gedanklich vierteln.', 'Zuerst Gräser / Klee / Kräuter, dann die Arten schätzen.', 'Füllt eine Art keinen Viertel: halbieren (1/8, 1/16 …).', 'An einer zweiten Stelle wiederholen, Mittel notieren.', 'In 5-%-Schritten – Blühendes wird gern überschätzt.'];
-    schritte.forEach((t, i) => { doc.setFillColor(31, 138, 76); doc.circle(X + 58, y + 15.5 + i * 8, 2.4, 'F'); fett(); txt(String(i + 1), X + 58, y + 16.6 + i * 8, 7, 255, { align: 'center' }); normal(); txt(t, X + 63, y + 16.6 + i * 8, 8, 25); });
+    schritte.forEach((t, i) => { doc.setFillColor(31, 138, 76); doc.circle(X + 48, y + 12.5 + i * 6, 2.2, 'F'); fett(); txt(String(i + 1), X + 48, y + 13.5 + i * 6, 6.5, 255, { align: 'center' }); normal(); txt(t, X + 53, y + 13.6 + i * 6, 7.8, 25); });
 
     // ---- Auswringprobe + QR ----
-    y = 228; box(X, y, 128, 58, 'Auswringprobe Grassilage (TS)');
+    y = 243; box(X, y, 128, 44, 'Auswringprobe Grassilage (TS)');
     const ts = [['< 20 %', 'Saft bei leichtem Pressen'], ['25 %', 'Saft bei starkem Pressen'], ['30 %', 'Saft zwischen den Fingern'], ['35 %', 'feuchte Hände, kein Saft'], ['40 %', 'Hände glänzen noch'], ['45 %', 'leichtes Feuchtegefühl'], ['> 45 %', 'Hände trocken']];
-    ts.forEach(([a, b], i) => { const yy = y + 14 + i * 6.2; if (i % 2 === 0) { doc.setFillColor(242, 245, 241); doc.rect(X + 2, yy - 4, 124, 6.2, 'F'); } if (i === 3 || i === 4) { doc.setFillColor(214, 236, 220); doc.rect(X + 2, yy - 4, 124, 6.2, 'F'); } fett(); txt(a, X + 5, yy, 8, 15); normal(); txt(b, X + 24, yy, 8, 40); });
-    txt('optimal 30–40 % TS (grün) · nach AGFF-Schlüssel K3b', X + 5, y + 56, 6, 110);
-    box(X + 132, y, 46, 58, 'Wiese-App');
-    if (global.FutterIO.qrPdf) await global.FutterIO.qrPdf(doc, global.FutterIO.appUrl() + '#/wiese', X + 137, y + 10, 36);
-    txt('Raster · Stadium · Ertrag', X + 155, y + 50, 6.5, 60, { align: 'center' }); txt('Pflanzen · Wiesenaufnahme', X + 155, y + 54, 6.5, 60, { align: 'center' });
+    ts.forEach(([a, b], i) => { const yy = y + 12 + i * 4.4; doc.setFillColor(...(i === 3 || i === 4 ? [214, 236, 220] : i % 2 === 0 ? [242, 245, 241] : [255, 255, 255])); doc.rect(X + 2, yy - 3.1, 124, 4.4, 'F'); fett(); txt(a, X + 5, yy, 7.5, 15); normal(); txt(b, X + 24, yy, 7.5, 40); });
+    txt('optimal 30–40 % TS (grün) · nach AGFF-Schlüssel K3b', X + 5, y + 42.5, 6, 110);
+    box(X + 132, y, 46, 44, 'Wiese-App');
+    if (global.FutterIO.qrPdf) await global.FutterIO.qrPdf(doc, global.FutterIO.appUrl() + '#/wiese', X + 141, y + 8.5, 28);
+    txt('Raster · Stadium · Ertrag', X + 155, y + 39.3, 6.3, 60, { align: 'center' }); txt('Pflanzen · Wiesenaufnahme', X + 155, y + 42.3, 6.3, 60, { align: 'center' });
   }
   /** Kreissektor (Grad, 0 = rechts, im Uhrzeigersinn) als gefülltes Polygon */
   function sektor(doc, cx, cy, r, a0, a1) {
