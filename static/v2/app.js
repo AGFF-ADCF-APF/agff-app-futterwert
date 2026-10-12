@@ -229,6 +229,7 @@
     if (seg[0] === 'fotopunkte') return { name: 'fotopunkte', id: seg[1] || null };
     if (seg[0] === 'pflanzen') return { name: 'pflanzen' };
     if (seg[0] === 'hilfe') return { name: 'hilfe' };
+    if (seg[0] === 'pool') return { name: 'pool', id: seg[1] || null };
     return { name: 'home' };
   }
   const go = (hash) => { if (location.hash === hash) route(); else location.hash = hash; };
@@ -256,7 +257,7 @@
       if (!p) { ui.route = { name: 'home' }; return render(); }
       depth = 2; anlassId = p.anlassId || null;
     }
-    const SEITEN = ['home', 'daten', 'schweiz', 'bilanz', 'wiese', 'fotopunkte', 'pflanzen', 'hilfe'];
+    const SEITEN = ['home', 'daten', 'schweiz', 'bilanz', 'wiese', 'fotopunkte', 'pflanzen', 'hilfe', 'pool'];
     if (SEITEN.includes(r.name) && r.name !== 'home') depth = 2;
     ui.ctxAnlass = SEITEN.includes(r.name) ? (ui.ctxAnlass !== undefined ? ui.ctxAnlass : undefined) : anlassId;
     app.dataset.depth = depth;
@@ -265,7 +266,7 @@
     $('#main').innerHTML = r.name === 'probe' ? renderProbe(probeById(r.id), r.step)
       : r.name === 'anlass' ? (r.sammel ? window.Sammel.render(anlassId) : renderUebersicht(anlassId))
       : r.name === 'daten' ? renderDaten() : r.name === 'schweiz' ? window.Schweiz.render() : r.name === 'bilanz' ? window.Bilanz.render()
-      : r.name === 'wiese' ? window.Wiese.render() : r.name === 'fotopunkte' ? window.Wiese.renderFotopunkte(r.id) : r.name === 'pflanzen' ? window.Pflanzen.render() : r.name === 'hilfe' ? renderHilfe() : renderWelcome();
+      : r.name === 'wiese' ? window.Wiese.render() : r.name === 'fotopunkte' ? window.Wiese.renderFotopunkte(r.id) : r.name === 'pflanzen' ? window.Pflanzen.render() : r.name === 'hilfe' ? renderHilfe() : r.name === 'pool' ? window.PoolOeffentlich.render(r.id) : renderWelcome();
     afterRender();
   }
   let lastHash = null;
@@ -302,6 +303,7 @@
       '<li><a class="item" href="#/wiese" aria-current="' + (['wiese', 'fotopunkte', 'pflanzen'].includes(r.name)) + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.camera.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Wiese mit Kamera</span><span class="s">Bestand, Stadium, Höhe, Fotopunkte</span></span></a></li>' +
       '<li><a class="item" href="#/bilanz" aria-current="' + (r.name === 'bilanz') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.table.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Rationscheck</span><span class="s">Energie & Protein der Ration</span></span></a></li>' +
       '<li><a class="item" href="#/schweiz" aria-current="' + (r.name === 'schweiz') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">CH</span><span><span class="t">Auswertung Schweiz</span><span class="s">Karte nach PLZ und Höhenzone</span></span></a></li>' +
+      '<li><a class="item" href="#/pool" aria-current="' + (r.name === 'pool') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.table.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Probenpool</span><span class="s">Öffentliche Proben mit Laborwerten</span></span></a></li>' +
       '<li><a class="item" href="#/hilfe" aria-current="' + (r.name === 'hilfe') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">?</span><span><span class="t">Hilfe & Merkblätter</span><span class="s">Unterlagen, Pflanzentabelle, Quellen</span></span></a></li>' +
       '<li><a class="item" href="../"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">v1</span><span><span class="t">Zur bisherigen Version</span><span class="s">Futterwert-Rechner v1</span></span></a></li>' +
       '</ul>';
@@ -1363,6 +1365,7 @@
     if (e.target.closest('[data-bl]') && window.Bilanz.handle(e)) return;
     if (e.target.closest('[data-wi]') && window.Wiese.handle(e)) return;
     if (e.target.closest('[data-pf]') && window.Pflanzen.handle(e)) return;
+    if (e.target.closest('[data-pool-foto]') && window.PoolOeffentlich.handle(e)) return;
     const t = e.target.closest('[data-close],[data-act],[data-set],[data-go],[data-fokus],[data-step],[data-sort],[data-o],[data-f]');
     if (!t) return;
     if (t.tagName === 'A' && t.dataset.act) e.preventDefault();

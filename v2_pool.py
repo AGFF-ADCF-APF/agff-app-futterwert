@@ -41,6 +41,13 @@ def init_pool_db():
                 PRIMARY KEY (pool_id, id)
             );
         ''')
+        pcols = {r[1] for r in conn.execute('PRAGMA table_info(pool_proben)')}
+        for col, typ in (('sammlung', 'TEXT'), ('oeffentlich', 'INTEGER NOT NULL DEFAULT 0'), ('quelle_kurs', 'TEXT'), ('quelle_probe', 'TEXT')):
+            if col not in pcols:
+                try:
+                    conn.execute('ALTER TABLE pool_proben ADD COLUMN ' + col + ' ' + typ)
+                except sqlite3.OperationalError:
+                    pass  # parallel startende Worker
         cols = {r[1] for r in conn.execute('PRAGMA table_info(kurs_proben)')}
         if cols and 'pool_id' not in cols:
             try:
@@ -76,6 +83,10 @@ def _text(v, n):
     return v is None or (isinstance(v, str) and len(v) <= n)
 
 
+LABOR_KEYS = {'ts', 'nel', 'nev', 'apde', 'apdn', 'rp', 'rf', 'ra', 'ndf', 'adf', 'zucker', 'ph', 'milchsaeure', 'essigsaeure', 'buttersaeure'}
+SAMMLUNG_RE = re.compile(r'^[A-Za-zÀ-ÿ0-9 ._/()–-]{1,60}$')
+
+
 def pruefen(d):
     """Whitelist der Pool-Daten. Gibt bereinigte Daten oder None zurück."""
     if not isinstance(d, dict) or d.get('typ') not in FUTTERARTEN:
@@ -83,6 +94,20 @@ def pruefen(d):
     if not all(_text(d.get(k), n) for k, n in (('titel', 120), ('beschreibung', 1000), ('quelle', 200))):
         return None
     out = {'typ': d['typ'], 'titel': (d.get('titel') or '').strip() or 'Probe', 'beschreibung': d.get('beschreibung') or '', 'quelle': d.get('quelle') or ''}
+    # Zusatzangaben (z. B. aus dem Laborbericht): Schnitt-Nr., Bestand, Konservierung, Höhenstufe
+    for k, n in (('schnittNr', 30), ('bestand', 80), ('konservierung', 80), ('hoehenstufe', 30)):
+        if not _text(d.get(k), n):
+            return None
+        if d.get(k):
+            out[k] = d[k].strip()
+    if d.get('sammlung') is not None:
+        if not isinstance(d['sammlung'], str) or not SAMMLUNG_RE.match(d['sammlung'].strip()):
+            return None
+        out['sammlung'] = d['sammlung'].strip()
+    if d.get('oeffentlich') is not None:
+        if not isinstance(d['oeffentlich'], bool):
+            return None
+        out['oeffentlich'] = d['oeffentlich']
     if d.get('schnitt'):
         if not _DATE_RE.match(str(d['schnitt'])):
             return None
@@ -96,7 +121,7 @@ def pruefen(d):
         out['region'] = {k: v for k, v in reg.items() if v}
     lab = d.get('labor')
     if lab:
-        if not isinstance(lab, dict) or not set(lab) <= {'ts', 'nel', 'apde', 'apdn', 'rp', 'ph'} or not all(_num(v, 0, 2000) for v in lab.values()):
+        if not isinstance(lab, dict) or not set(lab) <= LABOR_KEYS or not all(_num(v, 0, 2000) for v in lab.values()):
             return None
         out['labor'] = lab
     fotos = d.get('fotos') or []
@@ -107,7 +132,7 @@ def pruefen(d):
         if (not isinstance(f, dict) or not FOTO_ID_RE.match(str(f.get('id', ''))) or f.get('art') not in ('futter', 'labor')
                 or (f.get('key') is not None and not re.match(r'^[A-Za-z0-9_-]{43}$', str(f.get('key')))) or f.get('mime') not in ('image/webp', 'image/jpeg')):
             return None
-        out['fotos'].append({k: f[k] for k in ('id', 'art', 'key', 'mime', 'w', 'h') if k in f and (k not in ('w', 'h') or _num(f[k], 1, 10000))})
+        out['fotos'].append({k: f[k] for k in ('id', 'art', 'key', 'mime', 'w', 'h', 'ger') if k in f and (k not in ('w', 'h') or _num(f[k], 1, 10000)) and (k != 'ger' or f[k] in ('auto', 'manuell'))})
     refs = d.get('referenzen') or []
     if not isinstance(refs, list) or len(refs) > 20:
         return None
@@ -143,7 +168,8 @@ def pool_liste():
             d = eintrag(conn, r['id'])
             if d:
                 out.append({'id': r['id'], 'eigen': r['creator_hmac'] == ich, 'createdAt': r['created_at'], 'daten': d})
-    return jsonify({'eintraege': out})
+        sammlungen = [r[0] for r in conn.execute('SELECT DISTINCT sammlung FROM pool_proben WHERE sammlung IS NOT NULL ORDER BY sammlung')]
+    return jsonify({'eintraege': out, 'sammlungen': sammlungen})
 
 
 @v2.route('/v2/api/pool/<pool_id>', methods=['PUT'])
@@ -152,8 +178,12 @@ def pool_speichern(pool_id):
     if not ich or not ID_RE.match(pool_id):
         return jsonify({'error': 'NOT_FOUND'}), 404
     _rate_hit('pool_put', limit=60, window=3600)
-    d = pruefen((_json_body() or {}).get('daten'))
+    body = _json_body() or {}
+    d = pruefen(body.get('daten'))
     if d is None:
+        return jsonify({'error': 'REJECTED_CONTENT'}), 422
+    qk, qp = body.get('quelleKurs'), body.get('quelleProbe')
+    if (qk is not None and not ID_RE.match(str(qk))) or (qp is not None and not ID_RE.match(str(qp))):
         return jsonify({'error': 'REJECTED_CONTENT'}), 422
     with _db() as conn:
         alt = conn.execute('SELECT creator_hmac FROM pool_proben WHERE id = ?', (pool_id,)).fetchone()
@@ -161,10 +191,64 @@ def pool_speichern(pool_id):
             return jsonify({'error': 'NOT_FOUND'}), 404
         if not alt and conn.execute('SELECT COUNT(*) FROM pool_proben').fetchone()[0] >= MAX_EINTRAEGE:
             return jsonify({'error': 'POOL_VOLL'}), 409
-        conn.execute('INSERT INTO pool_proben (id, creator_hmac, typ, daten_enc, created_at) VALUES (?, ?, ?, ?, ?) '
-                     'ON CONFLICT(id) DO UPDATE SET typ = excluded.typ, daten_enc = excluded.daten_enc',
-                     (pool_id, ich, d['typ'], M.text_enc(json.dumps(d, ensure_ascii=False), b'pool'), _now()))
+        speichern(conn, pool_id, ich, d, qk, qp)
     return jsonify({'status': 'ok'})
+
+
+def speichern(conn, pool_id, creator_hmac, d, quelle_kurs=None, quelle_probe=None):
+    conn.execute('INSERT INTO pool_proben (id, creator_hmac, typ, daten_enc, created_at, sammlung, oeffentlich, quelle_kurs, quelle_probe) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) '
+                 'ON CONFLICT(id) DO UPDATE SET typ = excluded.typ, daten_enc = excluded.daten_enc, sammlung = excluded.sammlung, oeffentlich = excluded.oeffentlich, '
+                 'quelle_kurs = COALESCE(excluded.quelle_kurs, quelle_kurs), quelle_probe = COALESCE(excluded.quelle_probe, quelle_probe)',
+                 (pool_id, creator_hmac, d['typ'], M.text_enc(json.dumps(d, ensure_ascii=False), b'pool'), _now(), d.get('sammlung'), 1 if d.get('oeffentlich') else 0, quelle_kurs, quelle_probe))
+
+
+# --- Öffentlich: Sammlungen ohne Anmeldung (z. B. «Ernte 2026») ---------------------------
+OEFFENTLICH_FELDER = ('typ', 'titel', 'beschreibung', 'quelle', 'schnitt', 'schnittNr', 'bestand', 'konservierung', 'hoehenstufe', 'region', 'labor', 'sammlung')
+
+
+def _oeffentlich(d):
+    out = {k: d[k] for k in OEFFENTLICH_FELDER if k in d}
+    out['fotos'] = [{k: f[k] for k in ('id', 'art', 'mime', 'w', 'h') if k in f} for f in d.get('fotos', []) if f.get('art') == 'futter' or f.get('ger')]
+    return out
+
+
+@v2.route('/v2/api/oeffentlich/pool', methods=['GET'])
+def pool_oeffentlich():
+    _rate_hit('pool_pub', limit=300, window=600)
+    with _db() as conn:
+        rows = conn.execute('SELECT id, created_at FROM pool_proben WHERE oeffentlich = 1 ORDER BY sammlung, created_at').fetchall()
+        out = []
+        for r in rows:
+            d = eintrag(conn, r['id'])
+            if d:
+                out.append(dict(_oeffentlich(d), id=r['id'], createdAt=r['created_at']))
+    resp = jsonify({'eintraege': out})
+    resp.headers['Cache-Control'] = 'no-store'
+    return resp
+
+
+@v2.route('/v2/api/oeffentlich/pool/<pool_id>/fotos/<foto_id>', methods=['GET'])
+def pool_oeffentlich_foto(pool_id, foto_id):
+    _rate_hit('pool_pub', limit=300, window=600)
+    if not ID_RE.match(pool_id) or not FOTO_ID_RE.match(foto_id):
+        return jsonify({'error': 'NOT_FOUND'}), 404
+    with _db() as conn:
+        r = conn.execute('SELECT oeffentlich FROM pool_proben WHERE id = ?', (pool_id,)).fetchone()
+        d = eintrag(conn, pool_id) if r and r['oeffentlich'] else None
+    if not d or foto_id not in {f['id'] for f in _oeffentlich(d)['fotos']}:
+        return jsonify({'error': 'NOT_FOUND'}), 404
+    return foto_senden(pool_id, foto_id)
+
+
+@v2.route('/v2/api/oeffentlich/kursprobe/<kurs_id>/<probe_id>', methods=['GET'])
+def kursprobe_oeffentlich(kurs_id, probe_id):
+    """Etikett gescannt, nicht im Kurs angemeldet: gibt es einen öffentlichen Pool-Eintrag zu dieser Probe?"""
+    _rate_hit('pool_pub', limit=300, window=600)
+    if not ID_RE.match(kurs_id) or not ID_RE.match(probe_id):
+        return jsonify({'error': 'NOT_FOUND'}), 404
+    with _db() as conn:
+        r = conn.execute('SELECT id, sammlung FROM pool_proben WHERE oeffentlich = 1 AND quelle_kurs = ? AND quelle_probe = ?', (kurs_id, probe_id)).fetchone()
+    return jsonify({'pool': {'id': r['id'], 'sammlung': r['sammlung']} if r else None})
 
 
 def _loeschen(pool_id):

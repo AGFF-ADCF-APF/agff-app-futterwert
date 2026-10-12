@@ -567,3 +567,11 @@ html.cam-offen, html.cam-offen body { overflow: hidden; }
 .doks a > span:last-child { display: grid; gap: 2px; min-width: 0; }
 .doc-ico { flex: none; width: 40px; height: 48px; border-radius: 6px; display: grid; place-items: center; background: var(--kritisch-soft); color: var(--kritisch); font: 800 .72rem/1 var(--font); }
 .ext a { color: var(--brand-ink); }
+.pool-karten { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); gap: 10px; }
+.pool-karte { display: grid; gap: 4px; padding: 12px 14px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--surface); color: var(--ink); text-decoration: none; box-shadow: var(--shadow); }
+.pool-karte:hover { border-color: var(--brand); }
+.pool-kopf { display: flex; gap: 8px; align-items: center; }
+.pool-kpi { display: flex; gap: 14px; margin-top: 4px; }
+.pool-kpi span { display: grid; line-height: 1.1; }
+.pool-kpi b { font-size: 1.1rem; }
+.pool-lab td.num { text-align: right; }

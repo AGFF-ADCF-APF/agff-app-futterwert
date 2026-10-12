@@ -268,7 +268,21 @@
       if (L.probe) return scan(a, L.probe);
       A.go('#/a/' + a.id); return;
     }
+    if (L.probe) return etikettOhneAnmeldung(L, a);
     beitretenDialog(L, a);
+  }
+  /** Etikett einer Kursprobe gescannt, auf diesem Gerät aber (noch) nicht im Kurs angemeldet. */
+  async function etikettOhneAnmeldung(L, vorhanden) {
+    const A = app();
+    let pool = null;
+    try { pool = (await global.FutterIO.api('oeffentlich/kursprobe/' + L.id + '/' + L.probe)).pool; } catch (e) { pool = null; }
+    A.sheet('<h2>Probe aus einem Kurs</h2><p class="small" style="margin-top:0">Dieses Etikett gehört zu einer Probe in einem Kurs. Um sie zu beurteilen, melden Sie sich im Kurs an:</p>' +
+      '<div class="stack"><div class="card stack"><b>Neu im Kurs?</b><p class="small muted" style="margin:0">Scannen Sie den <b>Kurs-QR-Code</b> – Sie erhalten ihn von der Kursleitung (z. B. am Beamer oder auf dem Kursblatt).</p></div>' +
+      '<div class="card stack"><b>Schon beigetreten?</b><p class="small muted" style="margin:0">Mit der E-Mail-Adresse anmelden, die Sie im Kurs bestätigt haben.</p><button class="btn primary" id="etMail">Mit E-Mail anmelden</button></div>' +
+      (pool ? '<div class="card stack"><b>Öffentliche Angaben</b><p class="small muted" style="margin:0">Diese Probe ist im öffentlichen Probenpool' + (pool.sammlung ? ' «' + A.esc(pool.sammlung) + '»' : '') + '.</p><a class="btn" href="#/pool/' + A.esc(pool.id) + '">Laborwerte und Angaben ansehen</a></div>' : '') +
+      '<button class="btn ghost block" data-close>Schliessen</button></div>', (el) => {
+      el.querySelector('#etMail').addEventListener('click', () => emailAnmelden(L, vorhanden));
+    });
   }
   function beitretenDialog(L, vorhanden) {
     const A = app();
@@ -888,6 +902,8 @@
       (kp.labor && Object.keys(kp.labor).length ? '<label class="toggle"><input type="checkbox" name="labor" checked> Laborwerte</label>' : '') +
       (fotos.length ? '<div><b class="small">Fotos</b><div class="stack" style="margin-top:6px">' + fotos.map((f, i) => '<label class="toggle"><input type="checkbox" name="foto' + i + '" checked> ' + (f.art === 'labor' ? 'Laborbericht (geschwärzt)' : 'Futterfoto') + ' ' + (i + 1) + '</label>').join('') + '</div></div>' : '') +
       '<div><b class="small">Beurteilungen als Referenz (anonym)</b>' + (zeilen.length ? '<div class="stack" style="margin-top:6px">' + zeilen.map((z, i) => '<label class="toggle"><input type="checkbox" name="ref' + i + '"> <span style="flex:1">' + esc(z.name) + ' – ' + esc(z.res.klasse ? z.res.klasse.label : '') + ', NEL ' + A.fmt(z.res.werte && z.res.werte.nel, 2) + '</span><input class="input" name="label' + i + '" maxlength="40" placeholder="Referenz ' + (i + 1) + '" style="max-width:140px;min-height:36px"></label>').join('') + '</div><p class="hint">Bezeichnung frei wählbar, z. B. «Lehrperson» oder «Konsens» – nicht den Namen eintragen.</p>' : '<p class="small muted">Noch keine Abgaben.</p>') + '</div>' +
+      '<label class="field"><span>Sammlung <span class="muted">(z. B. «Ernte 2026»)</span></span><input class="input" name="sammlung" maxlength="60" list="poolSammlungen" value="' + esc(kp.sammlung || '') + '"><datalist id="poolSammlungen">' + (poolSammlungen || []).map((x) => '<option value="' + esc(x) + '">').join('') + '</datalist></label>' +
+      '<label class="toggle"><input type="checkbox" name="oeffentlich"> <span><b>Öffentlich</b> – für alle ohne Anmeldung sichtbar (Titel, Beschreibung, Region mit PLZ, Schnitt, Laborwerte, geschwärzte Laborberichte, Futterfotos; ohne Beurteilungen)</span></label>' +
       '<label class="toggle"><input type="checkbox" name="ok" required> <span>Die Angaben enthalten keine Personen- oder Betriebsnamen; ich darf sie weitergeben.</span></label>' +
       '<p class="hint" id="poolMsg"></p><div class="row"><button type="button" class="btn ghost grow" data-close>Abbrechen</button><button class="btn primary grow">In Pool stellen</button></div></form>', (el) => {
       el.querySelector('#poolForm').addEventListener('submit', async (e) => {
@@ -901,7 +917,7 @@
             msg.textContent = 'Bereite Foto ' + (i + 1) + ' vor …';
             await kursFotoUrl(a.id, kp.id, fotos[i].id, true);
             const b = await F().blob(fotos[i].id); if (!b) continue;
-            const meta = { id: F().neueId(), art: fotos[i].art, mime: b.type || fotos[i].mime, w: fotos[i].w, h: fotos[i].h };
+            const meta = { id: F().neueId(), art: fotos[i].art, mime: b.type || fotos[i].mime, w: fotos[i].w, h: fotos[i].h, ger: fotos[i].ger };
             neueFotos.push({ meta, blob: b });
           }
           const refs = zeilen.map((z, i) => fd.get('ref' + i) === 'on' ? { label: String(fd.get('label' + i) || '').trim() || 'Referenz ' + (i + 1), analyse: Object.assign({}, z.analyse, { id: A.uid() }) } : null).filter(Boolean);
@@ -909,8 +925,10 @@
             schnitt: fd.get('schnitt') === 'on' ? kp.schnitt : undefined,
             region: fd.get('region') === 'on' ? { plz: /^[1-9]\d{3}$/.test(String(kp.standort.plz || '').trim()) ? String(kp.standort.plz).trim() : undefined, ort: kp.standort.ort || undefined, hoehe: kp.standort.hoehe || undefined } : undefined,
             labor: fd.get('labor') === 'on' ? kp.labor : undefined,
-            fotos: neueFotos.map((x) => x.meta), referenzen: refs };
-          await poolApi('/' + poolId, a, { method: 'PUT', body: { daten } });
+            fotos: neueFotos.map((x) => x.meta), referenzen: refs,
+            schnittNr: kp.schnittNr || undefined, bestand: kp.botanik || undefined, konservierung: kp.konservierung || undefined, hoehenstufe: kp.hoehenstufe || undefined,
+            sammlung: String(fd.get('sammlung') || '').trim() || undefined, oeffentlich: fd.get('oeffentlich') === 'on' };
+          await poolApi('/' + poolId, a, { method: 'PUT', body: { daten, quelleKurs: a.kurs.id, quelleProbe: kp.id } });
           for (const x of neueFotos) {
             msg.textContent = 'Lade Foto hoch …';
             const r = await fetch('api/pool/' + poolId + '/fotos/' + x.meta.id, { method: 'PUT', headers: Object.assign({ 'Content-Type': 'application/octet-stream' }, PH(a)), body: await F().fuerServer(x.meta, x.blob), credentials: 'omit' });
@@ -922,7 +940,8 @@
     });
   }
 
-  async function poolLaden(a) { poolCache = (await poolApi('', a)).eintraege; return poolCache; }
+  let poolSammlungen = [];
+  async function poolLaden(a) { const r = await poolApi('', a); poolCache = r.eintraege; poolSammlungen = r.sammlungen || []; return poolCache; }
   async function poolFotoUrl(a, poolId, f) {
     let url = await F().thumbUrl(f.id);
     if (!url) {
