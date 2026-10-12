@@ -584,9 +584,14 @@ html.cam-offen, html.cam-offen body { overflow: hidden; }
 .aw-liste li { display: flex; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
 .aw-art { flex: none; font-size: .72rem; font-weight: 800; padding: 2px 8px; border-radius: 99px; background: var(--surface-2); }
 .aw-liste .grow { flex: 1; min-width: 0; }
-.tier-btn { display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px 4px 6px; margin-right: 10px; border: 2px solid var(--brand); border-radius: 99px; background: var(--brand-soft); color: var(--ink); cursor: pointer; flex: none; }
-.tier-btn:hover { background: var(--surface); }
-.tier-ico { font-size: 1.9rem; line-height: 1; }
-.tier-txt { display: grid; text-align: left; line-height: 1.15; }
-.tier-txt small { color: var(--brand-ink); font-size: .74rem; }
+.tier-umschalter { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+.tier-schalter { display: flex; align-items: center; gap: 10px; padding: 10px 12px; min-height: 64px; border: 2px solid var(--line-strong); border-radius: var(--radius); background: var(--surface); color: var(--ink); cursor: pointer; text-align: left; }
+.tier-schalter[aria-pressed="true"] { border-color: var(--brand); background: var(--brand-soft); box-shadow: inset 0 0 0 1px var(--brand); }
+.tier-schalter:disabled { opacity: .45; cursor: default; }
+.tier-ico { font-size: 2.1rem; line-height: 1; flex: none; }
+.tier-txt { display: grid; line-height: 1.2; min-width: 0; }
+.tier-txt b { font-size: 1.05rem; }
+.tier-txt small { color: var(--ink-2); font-size: .85rem; }
+.tier-kasten { margin-top: 10px; }
+.tier-btn { margin-top: 10px; }
 .card > .row:first-child { flex-wrap: wrap; row-gap: 8px; }

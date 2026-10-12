@@ -120,8 +120,19 @@
   const mastGewicht = () => Number(db.prefs.mastGewicht) || 400;
   function mastOf(p, res) { return res.werte ? K3.mastPotenzial(res.werte, { lebendgewicht: mastGewicht(), tsv: p.tsv && p.tsv.mast }) : null; }
   /** Deutlicher Tier-Knopf in den Kästen Tierleistung: antippen → Gewicht und Verzehr anpassen. */
-  const tierKnopf = (p, art, gewicht) => '<button type="button" class="tier-btn" data-act="tier" data-tier="' + art + '" data-id="' + p.id + '" aria-label="' + (art === 'kuh' ? 'Milchkuh' : 'Mastmuni') + ': Gewicht und Verzehr anpassen">' +
-    '<span class="tier-ico" aria-hidden="true">' + (art === 'kuh' ? '🐄' : '🐂') + '</span><span class="tier-txt"><b>' + (art === 'kuh' ? 'Milchkuh' : 'Mastmuni') + '</b><small>' + gewicht + ' kg · anpassen</small></span></button>';
+  const tierKnopf = (p, art, gewicht) => '<button type="button" class="btn sm tier-btn" data-act="tier" data-tier="' + art + '" data-id="' + p.id + '">' + (art === 'kuh' ? 'Milchkuh' : 'Mastmuni') + ' ' + gewicht + ' kg · Gewicht und Verzehr anpassen</button>';
+  /** Umschalter Milch / Mast: prominente Knöpfe mit Ergebnis; der Kasten erscheint erst auf Wunsch (Auswahl wird gemerkt). */
+  function tierUmschalter(p, res) {
+    const m = p.typ === 'mais' ? null : mppOf(p, res); const ms = mastOf(p, res);
+    if (!m && !ms) return '';
+    const sel = db.prefs.tierAnsicht === 'kuh' && m ? 'kuh' : db.prefs.tierAnsicht === 'mast' && ms ? 'mast' : '';
+    const knopf = (art, ico, titel, wert, da) => '<button type="button" class="tier-schalter" data-act="tier-ansicht" data-val="' + art + '" aria-pressed="' + (sel === art) + '"' + (da ? '' : ' disabled') + '>' +
+      '<span class="tier-ico" aria-hidden="true">' + ico + '</span><span class="tier-txt"><b>' + titel + '</b><small>' + wert + '</small></span></button>';
+    return '<div class="tier-umschalter" role="group" aria-label="Tierleistung">' +
+      knopf('kuh', '🐄', 'Milch', m ? fmt(m.mpp, 1) + ' kg/Tag' : 'nicht für Mais', !!m) +
+      knopf('mast', '🐂', 'Mast', ms ? (ms.tzw == null ? 'unter Erhaltung' : fmt(Math.round(ms.tzw / 10) * 10, 0) + ' g/Tag') : '–', !!ms) + '</div>' +
+      (sel === 'kuh' ? mppCard(p, res) : sel === 'mast' ? mastCard(p, res) : '');
+  }
   const verzehrText = (m, quelle) => 'Verzehr ' + fmt(m.tsv, 1) + ' kg TS ' + (m.tsvEigen ? '<b>(eigener Wert)</b>' : '(' + quelle + ')');
   function sheetTier(p, art) {
     if (!p) return;
@@ -758,12 +769,12 @@
     if (!m) return '';
     const vals = [['NEV', m.tzwE, 'Energie'], ['APD', m.tzwP, 'Protein (' + m.apdQuelle + ')']];
     const max = Math.max(1600, ...vals.map((v) => v[1] || 0));
-    return '<div class="card" style="margin-top:14px"><div class="row">' + tierKnopf(p, 'mast', m.lebendgewicht) + '<b class="grow">Mastpotenzial</b><span class="kpi-inline"><b style="font-size:1.5rem">' +
+    return '<div class="card tier-kasten"><div class="row"><b class="grow">Mastpotenzial Muni</b><span class="kpi-inline"><b style="font-size:1.5rem">' +
       (m.tzw == null ? '–' : fmt(Math.round(m.tzw / 10) * 10, 0)) + '</b> g/Tag</span></div>' +
       (m.tzw == null ? '<div class="alert info" style="margin-top:8px">Dieses Futter allein deckt nicht einmal den Erhaltungsbedarf (' + (m.limit === 'APD' ? 'Protein' : 'Energie') + ') – Ergänzung nötig.</div>' : '') +
       '<div class="bars" style="margin-top:10px">' + vals.map(([k, v, t]) => '<div class="b" style="cursor:default" title="' + t + '"><span class="lbl">' + k + (k === m.limit ? ' · begrenzt' : '') + '</span><span class="track"><span class="val" style="width:' + Math.max(0, Math.min(100, ((v || 0) / max) * 100)) + '%;background:' + (k === m.limit ? 'var(--schlecht)' : 'var(--line-strong)') + '"></span></span><span class="n">' + (v == null ? '< Erh.' : fmt(Math.round(v / 10) * 10, 0)) + '</span></div>').join('') + '</div>' +
       '<p class="small muted" style="margin:8px 0 0">Tageszuwachs (g), den ein Muni von ' + m.lebendgewicht + ' kg allein mit diesem Futter erreichen könnte – ' + verzehrText(m, 'Grünes Buch Kap. 10') + ', Bedarf nach Agroscope (Grünes Buch, Kap. 10). ' +
-      'Hinweis: Agroscope-Versuche zeigen, dass der Energiebedarf moderner Mastmuni damit um rund 20 % überschätzt wird; reale Zunahmen dürften eher höher liegen. Tier antippen, um Gewicht und Verzehr anzupassen.</p></div>';
+      'Hinweis: Agroscope-Versuche zeigen, dass der Energiebedarf moderner Mastmuni damit um rund 20 % überschätzt wird; reale Zunahmen dürften eher höher liegen.</p>' + tierKnopf(p, 'mast', m.lebendgewicht) + '</div>';
   }
 
   /** Milchbildungspotenzial: alle drei Grenzen zeigen, die begrenzende hervorheben. */
@@ -772,9 +783,9 @@
     if (!m) return '';
     const vals = [['NEL', m.nel, 'Energie'], ['APDE', m.apde, 'Protein (Energie im Pansen)'], ['APDN', m.apdn, 'Protein (Stickstoff im Pansen)']];
     const max = Math.max(30, ...vals.map((v) => v[1]));
-    return '<div class="card" style="margin-top:14px"><div class="row">' + tierKnopf(p, 'kuh', m.kuhGewicht) + '<b class="grow">Milchbildungspotenzial</b><span class="kpi-inline"><b style="font-size:1.5rem">' + fmt(m.mpp, 1) + '</b> kg/Tag</span></div>' +
+    return '<div class="card tier-kasten"><div class="row"><b class="grow">Milchbildungspotenzial</b><span class="kpi-inline"><b style="font-size:1.5rem">' + fmt(m.mpp, 1) + '</b> kg/Tag</span></div>' +
       '<div class="bars" style="margin-top:10px">' + vals.map(([k, v, t]) => '<div class="b" style="cursor:default" title="' + t + '"><span class="lbl">' + k + (k === m.limit ? ' · begrenzt' : '') + '</span><span class="track"><span class="val" style="width:' + Math.max(0, Math.min(100, (v / max) * 100)) + '%;background:' + (k === m.limit ? 'var(--schlecht)' : 'var(--line-strong)') + '"></span></span><span class="n">' + fmt(Math.max(0, v), 1) + '</span></div>').join('') + '</div>' +
-      '<p class="small muted" style="margin:8px 0 0">Milch (kg/Tag), die eine Kuh von ' + m.kuhGewicht + ' kg allein mit diesem Futter bilden könnte – ' + verzehrText(m, 'geschätzt aus NEL, Merkblatt 3') + ', Bedarf nach Agroscope, wie Futterwert-Rechner v1. Der kleinste der drei Werte begrenzt; ergänzende Futtermittel können ihn ausgleichen.</p></div>';
+      '<p class="small muted" style="margin:8px 0 0">Milch (kg/Tag), die eine Kuh von ' + m.kuhGewicht + ' kg allein mit diesem Futter bilden könnte – ' + verzehrText(m, 'geschätzt aus NEL, Merkblatt 3') + ', Bedarf nach Agroscope, wie Futterwert-Rechner v1. Der kleinste der drei Werte begrenzt; ergänzende Futtermittel können ihn ausgleichen.</p>' + tierKnopf(p, 'kuh', m.kuhGewicht) + '</div>';
   }
 
   function stepErgebnis(p) {
@@ -799,7 +810,7 @@
         h += '<div class="card" style="margin-top:14px"><div class="row"><b class="grow">Energie (NEL) im Vergleich</b><span class="chip ' + (res.zielErreicht ? 'gut' : 'schlecht') + '">' + (res.zielErreicht ? 'Ziel erreicht' : 'unter Ziel') + '</span></div>' +
           '<div class="gauge">' + (b.nel ? '<span class="mk ghost" style="left:' + pos(b.nel) + '%" title="Tabellenwert"></span>' : '') + '<span class="mk" style="left:' + pos(w.nel) + '%"></span>' +
           (res.ziel && res.ziel.nel ? '<span class="tg" style="left:' + pos(res.ziel.nel) + '%">Ziel ' + fmt(res.ziel.nel, 1) + '</span>' : '') + '<span class="tg" style="left:0;transform:none">4,0</span><span class="tg" style="left:100%;transform:translateX(-100%)">7,5 MJ</span></div>' +
-          '<p class="small muted" style="margin:6px 0 0">' + esc(K3.TYPEN[p.typ].ziel) + '</p></div>' + mppCard(p, res) + mastCard(p, res);
+          '<p class="small muted" style="margin:6px 0 0">' + esc(K3.TYPEN[p.typ].ziel) + '</p></div>' + tierUmschalter(p, res);
       }
     }
     h += '<div class="rad-layout" style="margin-top:14px"><div><div class="rad-box"><a href="#/p/' + p.id + '/rad" aria-label="Rad bearbeiten">' + wheelSvg(p, res) + '</a></div></div><div class="card"><h3>Befunde</h3>' +
@@ -1449,6 +1460,7 @@
       case 'anlass-menu': sheetAnlassMenu(anlassById(id)); break;
       case 'probe-menu': sheetProbeMenu(probeById(id)); break;
       case 'tier': sheetTier(probeById(id), t.dataset.tier); break;
+      case 'tier-ansicht': db.prefs.tierAnsicht = db.prefs.tierAnsicht === t.dataset.val ? '' : t.dataset.val; save(); rerenderDetail(true); break;
       case 'import': sheetImport(); break;
       case 'outdoor': {
         const on = document.documentElement.dataset.outdoor === '1';
