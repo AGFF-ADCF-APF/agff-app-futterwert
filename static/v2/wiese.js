@@ -912,12 +912,37 @@
       karte('fotopunkte', 'Fotopunkte', 'Dieselbe Stelle über die Zeit, mit Vorher-Bild als Ausrichtungshilfe') +
       karte('pflanzen', 'Pflanzen bestimmen', 'Wichtige Futterpflanzen nach Merkmalen, mit Kamera-Lupe') +
       '</div>' +
-      '<p class="hint">Am besten direkt aus der Probe heraus starten («Bestand» bzw. «Stadium») – dann werden die Ergebnisse übernommen. Hier ohne Probe: Ergebnis ansehen und bei Bedarf eine neue Probe anlegen.</p>' +
+      '<p class="hint">Aus einer Probe in der App «Futter» heraus («Bestand» bzw. «Stadium») werden die Ergebnisse direkt übernommen. Hier ohne Probe: Ergebnis ansehen und bei Bedarf eine neue Probe anlegen.</p>' +
       (refs.length ? '<section class="q"><h3>Eigene Referenzbilder (' + refs.length + ')</h3><p class="qhint">Erscheinen beim Stadienvergleich zuerst. Nur auf diesem Gerät.</p><div class="fotos">' +
         refs.map((r) => '<button type="button" class="foto-thumb" data-wi="ref-loeschen" data-id="' + r.id + '" aria-label="Referenzbild löschen"><img alt="" data-ref-img="' + r.id + '"><span class="foto-art">' + esc(K3().REFERENZPFLANZEN[r.lp].split(' /')[0]) + ' · ' + r.st + '</span></button>').join('') + '</div></section>' : '') +
       '<section class="q"><h3>Grenzen</h3><ul class="small" style="margin:0;padding-left:18px"><li>Das Raster misst die Deckung von oben, nicht den Gewichtsanteil – Vorschläge immer mit dem eigenen Blick abgleichen.</li>' +
       '<li>Gegenlicht, Tau und harte Schatten stören die Lückenerkennung; am besten mit der Sonne im Rücken.</li><li>Die Lückenerkennung unterscheidet nur grün und nicht grün – Arten erkennt sie nicht.</li>' +
       '<li>Ersetzt keine botanische Bestandesaufnahme nach Fachmethode.</li></ul></section></div>';
+  }
+
+  // ---------- Eigene App «Wiesenbeurteilung»: Menü (links bzw. Startseite auf dem Handy) und Liste ----------
+  function renderNav(r, umschalter) {
+    const A = app(); const I = A.I;
+    const li = (href, ico, t, sub, aktiv) => '<li><a class="item" href="' + href + '" aria-current="' + !!aktiv + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + ico + '</span><span><span class="t">' + t + '</span><span class="s">' + sub + '</span></span></a></li>';
+    const lb = (wi, ico, t, sub) => '<li><button type="button" class="item" data-wi="' + wi + '" style="width:100%;text-align:left;background:none;border:0;cursor:pointer;color:inherit"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + ico + '</span><span><span class="t">' + t + '</span><span class="s">' + sub + '</span></span></button></li>';
+    return '<div class="bar"><div class="brand"><img src="assets/icon.svg" alt=""><div><b>Wiesenbeurteilung</b><span class="sub">Bestand · Stadium · Pflanzen <span class="badge-beta">v2 Beta 1</span></span></div></div>' +
+      '<button class="icon-btn" data-act="outdoor" title="Modus «Draussen»: hoher Kontrast" aria-label="Modus Draussen umschalten">' + I.sun + '</button></div>' + umschalter +
+      '<div class="pad stack"><button class="btn primary block" data-wi="raster" style="min-height:56px">' + I.camera + ' Bestand schätzen (Punktraster)</button>' +
+      '<div class="row"><button class="btn sm grow" data-wi="stadium">Stadium vergleichen</button><button class="btn sm grow" data-wi="hoehe">Wuchshöhe messen</button></div></div>' +
+      '<div class="section-title" style="padding:0 12px">Werkzeuge</div><ul class="list" style="padding:0 8px">' +
+      li('#/pflanzen', '🌿', 'Pflanzen bestimmen', 'AGFF-Schlüssel, Suche, Porträts', r.name === 'pflanzen') +
+      li('#/fotopunkte', '📍', 'Fotopunkte', FP.length ? FP.length + ' Punkte · Vorher/Nachher' : 'Dieselbe Stelle über die Zeit', r.name === 'fotopunkte') +
+      lb('karte-pdf', '🖨', 'Messkarte drucken', 'Raster 50 × 50 cm, Höhe, Farbe') +
+      li('#/wiese', I.camera.replace('<svg', '<svg width="22" height="22"'), 'Übersicht', 'Alle Werkzeuge und Grenzen', r.name === 'wiese') + '</ul>' +
+      '<div class="section-title" style="padding:0 12px">Daten & Hilfe</div><ul class="list" style="padding:0 8px 24px">' +
+      li('#/hilfe', '?', 'Hilfe & Merkblätter', 'Unterlagen, Pflanzentabelle, Quellen', r.name === 'hilfe') +
+      li('#/daten', I.lock.replace('<svg', '<svg width="22" height="22"'), 'Speicherort, Sicherung', 'Daten liegen nur in diesem Browser', r.name === 'daten') + '</ul>';
+  }
+  function renderListe(r) {
+    FP = fpLaden();
+    return '<div class="bar"><h2>Fotopunkte<span class="sub">' + (FP.length ? FP.length + ' Punkte' : 'noch keine') + '</span></h2><button class="icon-btn" data-wi="fp-neu" aria-label="Neuer Fotopunkt">' + app().I.plus + '</button></div>' +
+      '<ul class="list" style="padding:8px">' + (FP.length ? FP.map((p) => { const l = p.fotos[p.fotos.length - 1]; return '<li><a class="item" href="#/fotopunkte/' + p.id + '" aria-current="' + (r.name === 'fotopunkte' && r.id === p.id) + '">' + (l ? '<img class="fp-mini" alt="" data-fp-img="' + l.id + '">' : '<span class="avatar">FP</span>') + '<span style="min-width:0"><span class="t">' + esc(p.name) + '</span><span class="s">' + p.fotos.length + ' Fotos' + (l ? ' · ' + datum(l.at) : '') + '</span></span></a></li>'; }).join('')
+        : '<li class="empty small">Mit Fotopunkten dieselbe Stelle immer wieder fotografieren – z. B. vor und nach einer Übersaat.</li>') + '</ul>';
   }
 
   function lpSheet() {
@@ -998,7 +1023,7 @@
   function allesLoeschen() { try { localStorage.removeItem(KEY_FP); localStorage.removeItem(KEY_REF); } catch (e) { /* ignore */ } FP = []; RS = null; HS = null; }
 
   global.Wiese = {
-    render, renderFotopunkte, handle, plausi, nachRender: bilderEinsetzen, bestandKnopf, stadiumKnopf, farbabgleich, fotoIds, sicherung, wiederherstellen, allesLoeschen, kamera, zu,
+    render, renderFotopunkte, renderNav, renderListe, handle, plausi, nachRender: bilderEinsetzen, bestandKnopf, stadiumKnopf, farbabgleich, fotoIds, sicherung, wiederherstellen, allesLoeschen, kamera, zu,
     // für Tests
     _t: { vorschlag, homographie, invers, proj, karteFinden, KARTE, exg, unsicher },
   };

@@ -303,11 +303,13 @@
       depth = 2; anlassId = p.anlassId || null;
     }
     const SEITEN = ['home', 'daten', 'schweiz', 'bilanz', 'wiese', 'fotopunkte', 'pflanzen', 'hilfe', 'pool'];
-    if (SEITEN.includes(r.name) && r.name !== 'home') depth = 2;
+    if (SEITEN.includes(r.name) && r.name !== 'home') depth = r.name === 'wiese' ? 0 : 2;
+    const appName = appVon(r); if (!NEUTRAL_ROUTEN.includes(r.name)) { appStand.aktiv = appName; appStand[appName] = location.hash || '#/'; appStandMerken(); }
+    document.documentElement.dataset.app = appName;
     ui.ctxAnlass = SEITEN.includes(r.name) ? (ui.ctxAnlass !== undefined ? ui.ctxAnlass : undefined) : anlassId;
     app.dataset.depth = depth;
     $('#r-nav').innerHTML = renderNav(r);
-    $('#r-list').innerHTML = renderList(SEITEN.includes(r.name) ? ui.ctxAnlass : anlassId, r);
+    $('#r-list').innerHTML = appVon(r) === 'wiese' ? window.Wiese.renderListe(r) : renderList(SEITEN.includes(r.name) ? ui.ctxAnlass : anlassId, r);
     $('#main').innerHTML = r.name === 'probe' ? renderProbe(probeById(r.id), r.step)
       : r.name === 'anlass' ? (r.sammel ? window.Sammel.render(anlassId) : renderUebersicht(anlassId))
       : r.name === 'daten' ? renderDaten() : r.name === 'schweiz' ? window.Schweiz.render() : r.name === 'bilanz' ? window.Bilanz.render()
@@ -325,12 +327,50 @@
     return dirty ? { ico: I.cloud, t: 'Änderungen werden übertragen …' } : { ico: I.cloudOk, t: 'Auf dem Server gespeichert' + (a.space.lastSync ? ' · ' + new Date(a.space.lastSync).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) : '') };
   }
 
+  // ---------- Apps: Futterbeurteilung | Wiesenbeurteilung (gleiche Daten, getrennte Navigation) ----------
+  const WIESE_ROUTEN = ['wiese', 'fotopunkte', 'pflanzen'];
+  const NEUTRAL_ROUTEN = ['hilfe', 'daten'];
+  const APP_KEY = 'agffV2Apps';
+  const appStand = (() => { try { const z = JSON.parse(localStorage.getItem(APP_KEY) || '{}'); return z && typeof z === 'object' ? z : {}; } catch (e) { return {}; } })();
+  const appStandMerken = () => { try { localStorage.setItem(APP_KEY, JSON.stringify(appStand)); } catch (e) { /* privat */ } };
+  function appVon(r) { return WIESE_ROUTEN.includes(r.name) ? 'wiese' : NEUTRAL_ROUTEN.includes(r.name) ? (appStand.aktiv || 'futter') : 'futter'; }
+  const APP_ICON = {
+    futter: '<svg viewBox="0 0 32 32" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="9" width="24" height="16" rx="3"/><path d="M4 14h24M4 20h24" stroke-width="1.4" opacity=".7"/><path d="M11 9v16M21 9v16" stroke-width="2.4"/><path d="M7 9l2-3M14 9l1-3M24 9l2-3" stroke-width="1.4"/></svg>',
+    wiese: '<svg viewBox="0 0 32 32" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 27h26"/><path d="M7 27c0-6-2-10-4-12M11 27c0-7 1-12 3-15M16 27c0-6 3-9 6-10M21 27c0-4-1-8-4-10M26 27c0-5 1-8 3-9"/><circle cx="24" cy="8" r="2.4" fill="currentColor"/><path d="M24 10.4V17"/></svg>',
+  };
+  function appUmschalter(aktiv) {
+    const k = (id, titel) => '<button type="button" class="app-knopf" data-act="app" data-val="' + id + '" aria-pressed="' + (aktiv === id) + '">' + APP_ICON[id] + '<span>' + titel + '</span></button>';
+    return '<div class="app-umschalter" role="group" aria-label="App wählen">' + k('futter', 'Futter') + k('wiese', 'Wiese') + '</div>';
+  }
+  /** Wenn das Menü nicht sichtbar ist (Handy, Tablet): kleiner Umschalter in der Kopfzeile der Ansicht. */
+  function appMini() {
+    document.querySelectorAll('.app-mini').forEach((x) => x.remove());
+    const nav = document.querySelector('.region-nav');
+    if (nav && getComputedStyle(nav).display !== 'none') return;
+    const reg = ['.region-list', '.region-detail'].map((q) => document.querySelector(q)).find((x) => x && getComputedStyle(x).display !== 'none');
+    const bar = reg && reg.querySelector('.bar'); if (!bar) return;
+    const aktiv = appVon(ui.route);
+    const k = (id, titel) => '<button type="button" class="app-mini-k" data-act="app" data-val="' + id + '" aria-pressed="' + (aktiv === id) + '" aria-label="App ' + titel + '" title="' + titel + '">' + APP_ICON[id].replace('width="26" height="26"', 'width="20" height="20"') + '</button>';
+    const el = document.createElement('span'); el.className = 'app-mini'; el.setAttribute('role', 'group'); el.setAttribute('aria-label', 'App wählen');
+    el.innerHTML = k('futter', 'Futter') + k('wiese', 'Wiese');
+    bar.appendChild(el);
+  }
+  window.addEventListener('resize', () => { clearTimeout(appMini.t); appMini.t = setTimeout(appMini, 150); });
+  function appWechseln(ziel) {
+    const r = ui.route; const jetzt = appVon(r);
+    if (!NEUTRAL_ROUTEN.includes(r.name)) appStand[jetzt] = location.hash || '#/';
+    appStand.aktiv = ziel; appStandMerken();
+    go(appStand[ziel] && appStand[ziel] !== location.hash ? appStand[ziel] : (ziel === 'wiese' ? '#/wiese' : '#/'));
+  }
+
   function renderNav(r) {
+    if (appVon(r) === 'wiese') return window.Wiese.renderNav(r, appUmschalter('wiese'));
     const cur = r.name === 'anlass' ? r.id : (r.name === 'probe' ? (probeById(r.id) || {}).anlassId : undefined);
     const anl = db.anlaesse.slice().sort((x, y) => ((y.datum || y.createdAt) > (x.datum || x.createdAt) ? 1 : -1));
     const einzel = probenOf(null).length;
     return '<div class="bar"><div class="brand"><img src="assets/icon.svg" alt=""><div><b>Futterbeurteilung</b><span class="sub">AGFF K3a · K3b · K3c <span class="badge-beta">v2 Beta 1</span></span></div></div>' +
       '<button class="icon-btn" data-act="outdoor" title="Modus «Draussen»: hoher Kontrast" aria-label="Modus Draussen umschalten">' + I.sun + '</button></div>' +
+      appUmschalter('futter') +
       '<div class="pad stack">' +
       '<button class="btn primary block" data-act="new-probe" style="min-height:56px">' + I.plus + ' Neue Probe beurteilen</button>' +
       '<div class="row"><button class="btn sm grow" data-act="new-anlass">' + I.plus + ' Neuer Anlass</button><button class="btn sm grow" data-act="import">' + I.upload + ' Importieren</button></div>' +
@@ -345,7 +385,6 @@
       '</ul>' +
       '<div class="section-title" style="padding:0 12px">Daten & Datenschutz</div><ul class="list" style="padding:0 8px 24px">' +
       '<li><a class="item" href="#/daten" aria-current="' + (r.name === 'daten') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.lock.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Speicherort, Sicherung, v1-Daten</span><span class="s">' + (storageOk ? 'Daten liegen nur in diesem Browser' : 'Browserspeicher nicht verfügbar!') + '</span></span></a></li>' +
-      '<li><a class="item" href="#/wiese" aria-current="' + (['wiese', 'fotopunkte', 'pflanzen'].includes(r.name)) + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.camera.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Wiese mit Kamera</span><span class="s">Bestand, Stadium, Höhe, Fotopunkte</span></span></a></li>' +
       '<li><a class="item" href="#/bilanz" aria-current="' + (r.name === 'bilanz') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.table.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Rationscheck</span><span class="s">Energie & Protein der Ration</span></span></a></li>' +
       '<li><a class="item" href="#/schweiz" aria-current="' + (r.name === 'schweiz') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">CH</span><span><span class="t">Auswertung Schweiz</span><span class="s">Karte nach PLZ und Höhenzone</span></span></a></li>' +
       '<li><a class="item" href="#/pool" aria-current="' + (r.name === 'pool') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.table.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Musterproben</span><span class="s">Öffentlicher Probenpool mit Laborwerten</span></span></a></li>' +
@@ -926,7 +965,8 @@
     // Neuer Schritt / neue Seite: oben beginnen
     if (location.hash !== lastHash) { lastHash = location.hash; window.scrollTo(0, 0); $('#main').scrollTop = 0; }
     fotosEinsetzen();
-    if (['wiese', 'fotopunkte'].includes(ui.route.name)) window.Wiese.nachRender();
+    if (['wiese', 'fotopunkte', 'pflanzen', 'hilfe', 'daten'].includes(ui.route.name)) window.Wiese.nachRender();
+    appMini();
     if (window.Assistent) window.Assistent.update();
     if (ui.route.sammel && window.Sammel) window.Sammel.verdrahten();
     Rad.animieren($('#radbox'));
@@ -1390,6 +1430,7 @@
     m.innerHTML = renderProbe(p, ui.route.step);
     if (keepScroll) { m.scrollTop = st; window.scrollTo(0, ws); }
     $('#r-list').innerHTML = renderList(p.anlassId || null, ui.route);
+    appMini();
     fotosEinsetzen();
     if (window.Assistent) window.Assistent.update();
     Rad.animieren($('#radbox'));
@@ -1462,9 +1503,11 @@
         sheetNewProbe(aid || null); break;
       }
       case 'meine-kurse': window.Kurs.meineKurse(); break;
+      case 'app': appWechseln(t.dataset.val); break;
       case 'create-probe': {
         const pr = neueProbe(t.dataset.typ, t.dataset.anlass || null); closeSheet();
-        go('#/p/' + pr.id + '/' + (pr.typ === 'mais' ? 'haecksel' : pr.typ === 'gps' ? 'kultur' : 'bestand')); break;
+        go('#/p/' + pr.id + '/probe');  // bei Schritt 1 beginnen: Bezeichnung, Schnittdatum, PLZ, Fotos
+        setTimeout(() => { const f = document.querySelector('[data-k="kopf.bez"]'); if (f && window.matchMedia('(pointer: fine)').matches) { f.focus(); f.select(); } }, 120); break;
       }
       case 'new-anlass':
         sheet('<h2>Neuer Anlass</h2><div class="typ-cards">' +

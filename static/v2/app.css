@@ -634,3 +634,11 @@ html.cam-offen, html.cam-offen body { overflow: hidden; }
 @keyframes pfBlink { 0%, 40% { box-shadow: 0 0 0 4px #fde68a; } 100% { box-shadow: none; } }
 .pf-such-feld .input:focus, .pf-such-feld .input:focus-visible { outline: none; box-shadow: none; border: 0; }
 .pf-such-feld:focus-within { box-shadow: 0 0 0 3px var(--brand-soft), 0 4px 14px rgb(0 0 0 / .2); }
+.app-umschalter { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 8px 12px 0; }
+.app-knopf { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; border-radius: 12px; border: 2px solid var(--line); background: var(--surface-2); color: var(--ink-2); font-weight: 750; cursor: pointer; }
+.app-knopf[aria-pressed="true"] { background: #facc15; border-color: #eab308; color: #1f2937; box-shadow: 0 2px 8px rgb(234 179 8 / .35); }
+.app-knopf:not([aria-pressed="true"]):hover { border-color: var(--brand); color: var(--ink); }
+.app-mini { display: inline-flex; gap: 2px; padding: 2px; border-radius: 10px; background: var(--surface-2); margin-left: auto; flex: none; }
+.bar > .app-mini { order: 99; }
+.app-mini-k { width: 36px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--ink-3); cursor: pointer; }
+.app-mini-k[aria-pressed="true"] { background: #facc15; color: #1f2937; }
