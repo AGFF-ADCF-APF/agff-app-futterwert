@@ -8,6 +8,18 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 min-h-screen font-sans text-gray-800">
+<!-- Hinweis auf v2 (Beta): gelbe Ecke oben rechts -->
+<style>
+  .v2-ecke { position: fixed; top: 0; right: 0; width: 132px; height: 132px; overflow: hidden; z-index: 9999; pointer-events: none; }
+  .v2-ecke a { position: absolute; top: 30px; right: -40px; width: 190px; transform: rotate(45deg); background: #facc15; color: #1f2937; text-align: center;
+    font: 800 13px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; letter-spacing: .02em; padding: 9px 0; text-decoration: none;
+    box-shadow: 0 2px 6px rgba(0,0,0,.25); pointer-events: auto; border-top: 1px solid #fde68a; border-bottom: 1px solid #eab308; }
+  .v2-ecke a:hover, .v2-ecke a:focus-visible { background: #fde047; }
+  @media (max-width: 640px) { .v2-ecke { width: 104px; height: 104px; } .v2-ecke a { top: 22px; right: -46px; width: 170px; font-size: 11.5px; padding: 7px 0; } }
+  @media print { .v2-ecke { display: none; } }
+</style>
+<div class="v2-ecke"><a href="v2/" title="Neue Version 2 (Beta) ausprobieren – mit Beurteilungsrädern, Kursen und Fotos. Daten bleiben im Browser.">Try v2 (Beta)</a></div>
+
     <header class="bg-white shadow-sm sticky top-0 z-30">
         <div class="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
             <div class="flex items-center gap-3">
