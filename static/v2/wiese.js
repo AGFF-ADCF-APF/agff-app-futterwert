@@ -591,6 +591,8 @@
     return n;
   }
 
+  /** Punktraster für einen Kreis der Wiesenaufnahme (aufnahme.js) */
+  function rasterFuer(ziel) { RS = { pid: null, aufnahme: ziel, n: leer(), k: 0, bilder: [] }; bestandStarten(null, true); }
   async function bestandStarten(probeId, weiter) {
     if (!weiter || !RS) RS = { pid: probeId || null, n: leer(), k: 0, bilder: [] };
     const c = await kamera({ titel: 'Bestand · Aufnahme ' + (RS.k + 1), hilfe: 'Senkrecht von oben aus Brusthöhe. Für ein Raster von 50 × 50 cm die Messkarte flach in die Mitte legen.', zeichnen: rasterLive });
@@ -672,8 +674,9 @@
       (v && v.luecken >= 0.1 ? '<p class="hint">Lücken lassen Unkräuter wie Blacken oder Gemeine Rispe aufkommen – bei grösseren Lücken eine Übersaat prüfen.</p>' : '') +
       (p && RS.bilder.length ? '<label class="toggle"><input type="checkbox" id="wiFotos"> Aufnahmen als Fotos zur Probe speichern (' + RS.bilder.length + ')</label>' : '') +
       '<div class="stack" style="margin-top:12px"><button class="btn block" data-wi="raster-weiter">Weitere Aufnahme</button>' +
+      (v && RS.aufnahme ? '<button class="btn primary block" data-wi="raster-aufnahme">In Wiesenaufnahme übernehmen (Kreis ' + (RS.aufnahme.kreis + 1) + ')</button>' : '') +
       (v && p ? '<button class="btn primary block" data-wi="raster-ok">Übernehmen: ' + esc(K3().BESTAENDE.find((x) => x.id === v.id).titel) + '</button>' : '') +
-      (v && !p ? '<div class="section-title" style="margin-left:0">Neue Probe mit diesem Bestand</div><div class="row">' + ['gruen', 'heu', 'gras'].map((t) => '<button class="btn grow" data-wi="raster-neu" data-typ="' + t + '">' + esc(K3().TYPEN[t].kurz) + '</button>').join('') + '</div>' : '') +
+      (v && !p && !RS.aufnahme ? '<div class="section-title" style="margin-left:0">Neue Probe mit diesem Bestand</div><div class="row">' + ['gruen', 'heu', 'gras'].map((t) => '<button class="btn grow" data-wi="raster-neu" data-typ="' + t + '">' + esc(K3().TYPEN[t].kurz) + '</button>').join('') + '</div>' : '') +
       '<button class="btn ghost block" data-wi="raster-weg">Verwerfen</button></div>');
   }
   async function rasterUebernehmen(p) {
@@ -1143,6 +1146,7 @@
       karte('stadium', 'Stadium vergleichen', 'Leitpflanze im Live-Bild neben die AGFF-Vergleichsbilder halten') +
       karte('hoehe', 'Wuchshöhe und Ertrag', 'Höhe mit Messkarte oder Doppelmeter im Bild, daraus Ertragsschätzung (kg TS/ha)') +
       karte('karte-pdf', 'Messkarte drucken', 'A4 mit vier Eckmarken: Raster 50 × 50 cm, Höhe, Farbabgleich') +
+      karte('aufnahmen', 'Wiesenaufnahme', 'Bestand aufnehmen und beurteilen, Standort, Zielbestand und Massnahmen nach AGFF-Merkblatt 8') +
       karte('fotopunkte', 'Fotopunkte', 'Dieselbe Stelle über die Zeit, mit Vorher-Bild als Ausrichtungshilfe') +
       karte('pflanzen', 'Pflanzen bestimmen', 'Wichtige Futterpflanzen nach Merkmalen, mit Kamera-Lupe') +
       '</div>' +
@@ -1164,6 +1168,7 @@
       '<div class="pad stack"><button class="btn primary block" data-wi="raster" style="min-height:56px">' + I.camera + ' Bestand schätzen (Punktraster)</button>' +
       '<div class="row"><button class="btn sm grow" data-wi="stadium">Stadium vergleichen</button><button class="btn sm grow" data-wi="hoehe">Höhe &amp; Ertrag</button></div></div>' +
       '<div class="section-title" style="padding:0 12px">Werkzeuge</div><ul class="list" style="padding:0 8px">' +
+      li('#/aufnahmen', '📋', 'Wiesenaufnahme', 'Bestand, Standort, Ziel, Massnahmen (AGFF-Merkblatt 8)', r.name === 'aufnahmen') +
       li('#/pflanzen', '🌿', 'Pflanzen bestimmen', 'AGFF-Schlüssel, Suche, Porträts', r.name === 'pflanzen') +
       li('#/fotopunkte', '📍', 'Fotopunkte', FP.length ? FP.length + ' Punkte · Vorher/Nachher' : 'Dieselbe Stelle über die Zeit', r.name === 'fotopunkte') +
       lb('karte-pdf', '🖨', 'Messkarte drucken', 'Raster 50 × 50 cm, Höhe, Farbe') +
@@ -1194,6 +1199,7 @@
       case 'raster-ok': rasterUebernehmen(RS && RS.pid ? A.probeById(RS.pid) : null); break;
       case 'raster-neu': { const v = vorschlag(RS.n); const pr = A.neueProbe(t.dataset.typ, null, { bestand: v.id, raster: Object.assign({}, RS.n, { k: RS.k }) }); RS = null; A.closeSheet(); A.go('#/p/' + pr.id + '/stadium'); break; }
       case 'raster-weg': RS = null; A.closeSheet(); break;
+      case 'raster-aufnahme': { const z = RS && RS.aufnahme; const v = z && vorschlag(RS.n); RS = null; A.closeSheet(); if (z && v && global.Aufnahme) global.Aufnahme.rasterUebernehmen(z, v); break; }
       case 'hoehe': A.closeSheet(); hoeheStarten(t.dataset.probe || null); break;
       case 'hoehe-weiter': A.closeSheet(); hoeheStarten(HS && HS.pid, true); break;
       case 'hoehe-ok': { const pr = HS && HS.pid && A.probeById(HS.pid); if (pr) { pr.antworten.wuchshoehe = Math.round(HS.werte.reduce((s, x) => s + x, 0) / HS.werte.length); pr.antworten.hoeheN = HS.werte.length; A.touchProbe(pr); A.rerenderDetail(true); toast('Wuchshöhe übernommen.'); } HS = null; A.closeSheet(); break; }
@@ -1202,6 +1208,7 @@
       case 'stadium-lp': A.closeSheet(); stadiumStarten(null, Number(t.dataset.lp)); break;
       case 'karte-pdf': messkartePdf().catch((er) => toast(er.message)); break;
       case 'fotopunkte': A.go('#/fotopunkte'); break;
+      case 'aufnahmen': A.go('#/aufnahmen'); break;
       case 'pflanzen': A.go('#/pflanzen'); break;
       case 'fp-neu': fpNeuSheet(); break;
       case 'fp-anlegen': fpAnlegen(); break;
@@ -1259,18 +1266,19 @@
       (a.wuchshoehe ? '<span class="small muted">Wuchshöhe ≈ ' + a.wuchshoehe + ' cm' + (a.hoeheN > 1 ? ' (' + a.hoeheN + ' Messungen)' : '') + '</span>' : '') + '</div>';
   }
   function fotoIds() { return fpLaden().flatMap((p) => p.fotos.map((f) => f.id)).concat(refsLaden().map((r) => r.id)); }
-  function sicherung() { return { fotopunkte: fpLaden(), referenzen: refsLaden() }; }
+  function sicherung() { return { fotopunkte: fpLaden(), referenzen: refsLaden(), aufnahmen: global.Aufnahme ? global.Aufnahme.sicherung() : [] }; }
   function wiederherstellen(w) {
     if (!w || typeof w !== 'object') return;
     const alt = fpLaden(); const fp = Array.isArray(w.fotopunkte) ? w.fotopunkte : [];
     schreiben(KEY_FP, alt.concat(fp.filter((x) => x && !alt.some((a) => a.id === x.id)))); FP = fpLaden();
     const ar = refsLaden(); const rf = Array.isArray(w.referenzen) ? w.referenzen : [];
     schreiben(KEY_REF, ar.concat(rf.filter((x) => x && !ar.some((a) => a.id === x.id))));
+    if (global.Aufnahme && Array.isArray(w.aufnahmen)) global.Aufnahme.wiederherstellen(w.aufnahmen);
   }
-  function allesLoeschen() { try { localStorage.removeItem(KEY_FP); localStorage.removeItem(KEY_REF); } catch (e) { /* ignore */ } FP = []; RS = null; HS = null; }
+  function allesLoeschen() { try { localStorage.removeItem(KEY_FP); localStorage.removeItem(KEY_REF); } catch (e) { /* ignore */ } FP = []; RS = null; HS = null; if (global.Aufnahme) global.Aufnahme.allesLoeschen(); }
 
   global.Wiese = {
-    render, renderFotopunkte, renderNav, renderListe, handle, plausi, nachRender: bilderEinsetzen, bestandKnopf, stadiumKnopf, farbabgleich, fotoIds, sicherung, wiederherstellen, allesLoeschen, kamera, zu,
+    render, renderFotopunkte, renderNav, renderListe, handle, rasterFuer, fotopunkte: () => fpLaden(), plausi, nachRender: bilderEinsetzen, bestandKnopf, stadiumKnopf, farbabgleich, fotoIds, sicherung, wiederherstellen, allesLoeschen, kamera, zu,
     // für Tests
     _t: { vorschlag, homographie, invers, proj, karteFinden, KARTE, exg, unsicher },
   };

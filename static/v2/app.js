@@ -279,6 +279,7 @@
     if (seg[0] === 'bilanz') return { name: 'bilanz' };
     if (seg[0] === 'wiese') return { name: 'wiese' };
     if (seg[0] === 'fotopunkte') return { name: 'fotopunkte', id: seg[1] || null };
+    if (seg[0] === 'aufnahmen') return { name: 'aufnahmen', id: seg[1] || null };
     if (seg[0] === 'pflanzen') return { name: 'pflanzen' };
     if (seg[0] === 'hilfe') return { name: 'hilfe' };
     if (seg[0] === 'pool') return { name: 'pool', id: seg[1] || null };
@@ -309,18 +310,18 @@
       if (!p) { ui.route = { name: 'home' }; return render(); }
       depth = 2; anlassId = p.anlassId || null;
     }
-    const SEITEN = ['home', 'daten', 'schweiz', 'bilanz', 'wiese', 'fotopunkte', 'pflanzen', 'hilfe', 'pool'];
+    const SEITEN = ['home', 'daten', 'schweiz', 'bilanz', 'wiese', 'fotopunkte', 'aufnahmen', 'pflanzen', 'hilfe', 'pool'];
     if (SEITEN.includes(r.name) && r.name !== 'home') depth = r.name === 'wiese' ? 0 : 2;
     const appName = appVon(r); if (!NEUTRAL_ROUTEN.includes(r.name)) { appStand.aktiv = appName; appStand[appName] = location.hash || '#/'; appStandMerken(); }
     document.documentElement.dataset.app = appName;
     ui.ctxAnlass = SEITEN.includes(r.name) ? (ui.ctxAnlass !== undefined ? ui.ctxAnlass : undefined) : anlassId;
     app.dataset.depth = depth;
     $('#r-nav').innerHTML = renderNav(r);
-    $('#r-list').innerHTML = appVon(r) === 'wiese' ? window.Wiese.renderListe(r) : renderList(SEITEN.includes(r.name) ? ui.ctxAnlass : anlassId, r);
+    $('#r-list').innerHTML = appVon(r) === 'wiese' ? (r.name === 'aufnahmen' ? window.Aufnahme.renderListe(r) : window.Wiese.renderListe(r)) : renderList(SEITEN.includes(r.name) ? ui.ctxAnlass : anlassId, r);
     $('#main').innerHTML = r.name === 'probe' ? renderProbe(probeById(r.id), r.step)
       : r.name === 'anlass' ? (r.sammel ? window.Sammel.render(anlassId) : renderUebersicht(anlassId))
       : r.name === 'daten' ? renderDaten() : r.name === 'schweiz' ? window.Schweiz.render() : r.name === 'bilanz' ? window.Bilanz.render()
-      : r.name === 'wiese' ? window.Wiese.render() : r.name === 'fotopunkte' ? window.Wiese.renderFotopunkte(r.id) : r.name === 'pflanzen' ? window.Pflanzen.render() : r.name === 'hilfe' ? renderHilfe() : r.name === 'pool' ? window.PoolOeffentlich.render(r.id) : renderWelcome();
+      : r.name === 'wiese' ? window.Wiese.render() : r.name === 'fotopunkte' ? window.Wiese.renderFotopunkte(r.id) : r.name === 'aufnahmen' ? window.Aufnahme.render(r.id) : r.name === 'pflanzen' ? window.Pflanzen.render() : r.name === 'hilfe' ? renderHilfe() : r.name === 'pool' ? window.PoolOeffentlich.render(r.id) : renderWelcome();
     afterRender();
   }
   let lastHash = null;
@@ -335,7 +336,7 @@
   }
 
   // ---------- Apps: Futterbeurteilung | Wiesenbeurteilung (gleiche Daten, getrennte Navigation) ----------
-  const WIESE_ROUTEN = ['wiese', 'fotopunkte', 'pflanzen'];
+  const WIESE_ROUTEN = ['wiese', 'fotopunkte', 'aufnahmen', 'pflanzen'];
   const NEUTRAL_ROUTEN = ['hilfe', 'daten'];
   const APP_KEY = 'agffV2Apps';
   const appStand = (() => { try { const z = JSON.parse(localStorage.getItem(APP_KEY) || '{}'); return z && typeof z === 'object' ? z : {}; } catch (e) { return {}; } })();
@@ -468,6 +469,8 @@
       ['AGFF_K3b_Grassilage-Qualitaet_2023.pdf', 'K3b Schlüssel zur Beurteilung der Grassilage-Qualität', 'AGFF 2023'],
       ['AGFF_K3c_Maissilage-Qualitaet_2021.pdf', 'K3c Schlüssel zur Beurteilung der Maissilage-Qualität', 'AGFF 2021'],
       ['AGFF_MB03_Bewertung_Wiesenfutter_2021.pdf', 'Merkblatt 3: Bewertung von Wiesenfutter (Bestand, Stadium, Zeitperiode, Konservierung)', 'AGFF 2021'],
+      ['AGFF_MB08_Beurteilung_Wiesenbestaende_2012.pdf', 'Merkblatt 8: Beurteilung von Wiesenbeständen (Grundlage der Wiesenaufnahme)', 'AGFF 2012'],
+      ['AGFF_MB08_Arbeitsblatt.pdf', 'Arbeitsblatt zu Merkblatt 8 (zum Ausdrucken)', 'AGFF'],
       ['AGFF_Infoblatt_K1_Ganzpflanzensilage.pdf', 'Infoblatt K1: Ganzpflanzensilage', 'AGFF'],
       ['Agrarforschung_Schweiz_2015_Ganzpflanzensilage.pdf', 'Fachartikel Ganzpflanzensilage (Grundlage der GPS-Werte aus v1)', 'Agrarforschung Schweiz 6 (4), 2015'],
     ]],
@@ -999,7 +1002,7 @@
     // Neuer Schritt / neue Seite: oben beginnen
     if (location.hash !== lastHash) { lastHash = location.hash; window.scrollTo(0, 0); $('#main').scrollTop = 0; }
     fotosEinsetzen();
-    if (['wiese', 'fotopunkte', 'pflanzen', 'hilfe', 'daten'].includes(ui.route.name)) window.Wiese.nachRender();
+    if (['wiese', 'fotopunkte', 'aufnahmen', 'pflanzen', 'hilfe', 'daten'].includes(ui.route.name)) window.Wiese.nachRender();
     appMini(); listeGriff();
     if (window.Assistent) window.Assistent.update();
     if (ui.route.sammel && window.Sammel) window.Sammel.verdrahten();
@@ -1123,6 +1126,7 @@
     });
   }
 
+  const neueGruppen = new Set(); // Anlässe aus «Neue Gruppe» (nur für diese Sitzung)
   async function createSpace(a, email, code) {
     if (!navigator.onLine) { toast('Keine Verbindung – bitte später erneut versuchen.'); return; }
     try {
@@ -1133,7 +1137,9 @@
       probenOf(a.id).forEach((p) => { p.dirty = true; if (!p.autor) p.autor = db.prefs.ich; });
       save(); closeSheet();
       await syncAnlass(a);
-      render(); sheetShare(a);
+      render();
+      // Nur bei «Neue Gruppe» gleich zum Einladen; sonst nur speichern (Einladen später über das Menü)
+      if (neueGruppen.delete(a.id)) sheetShare(a); else toast('Auf dem Server gespeichert. Andere einladen: Menü › «Mitglieder einladen».');
     } catch (e) {
       if (e.message === 'CODE_INVALID') throw e;
       toast(e.message === 'CONSENT_OUTDATED' ? 'Die Hinweise wurden aktualisiert – bitte Seite neu laden.' : e.message === 'RATE_LIMITED' ? 'Zu viele Anfragen – bitte später erneut versuchen.' : 'Speichern fehlgeschlagen: ' + e.message);
@@ -1253,6 +1259,8 @@
       (navigator.share ? '<button class="btn block" style="margin-top:10px" data-act="native-share" data-url="' + esc(link) + '" data-title="' + esc(a.titel) + '">Teilen …</button>' : '') +
       '<a class="btn block" style="margin-top:10px" href="mailto:' + encodeURIComponent(db.prefs.email || '') + '?subject=' + encodeURIComponent('Futterbeurteilung: ' + a.titel) + '&body=' + encodeURIComponent('Link zum Wiederöffnen (' + (tab === 'w' ? 'Bearbeiten' : 'nur ansehen') + '):\n' + link + '\n\nWer diesen Link hat, kann die Daten öffnen. Vertraulich aufbewahren.') + '">Link an mich mailen (später wieder abrufen)</a>' +
       '<p class="hint">' + esc(syncState(a).t) + '. Gespeichert seit ' + dateCH(a.space.consentAt) + '.' + (links.w ? ' Link oder Code in falschen Händen? → Menü › «Links erneuern» (sperrt auch den Code).' : '') + '</p><button class="btn ghost block" data-close>Schliessen</button>');
+    // Fokus nicht auf «Nur ansehen» setzen (sah wie eine Auswahl aus)
+    setTimeout(() => { const f = el.querySelector('#shareLink'); if (f && el.isConnected) f.focus({ preventScroll: true }); }, 40);
     const svg = await IO.qrSvg(link); if (svg) el.querySelector('#shareQr').innerHTML = svg;
   }
 
@@ -1614,6 +1622,7 @@
     if (e.target.closest('[data-bl]') && window.Bilanz.handle(e)) return;
     if (e.target.closest('[data-wi]') && window.Wiese.handle(e)) return;
     if (e.target.closest('[data-pf]') && window.Pflanzen.handle(e)) return;
+    if (e.target.closest('[data-au]') && window.Aufnahme.handle(e)) return;
     if (e.target.closest('[data-pool-foto]') && window.PoolOeffentlich.handle(e)) return;
     if (e.target.closest('[data-aw]') && window.Auswahl.handle(e)) return;
     const t = e.target.closest('[data-close],[data-act],[data-set],[data-go],[data-fokus],[data-step],[data-sort],[data-o],[data-f]');
@@ -1678,7 +1687,7 @@
         const g = anlassById(id); const k = g && g.kursToken && db.anlaesse.find((x) => x.kurs && g.kursToken.startsWith(x.kurs.id + '.'));
         if (k) go('#/a/' + k.id); else if (g && g.kursToken) window.Kurs.beitreten(g.kursToken); break;
       }
-      case 'new-anlass-eigen': closeSheet(); sheetAnlass(null, (a) => setTimeout(() => sheetConsent(a), 200)); break;
+      case 'new-anlass-eigen': closeSheet(); sheetAnlass(null, (a) => { neueGruppen.add(a.id); setTimeout(() => sheetConsent(a), 200); }); break;
       case 'edit-anlass': if (anlassReadOnly(id)) { toast('Nur-Ansehen-Link: Änderungen sind nicht möglich.'); break; } sheetAnlass(anlassById(id)); break;
       case 'anlass-menu': sheetAnlassMenu(anlassById(id)); break;
       case 'probe-menu': sheetProbeMenu(probeById(id)); break;

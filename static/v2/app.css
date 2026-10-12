@@ -689,3 +689,52 @@ html.kb-hinweise [data-kb]::after { content: attr(data-kb); position: absolute; 
 .teil-item { display: flex; gap: 12px; align-items: center; cursor: pointer; }
 .teil-item input { width: 22px; height: 22px; flex: none; accent-color: var(--brand); }
 .list-kopf { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-2); padding: 10px 8px 4px; }
+
+/* Wiesenaufnahme (AGFF-Merkblatt 8) */
+.aufnahme .au-nav { display: flex; gap: 6px; flex-wrap: wrap; position: sticky; top: 0; z-index: 2; background: var(--bg); padding: 6px 0; margin-bottom: 4px; }
+.aufnahme .au-zeile { display: grid; grid-template-columns: minmax(130px, 32%) 1fr; gap: 6px 12px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.aufnahme .au-z-t { font-size: .88rem; display: flex; flex-direction: column; gap: 2px; }
+.aufnahme .au-seg { flex-wrap: wrap; }
+.aufnahme .au-seg button { min-height: 36px; font-size: .82rem; }
+.aufnahme .au-step { display: inline-flex; align-items: center; gap: 8px; }
+.aufnahme .au-step b { min-width: 46px; text-align: center; }
+.aufnahme .au-step .btn { min-width: 36px; padding: 0 8px; }
+.aufnahme .au-kreise { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; margin-bottom: 8px; }
+.aufnahme .au-kreis { border: 1px solid var(--line); border-radius: var(--radius-s, 10px); padding: 8px; display: flex; flex-direction: column; gap: 2px; }
+.aufnahme .au-kreis .au-zeile { grid-template-columns: 60px 1fr; padding: 3px 0; border: 0; }
+.aufnahme .au-mittel { background: var(--surface-2); }
+.aufnahme .au-kats { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 10px; }
+.aufnahme .au-kat { border: 1px solid var(--line); border-radius: var(--radius-s, 10px); padding: 8px; }
+.aufnahme .au-kat-kopf { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+.aufnahme .au-art { display: flex; align-items: center; gap: 6px; padding: 3px 0; }
+.aufnahme .au-art-n { flex: 1; min-width: 0; font-size: .88rem; }
+.aufnahme .au-weg-btn { width: 32px; height: 32px; font-size: 1.1rem; }
+.aufnahme .au-zeiger { font-size: .68rem; padding: 0 6px; }
+.aufnahme .au-warn { color: var(--schlecht); font-weight: 600; }
+.aufnahme .au-wert { font-weight: 700; }
+.aufnahme .au-h4 { margin: 14px 0 6px; font-size: .95rem; }
+.aufnahme .au-hinweise { margin: 4px 0 8px; padding-left: 18px; }
+.aufnahme .au-ziel { display: grid; grid-template-columns: 110px 1fr 130px; gap: 10px; align-items: center; margin: 6px 0; font-size: .88rem; }
+.aufnahme .au-ziel-bar { position: relative; height: 12px; border-radius: 6px; background: var(--surface-2); }
+.aufnahme .au-ziel-soll { position: absolute; top: 0; bottom: 0; background: var(--gut-soft); border-radius: 6px; }
+.aufnahme .au-ziel-ist { position: absolute; top: -3px; bottom: -3px; width: 4px; border-radius: 2px; background: var(--schlecht); }
+.aufnahme .au-ziel-ist.ok { background: var(--gut); }
+.aufnahme .au-chips-titel { font-weight: 600; font-size: .88rem; margin: 12px 0 6px; }
+.au-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.au-chip { cursor: pointer; border: 1px solid var(--line-strong); background: var(--surface); min-height: 32px; }
+.au-chip[aria-pressed="true"] { background: var(--brand); color: var(--on-brand); border-color: var(--brand); }
+.aufnahme .au-massn { margin: 6px 0; padding-left: 18px; }
+.aufnahme .au-vorschlag { border-left: 3px solid var(--brand); padding: 4px 10px; margin: 4px 0 12px; background: var(--surface-2); border-radius: 0 8px 8px 0; }
+.aufnahme .au-vorschlag ul { margin: 4px 0 6px; padding-left: 18px; }
+.aufnahme .au-vergleich td, .aufnahme .au-vergleich th { text-align: center; }
+.aufnahme .au-jetzt { font-weight: 700; }
+.aufnahme .au-weg { padding-left: 20px; }
+.aufnahme .au-weg li { margin: 8px 0; }
+.aufnahme .au-weg li span { display: block; font-size: .85rem; color: var(--ink-2); }
+.au-wahl { display: flex; flex-direction: column; gap: 6px; max-height: 55vh; overflow: auto; }
+.au-wahl-art { text-align: left; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 8px 10px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; color: inherit; }
+.au-wahl-art:disabled { opacity: .45; cursor: default; }
+@container (max-width: 560px) { .aufnahme .au-zeile { grid-template-columns: 1fr; } .aufnahme .au-ziel { grid-template-columns: 90px 1fr; } .aufnahme .au-ziel > span:last-child { grid-column: 1 / -1; } }
+
+@media (max-width: 600px) { .aufnahme .au-zeile { grid-template-columns: 1fr; } .aufnahme .au-ziel { grid-template-columns: 90px 1fr; } .aufnahme .au-ziel > span:last-child { grid-column: 1 / -1; } }
+.aufnahme section.q { scroll-margin-top: 64px; }

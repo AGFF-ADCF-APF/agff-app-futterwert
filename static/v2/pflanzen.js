@@ -337,7 +337,8 @@
   const info = (n) => (D && D.arten[n]) || null;
   const ICON = { 'Mittleres Teilblatt ohne Stiel (evtl. Stielchen bis 1 mm)': 'k:ohneStiel', 'Mittleres Teilblatt mit Stiel': 'k:mitStiel', 'Blätter parallelnervig': 'k:parallel' };
   const icon = (kid, id) => { const f = D && D.icons[kid] && D.icons[kid][id]; return f ? '<img class="pf-ic" alt="" src="assets/pflanzen/' + f + '">' : ''; };
-  let rueck = null; // Rückmeldung an das Punktraster
+  let rueck = null; // Rückmeldung an das Punktraster bzw. die Wiesenaufnahme
+  let rueckText = null;
 
   const key = () => SCHLUESSEL.find((k) => k.id === Z.key);
   const knoten = (pfad) => pfad.reduce((n, i) => n.kinder[i], key());
@@ -364,7 +365,7 @@
       (a.x ? '<div class="small pf-x">' + esc(a.x) + '</div>' : '') +
       (i && (i.auff || i.wert) ? '<details class="pf-eagff"><summary>Mehr aus eAGFF</summary>' + (i.auff ? '<p class="small"><b>Auffällig:</b> ' + esc(i.auff) + '</p>' : '') + (i.wert ? '<p class="small"><b>Futterbaulicher Wert:</b> ' + esc(i.wert) + '</p>' : '') + (i.vork ? '<p class="small"><b>Vorkommen:</b> ' + esc(i.vork) + '</p>' : '') + '<a class="small" href="' + esc(i.url) + '" target="_blank" rel="noopener noreferrer">Porträt auf eagff.ch ↗</a></details>' : '') +
       (weg ? '<div class="small muted pf-weg">' + weg.map(esc).join(' › ') + '</div>' : '') +
-      (rueck ? '<button class="btn sm" data-pf="nehmen" data-k="' + a.k + '">Im Raster als «' + KAT[a.k] + '» zählen</button>' : '') + '</div>';
+      (rueck ? '<button class="btn sm" data-pf="nehmen" data-k="' + a.k + '" data-n="' + esc(a.n) + '">' + (rueckText ? esc(rueckText) : 'Im Raster als «' + KAT[a.k] + '» zählen') + '</button>' : '') + '</div>';
   }
 
   // Baum zum Aufklappen (wie der Papierschlüssel «nebeneinander»): offene Kriterien und Arten
@@ -412,11 +413,11 @@
   }
 
   function render() {
-    rueck = null;
+    rueck = null; rueckText = null;
     return '<div class="bar"><a class="icon-btn" href="#/wiese" aria-label="Zurück">' + app().I.back + '</a><h2>Pflanzen bestimmen<span class="sub">AGFF-Bestimmungsschlüssel – ohne KI</span></h2></div><div class="pad pflanzen" id="pfBox">' + inhalt() + '</div>';
   }
-  function sheet(cb) {
-    rueck = cb || null;
+  function sheet(cb, text) {
+    rueck = cb || null; rueckText = text || null;
     app().sheet('<h2>Pflanze bestimmen</h2><div class="pflanzen" id="pfBox">' + inhalt() + '</div><button class="btn ghost block" data-close style="margin-top:10px">Schliessen</button>');
   }
   function neu(scroll) { const b = document.getElementById('pfBox'); if (b) { b.innerHTML = inhalt(); if (scroll !== false) { const top = b.closest('.sheet') || document.getElementById('main'); if (top && top.scrollTo) top.scrollTo(0, 0); window.scrollTo(0, 0); } } }
@@ -424,7 +425,7 @@
   function handle(e) {
     const t = e.target.closest('[data-pf]'); if (!t) return false;
     const a = t.dataset.pf;
-    if (a === 'zurueck') { sheet(rueckSheet); return true; }
+    if (a === 'zurueck') { sheet(rueckSheet, rueckText); return true; }
     if (a === 'key') { Z = { key: t.dataset.v, offen: [], arten: [], az: false, suche: Z.suche }; neu(); }
     if (a === 'suche') { Z.suche.offen = true; neu(false); setTimeout(() => { const i = document.getElementById('pfSuche'); if (i) i.focus(); }, 30); }
     if (a === 'suche-zu') { Z.suche = { offen: false, q: '' }; neu(false); }
@@ -448,7 +449,7 @@
     if (a === 'az') { Z.az = !Z.az; neu(); }
     if (a === 'bild') { bildGross(t.dataset.n, Number(t.dataset.i)); return true; }
     if (a === 'export') { (t.dataset.v === 'pdf' ? exportPdf() : exportCsv()).catch((er) => app().toast(er.message)); return true; }
-    if (a === 'nehmen' && rueck) { const cb = rueck; rueck = null; app().closeSheet(); cb(t.dataset.k); }
+    if (a === 'nehmen' && rueck) { const cb = rueck; rueck = null; app().closeSheet(); cb(t.dataset.k, t.dataset.n); }
     if (a === 'lupe' && global.Wiese) {
       global.Wiese.kamera({ titel: 'Lupe · ' + key().titel, hilfe: esc(key().lupe) + ' Zoom-Regler und Licht nutzen; grosser Knopf = Standbild.', lupe: true,
         zeichnen: (ctx, w, h) => { const r = Math.min(w, h) * 0.2; ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(w / 2, h * 0.42, r, 0, 7); ctx.stroke(); } });
