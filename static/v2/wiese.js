@@ -445,31 +445,45 @@
     blaetter.forEach((bl, i) => { if (!bl) return; const h = 10; const w = h * bl.w / bl.h; doc.addImage(bl.url, 'PNG', lx + 62 + i * 9, ly - 7.5 + (i ? 0.7 : 0), w, h); });
     txt('Wiesenr.', lx + 63.4, ly + 4.8, 5.2, 110, { align: 'center' }); txt('Gem. R.', lx + 72.4, ly + 4.8, 5.2, 110, { align: 'center' });
 
-    // ---- Ährchenlänge (AGFF-Schlüssel ab Rispenschieben) ----
-    y = 156; box(X, y, B, 40, 'Ährchenlänge ab Rispenschieben (echte Grösse, ohne Grannen)');
-    const aehr = (x0, titel, rows) => { fett(); txt(titel, x0, y + 11, 7, 31); normal(); rows.forEach(([l, a, n], i) => { const yy = y + 15.5 + i * 3.8; doc.setFillColor(35, 35, 35); doc.rect(x0, yy - 1.9, l, 2, 'F'); fett(); txt(a, x0 + 27, yy, 6.5, 15); normal(); txt(n, x0 + 38, yy, 6.5, 70); }); };
-    aehr(X + 4, 'Ähren', [[5, '4–7', 'Timothe (5), Kammgras, Ruchgras'], [7, '7 *', 'Wiesenfuchsschwanz'], [14, '10–18', 'Engl. Raigras, Quecke'], [22, '22 *', 'Ital. Raigras'], [25, '> 18', 'Fiederzwenke']]);
-    aehr(X + 92, 'Rispen', [[2.5, '2,5', 'Rotes Straussgras'], [4, '4', 'Wiesen-, Gem., Einj. Rispengras'], [5, '5', 'Wolliges Honiggras (samtig)'], [8, '6–8 *', 'Goldhafer, Fromental, Rotschwingel'], [10, '10', 'Wiesen-, Rohrschwingel'], [25, '17–25 *', 'Flaumhafer, Trespen']]);
-    txt('* mit Grannen · Werte aus dem AGFF-Schlüssel Wiesengräser ab Rispenschieben', X + B - 2, y + 38.5, 5.5, 130, { align: 'right' });
+    // ---- Ährchenlänge (AGFF-Schlüssel ab Rispenschieben): Karten mit den Zeichnungen des Schlüssels, Massstab in echter Grösse ----
+    y = 156; box(X, y, B, 50, 'Ährchenlänge ab Rispenschieben (ohne Grannen)');
+    const karten = [['timothe', '4–7', 'Timothe,', 'Kammgras …'], ['fuchs', '7 *', 'Wiesen-', 'fuchsschwanz'], ['engl', '10–18', 'Engl. Raigras,', 'Quecke'], ['ital', '22 *', 'Ital. Raigras', ''], ['fieder', '> 18', 'Fiederzwenke', ''],
+      ['strauss', '2,5', 'Rotes', 'Straussgras'], ['rispe', '4', 'Rispengräser', '(alle drei)'], ['wolligHG', '5', 'Wolliges', 'Honiggras'], ['gold', '6 *', 'Goldhafer', ''], ['fromental', '8 *', 'Fromental,', 'Rotschwingel'], ['wschw', '10', 'Wiesen-, Rohr-', 'schwingel'], ['aufrecht', '17–25 *', 'Trespen,', 'Flaumhafer']];
+    const kbilder = await Promise.all(karten.map((k) => bildPng('assets/bilder/schluessel-gg-' + k[0] + '.png')));
+    const kw = (B - 4) / karten.length; const kx0 = X + 2;
+    fett(); txt('Ähren', kx0 + 2, y + 11.5, 7, 31); txt('Rispen', kx0 + 5 * kw + 3, y + 11.5, 7, 31); normal();
+    doc.setDrawColor(215); doc.setLineWidth(0.25); doc.line(kx0 + 5 * kw, y + 9, kx0 + 5 * kw, y + 41);
+    karten.forEach(([k, mm, n1, n2], i) => {
+      const cx = kx0 + i * kw + kw / 2; const b = kbilder[i];
+      if (b) { const maxH = 17; const maxW = kw - 3; let h = maxH; let w = h * b.w / b.h; if (w > maxW) { w = maxW; h = w * b.h / b.w; } if (b.h < 200) { h = Math.min(h, 9); w = h * b.w / b.h; } doc.addImage(b.url, 'PNG', cx - w / 2, y + 30.5 - h, w, h); }
+      fett(); txt(mm, cx, y + 34.5, 7, 15, { align: 'center' }); normal(); txt(n1, cx, y + 37.6, 5.6, 60, { align: 'center' }); if (n2) txt(n2, cx, y + 40.2, 5.6, 60, { align: 'center' });
+    });
+    // Massstab 0–25 mm in echter Grösse zum Anlegen
+    const rx = X + 6; const ry = y + 46.5;
+    doc.setDrawColor(0); doc.setLineWidth(0.25); doc.line(rx, ry, rx + 25, ry);
+    for (let m = 0; m <= 25; m++) { doc.setLineWidth(m % 5 ? 0.1 : 0.22); doc.line(rx + m, ry, rx + m, ry - (m % 5 ? 1.4 : 2.6)); }
+    [0, 5, 10, 15, 20, 25].forEach((m) => txt(String(m), rx + m, ry + 2.6, 5.5, 30, { align: 'center' }));
+    txt('mm – Ährchen hier anlegen (echte Grösse)', rx + 28, ry + 0.4, 6.3, 70);
+    txt('* mit Grannen · Werte und Zeichnungen: AGFF-Schlüssel Wiesengräser ab Rispenschieben (© edition lmz)', X + B - 2, ry + 0.4, 5.5, 130, { align: 'right' });
 
     // ---- 5-m-Kreis ----
-    y = 199; box(X, y, B, 41, 'Ertragsanteile schätzen – 5-m-Kreis (AGFF-Merkblatt 8)');
-    const kx = X + 22; const ky = y + 24; const kr = 14;
+    y = 209; box(X, y, B, 36, 'Ertragsanteile schätzen – 5-m-Kreis (AGFF-Merkblatt 8)');
+    const kx = X + 21; const ky = y + 21.5; const kr = 12;
     doc.setFillColor(170, 210, 140); sektor(doc, kx, ky, kr, -90, 0); doc.setFillColor(210, 232, 190); sektor(doc, kx, ky, kr, 0, 45);
     doc.setDrawColor(60); doc.setLineWidth(0.35); doc.circle(kx, ky, kr); doc.setLineWidth(0.2); doc.line(kx - kr, ky, kx + kr, ky); doc.line(kx, ky - kr, kx, ky + kr);
     doc.setLineDashPattern([0.8, 0.8], 0); doc.line(kx, ky, kx + kr * Math.SQRT1_2, ky + kr * Math.SQRT1_2); doc.setLineDashPattern([], 0);
-    fett(); txt('25 %', kx + 7.5, ky - 5.5, 7.5, 20, { align: 'center' }); txt('12,5 %', kx + 10, ky + 4.5, 6.5, 20, { align: 'center' }); normal();
+    fett(); txt('25 %', kx + 6.2, ky - 4.5, 7, 20, { align: 'center' }); txt('12,5 %', kx + 8.6, ky + 4, 6, 20, { align: 'center' }); normal();
     const schritte = ['Kreis von ca. 5 m Durchmesser abtreten, gedanklich vierteln.', 'Zuerst Gräser / Klee / Kräuter, dann die Arten schätzen.', 'Füllt eine Art keinen Viertel: halbieren (1/8, 1/16 …).', 'An einer zweiten Stelle wiederholen, Mittel notieren.', 'In 5-%-Schritten – Blühendes wird gern überschätzt.'];
-    schritte.forEach((t, i) => { doc.setFillColor(31, 138, 76); doc.circle(X + 48, y + 12.5 + i * 6, 2.2, 'F'); fett(); txt(String(i + 1), X + 48, y + 13.5 + i * 6, 6.5, 255, { align: 'center' }); normal(); txt(t, X + 53, y + 13.6 + i * 6, 7.8, 25); });
+    schritte.forEach((t, i) => { doc.setFillColor(31, 138, 76); doc.circle(X + 44, y + 12 + i * 5.2, 2.1, 'F'); fett(); txt(String(i + 1), X + 44, y + 13 + i * 5.2, 6.3, 255, { align: 'center' }); normal(); txt(t, X + 49, y + 13.1 + i * 5.2, 7.6, 25); });
 
     // ---- Auswringprobe + QR ----
-    y = 243; box(X, y, 128, 44, 'Auswringprobe Grassilage (TS)');
+    y = 248; box(X, y, 128, 40, 'Auswringprobe Grassilage (TS)');
     const ts = [['< 20 %', 'Saft bei leichtem Pressen'], ['25 %', 'Saft bei starkem Pressen'], ['30 %', 'Saft zwischen den Fingern'], ['35 %', 'feuchte Hände, kein Saft'], ['40 %', 'Hände glänzen noch'], ['45 %', 'leichtes Feuchtegefühl'], ['> 45 %', 'Hände trocken']];
-    ts.forEach(([a, b], i) => { const yy = y + 12 + i * 4.4; doc.setFillColor(...(i === 3 || i === 4 ? [214, 236, 220] : i % 2 === 0 ? [242, 245, 241] : [255, 255, 255])); doc.rect(X + 2, yy - 3.1, 124, 4.4, 'F'); fett(); txt(a, X + 5, yy, 7.5, 15); normal(); txt(b, X + 24, yy, 7.5, 40); });
-    txt('optimal 30–40 % TS (grün) · nach AGFF-Schlüssel K3b', X + 5, y + 42.5, 6, 110);
-    box(X + 132, y, 46, 44, 'Wiese-App');
-    if (global.FutterIO.qrPdf) await global.FutterIO.qrPdf(doc, global.FutterIO.appUrl() + '#/wiese', X + 141, y + 8.5, 28);
-    txt('Raster · Stadium · Ertrag', X + 155, y + 39.3, 6.3, 60, { align: 'center' }); txt('Pflanzen · Wiesenaufnahme', X + 155, y + 42.3, 6.3, 60, { align: 'center' });
+    ts.forEach(([a, b], i) => { const yy = y + 11.3 + i * 3.9; doc.setFillColor(...(i === 3 || i === 4 ? [214, 236, 220] : i % 2 === 0 ? [242, 245, 241] : [255, 255, 255])); doc.rect(X + 2, yy - 2.8, 124, 3.9, 'F'); fett(); txt(a, X + 5, yy, 7.2, 15); normal(); txt(b, X + 24, yy, 7.2, 40); });
+    txt('optimal 30–40 % TS (grün) · nach AGFF-Schlüssel K3b', X + 5, y + 38.4, 6, 110);
+    box(X + 132, y, 46, 40, 'Wiese-App');
+    if (global.FutterIO.qrPdf) await global.FutterIO.qrPdf(doc, global.FutterIO.appUrl() + '#/wiese', X + 142.5, y + 7.8, 25);
+    txt('Raster · Stadium · Ertrag', X + 155, y + 35.6, 6.2, 60, { align: 'center' }); txt('Pflanzen · Wiesenaufnahme', X + 155, y + 38.2, 6.2, 60, { align: 'center' });
   }
   /** Kreissektor (Grad, 0 = rechts, im Uhrzeigersinn) als gefülltes Polygon */
   function sektor(doc, cx, cy, r, a0, a1) {
