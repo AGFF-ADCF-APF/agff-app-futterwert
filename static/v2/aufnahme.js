@@ -242,10 +242,10 @@
       '<section class="q"><h3>Angaben</h3><div class="grid2">' +
       '<label class="field"><span>Ort</span>' + feld('kopf.ort', k.ort, ' maxlength="120" placeholder="z. B. Hof Moos, Bärau"') + '</label>' +
       '<label class="field"><span>Parzelle</span>' + feld('kopf.parzelle', k.parzelle, ' maxlength="120" placeholder="z. B. Hausmatte"') + '</label>' +
-      '<label class="field"><span>Höhe ü. M. (m)</span>' + feld('kopf.hoehe', k.hoehe, ' type="number" min="0" max="4000" inputmode="numeric"') + '</label>' +
+      '<label class="field"><span>Höhe ü. M. (m)</span>' + feld('kopf.hoehe', k.hoehe, ' inputmode="numeric" data-zahl="1" data-min="0" data-max="4000" autocomplete="off"') + '</label>' +
       '<label class="field"><span>Datum</span>' + feld('kopf.datum', k.datum, ' type="date"') + '</label>' +
       '<label class="field"><span>Entwicklungsstadium</span>' + feld('kopf.stadium', k.stadium, ' list="auStadien" maxlength="80"') + '<datalist id="auStadien">' + STADIEN.map((s) => '<option value="' + s + '">').join('') + '</datalist></label>' +
-      '<label class="field"><span>Aufwuchs-Nr.</span>' + feld('kopf.aufwuchs', k.aufwuchs, ' type="number" min="1" max="8" inputmode="numeric"') + '</label></div>' +
+      '<label class="field"><span>Aufwuchs-Nr.</span>' + feld('kopf.aufwuchs', k.aufwuchs, ' inputmode="numeric" data-zahl="1" data-min="1" data-max="8" autocomplete="off"') + '</label></div>' +
       '<div class="row" style="margin-top:8px;flex-wrap:wrap"><button type="button" class="btn sm" data-au="gps">' + (k.lat != null ? '📍 Standort ' + k.lat.toFixed(4) + ', ' + k.lon.toFixed(4) + ' (neu setzen)' : '📍 Standort (GPS) speichern') + '</button>' +
       '<button type="button" class="btn sm" data-wi="stadium">Stadium mit Kamera</button>' +
       (fp.length ? '<label class="field" style="min-width:180px;flex:1"><span class="small">Fotopunkt verknüpfen</span><select class="input" data-auf="kopf.fotopunkt"><option value="">–</option>' + fp.map((p) => '<option value="' + p.id + '"' + (k.fotopunkt === p.id ? ' selected' : '') + '>' + esc(p.name) + '</option>').join('') + '</select></label>' : '<a class="btn sm ghost" href="#/fotopunkte">Fotopunkt anlegen</a>') +
@@ -303,7 +303,7 @@
       zeile('Konservierbarkeit Silage', seg('beurteilung.silage', W.note4, b.silage)) +
       zeile('Konservierbarkeit Dürrfutter', seg('beurteilung.duerr', W.note4, b.duerr)) +
       zeile('Eignung für Weide', seg('beurteilung.weide', W.note4, b.weide)) +
-      zeile('Ertrag (Schätzung)', feld('beurteilung.ertrag', b.ertrag, ' type="number" min="0" max="400" inputmode="decimal" style="max-width:110px"') + ' <span class="small">dt TS/Jahr</span> <button type="button" class="btn sm ghost" data-wi="hoehe">Höhe &amp; Ertrag (je Schnitt)</button>') +
+      zeile('Ertrag (Schätzung)', feld('beurteilung.ertrag', b.ertrag, ' inputmode="decimal" data-zahl="1" data-min="0" data-max="400" autocomplete="off" style="max-width:110px"') + ' <span class="small">dt TS/Jahr</span> <button type="button" class="btn sm ghost" data-wi="hoehe">Höhe &amp; Ertrag (je Schnitt)</button>') +
       '<label class="field"><span>Wiesentyp, Bemerkungen</span>' + text('beurteilung.bemerkung', b.bemerkung) + '</label>' +
       '<h4 class="au-h4">Wichtige Zeigerarten</h4>' +
       (zeiger.length ? '<table class="wi-tab au-zeigertab"><tr><th>Art</th><th>%</th><th>Worauf weist sie hin?</th></tr>' + zeiger.map((x) => '<tr><td>' + esc(x.n) + '</td><td>' + x.p + '</td><td>' + esc((T3[x.n] || T4[x.n])[1]) + '</td></tr>').join('') + '</table>'
@@ -389,7 +389,13 @@
   function nachEingabe(el) {
     const a = aktuell(); if (!a) return;
     const pfad = el.dataset.auf; let v = el.value;
-    if (el.type === 'number') v = v === '' ? undefined : Number(v);
+    if (el.dataset.zahl) {
+      // Komma wie Punkt; ungültig oder ausserhalb → nicht speichern, Feld markieren (statt stiller Verlust)
+      const roh = String(v).trim().replace(',', '.'); const n = roh === '' ? undefined : Number(roh);
+      const ok = n === undefined || (isFinite(n) && n >= Number(el.dataset.min) && n <= Number(el.dataset.max));
+      el.setAttribute('aria-invalid', ok ? 'false' : 'true'); if (!ok) return;
+      v = n;
+    }
     if (pfad === 'kopf.fotopunkt' && !v) v = undefined;
     setzePfad(a, pfad, v);
     const c = clean(a); if (c) Object.assign(a, c);

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Datenschutz – Futterbeurteilung v2</title>
   <meta name="robots" content="noindex">
-  <link rel="stylesheet" href="assets/app.css?v=b1-61">
+  <link rel="stylesheet" href="assets/app.css?v=b1-62">
 </head>
 <body>
 <div class="doc">
@@ -13,6 +13,15 @@
   <h1>Datenschutzerklärung – Futterbeurteilung v2 (Beta)</h1>
   <p class="draft">ENTWURF – vor der Veröffentlichung durch den Betreiber zu prüfen und zu ergänzen (Verantwortliche Stelle, Kontakt, Serverstandort).</p>
 
+  <div class="kurz" role="note"><b>Das Wichtigste in Kürze</b>
+    <ul>
+      <li><b>Standard:</b> Ihre Daten bleiben nur auf Ihrem Gerät. Kein Konto, kein Tracking.</li>
+      <li><b>Nur mit Ihrer Zustimmung</b> gehen Daten auf den Server: für Gruppen, Kurse oder Ihr Konto mit Cloud-Speicherung.</li>
+      <li><b>Wer sieht was:</b> nur Personen mit Link, Code oder Anmeldung – und der Betreiber für Betrieb und Support.</li>
+      <li><b>Löschen:</b> jederzeit selbst in der App; automatisch nach 24 Monaten ohne Nutzung.</li>
+      <li><b>Anonyme Beiträge</b> für Auswertungen sind freiwillig und enthalten keine Namen, Betriebe oder Fotos.</li>
+    </ul>
+  </div>
   <h2>1. Verantwortliche Stelle</h2>
   <p>[Name / Organisation, Adresse, E-Mail – bitte ergänzen]</p>
 
@@ -37,14 +46,6 @@
   </ul>
   <p>Erfassen Sie Angaben zu anderen Personen (z. B. Betriebsname) nur, wenn diese damit einverstanden sind.</p>
 
-  <h2>4b. Konto und Cloud-Speicherung (freiwillig)</h2>
-  <p>Mit einem Konto (nur E-Mail-Adresse, kein Passwort) können Sie Ihre Daten in der Cloud sichern und auf mehreren Geräten verwenden – für «Futter» und «Wiese» getrennt einschaltbar.</p>
-  <ul>
-    <li><b>Anmeldung:</b> 6-stelliger Code (15 Minuten gültig) oder Anmelde-Knopf in der E-Mail. Der Anmelde-Link bleibt 24 Monate gültig, damit Sie sich später wieder anmelden können; er kann in der App jederzeit widerrufen werden. Der Server speichert davon nur einen Prüfwert. Wer Zugriff auf Ihr E-Mail-Postfach hat, kann sich anmelden – leiten Sie die E-Mail nicht weiter.</li>
-    <li><b>Gespeichert</b> werden die Adresse (verschlüsselt, Suche über einen Prüfwert), die angemeldeten Geräte (Gerätetyp und Browser, Zeitpunkte) und – nur wenn eingeschaltet – alle Daten der jeweiligen App inklusive Fotos. Ohne Ende-zu-Ende-Verschlüsselung; Zugriff nur mit Ihrer Anmeldung sowie durch den Betreiber für Betrieb und Support.</li>
-    <li><b>Foto-Speicher:</b> begrenzt je Konto; mehr auf Antrag (Angaben im Antrag werden verschlüsselt gespeichert und nur vom Betreiber gelesen).</li>
-    <li><b>Löschung:</b> Cloud je App ausschalten und löschen, Konto komplett löschen – jederzeit unter «Daten». Automatisch {{ (retention_days / 30.4)|round|int }} Monate nach der letzten Nutzung.</li>
-  </ul>
   <h2>4a. Kursmodus (Schulklassen, Gruppen)</h2>
   <p>Im Kursmodus werden <b>alle Angaben auf dem Server gespeichert</b>, damit eine Gruppe dieselben Proben beurteilen und vergleichen kann. Die Datenschutzhinweise werden beim Beitritt einmalig angezeigt; ohne Zustimmung ist keine Teilnahme möglich.</p>
   <ul>
@@ -86,6 +87,14 @@
     <li><b>Fotopunkte:</b> Auf Wunsch speichert die App den Standort (Koordinaten) und die Blickrichtung des Fotopunkts, um Sie später zur gleichen Stelle zu führen. Diese Angaben und die Fotos bleiben auf diesem Gerät und sind nur in Ihrer eigenen Sicherungsdatei enthalten, nicht im PDF «Verlauf».</li>
   </ul>
 
+  <h2>4h. Konto und Cloud-Speicherung (freiwillig)</h2>
+  <p>Mit einem Konto (nur E-Mail-Adresse, kein Passwort) können Sie Ihre Daten in der Cloud sichern und auf mehreren Geräten verwenden – für «Futter» und «Wiese» getrennt einschaltbar.</p>
+  <ul>
+    <li><b>Anmeldung:</b> 6-stelliger Code (15 Minuten gültig) oder Anmelde-Knopf in der E-Mail. Der Anmelde-Link bleibt 24 Monate gültig, damit Sie sich später wieder anmelden können; er kann in der App jederzeit widerrufen werden. Der Server speichert davon nur einen Prüfwert. Wer Zugriff auf Ihr E-Mail-Postfach hat, kann sich anmelden – leiten Sie die E-Mail nicht weiter.</li>
+    <li><b>Gespeichert</b> werden die Adresse (verschlüsselt, Suche über einen Prüfwert), die angemeldeten Geräte (Gerätetyp und Browser, Zeitpunkte) und – nur wenn eingeschaltet – alle Daten der jeweiligen App inklusive Fotos. Ohne Ende-zu-Ende-Verschlüsselung; Zugriff nur mit Ihrer Anmeldung sowie durch den Betreiber für Betrieb und Support.</li>
+    <li><b>Foto-Speicher:</b> begrenzt je Konto; mehr auf Antrag (Angaben im Antrag werden verschlüsselt gespeichert und nur vom Betreiber gelesen).</li>
+    <li><b>Löschung:</b> Cloud je App ausschalten und löschen, Konto komplett löschen – jederzeit unter «Daten». Automatisch {{ (retention_days / 30.4)|round|int }} Monate nach der letzten Nutzung.</li>
+  </ul>
   <h2>5. Ihre Rechte</h2>
   <p>Sie haben das Recht auf Auskunft, Berichtigung und Löschung Ihrer Daten sowie auf Widerruf einer Einwilligung mit Wirkung für die Zukunft (nach dem Schweizer Datenschutzgesetz, DSG). Kontakt: [E-Mail ergänzen]</p>
 

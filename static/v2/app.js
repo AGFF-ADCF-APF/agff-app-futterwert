@@ -1020,7 +1020,17 @@
   }
 
   // ---------- Nach dem Rendern ----------
+  /** Überschrift der Ansicht als H1 und als Seitentitel (Verlauf, Tabs, Screenreader) */
+  function titelSetzen() {
+    const h = document.querySelector('#main .bar h2, #main .bar h1');
+    if (h && h.tagName === 'H2') { const n = document.createElement('h1'); n.innerHTML = h.innerHTML; n.className = h.className; h.replaceWith(n); }
+    const h1 = document.querySelector('#main .bar h1');
+    const sub = h1 && h1.querySelector('.sub'); if (sub) sub.setAttribute('aria-hidden', 'false');
+    const text = h1 ? Array.from(h1.childNodes).filter((c) => !(c.nodeType === 1 && c.classList.contains('sub'))).map((c) => c.textContent).join('').trim() : '';
+    document.title = (text ? text + ' – ' : '') + 'Futterbeurteilung';
+  }
   function afterRender() {
+    titelSetzen();
     // Neuer Schritt / neue Seite: oben beginnen
     if (location.hash !== lastHash) { lastHash = location.hash; window.scrollTo(0, 0); $('#main').scrollTop = 0; }
     fotosEinsetzen();
@@ -1033,20 +1043,34 @@
   }
 
   // ---------- Sheets / Toast ----------
-  function toast(msg) {
-    const t = $('#toast'); t.innerHTML = '<div class="t">' + esc(msg) + '</div>';
-    clearTimeout(toast._t); toast._t = setTimeout(() => { t.innerHTML = ''; }, 2600);
+  /** Hinweis. Fehler (Wortliste) bleiben 8 s, sind rot, werden als «alert» angekündigt; optional «Nochmals». */
+  function toast(msg, opt) {
+    const t = $('#toast'); const fehler = (opt && opt.fehler) || /fehlgeschlagen|nicht möglich|Fehler:|ungültig|abgelaufen|Keine Verbindung|zu viele|voll/i.test(String(msg));
+    t.setAttribute('role', fehler ? 'alert' : 'status'); t.setAttribute('aria-live', fehler ? 'assertive' : 'polite');
+    t.innerHTML = '<div class="t' + (fehler ? ' fehler' : '') + '">' + esc(msg) + (opt && opt.nochmals ? ' <button type="button" data-toast-again>Nochmals</button>' : '') + '</div>';
+    const b = t.querySelector('[data-toast-again]'); if (b) b.onclick = () => { t.innerHTML = ''; opt.nochmals(); };
+    clearTimeout(toast._t); toast._t = setTimeout(() => { t.innerHTML = ''; }, fehler ? 8000 : 2600);
   }
   function sheet(html, onMount) {
     const root = $('#sheet-root');
     root.innerHTML = '<div class="scrim" data-close><div class="sheet" role="dialog" aria-modal="true">' + html + '</div></div>';
     const el = root.querySelector('.sheet');
+    el.addEventListener('input', (e) => { if (e.target.matches('input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea')) el.dataset.dirty = '1'; });
     const first = el.querySelector('input, button, select, textarea'); if (first) setTimeout(() => first.focus(), 30);
     if (onMount) onMount(el);
     return el;
   }
   const closeSheet = () => { $('#sheet-root').innerHTML = ''; };
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheet(); });
+  /** Tipp neben den Dialog bzw. Esc: mit ungespeicherten Eingaben nicht still verwerfen. true = geschlossen */
+  function versuchSchliessen(mitFrage) {
+    const el = $('#sheet-root .sheet');
+    if (el && el.dataset.dirty) {
+      if (mitFrage) { if (!confirm('Eingaben verwerfen?')) return false; closeSheet(); return true; }
+      el.classList.remove('wackeln'); void el.offsetWidth; el.classList.add('wackeln'); return false;
+    }
+    closeSheet(); return true;
+  }
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') versuchSchliessen(true); });
 
   function sheetNewProbe(anlassId) {
     const colors = Object.fromEntries(Object.values(K3.TYPEN).map((t) => [t.id, t.farbe]));
@@ -1652,7 +1676,7 @@
     const t = e.target.closest('[data-close],[data-act],[data-set],[data-go],[data-fokus],[data-step],[data-sort],[data-o],[data-f]');
     if (!t) return;
     if (t.tagName === 'A' && t.dataset.act) e.preventDefault();
-    if (t.hasAttribute('data-close') && (e.target === t || t.tagName === 'BUTTON')) { closeSheet(); return; }
+    if (t.hasAttribute('data-close') && (e.target === t || t.tagName === 'BUTTON')) { if (t.classList.contains('scrim')) versuchSchliessen(false); else closeSheet(); return; }
     if (t.dataset.go) { go(t.dataset.go); return; }
     const p = currentProbe();
     if (t.dataset.o && p) {
