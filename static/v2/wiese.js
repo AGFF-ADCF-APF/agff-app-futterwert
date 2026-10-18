@@ -502,7 +502,7 @@
     });
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.text(T('AGFF Messkarte'), 105, 18, { align: 'center' });
     doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(90);
-    doc.text(T('Futterbeurteilung v2 · ohne Skalierung drucken («Tatsächliche Grösse»)'), 105, 23, { align: 'center' });
+    doc.text(T('AGFF Wiese (Beta) · ohne Skalierung drucken («Tatsächliche Grösse»)'), 105, 23, { align: 'center' });
     // Massstab an beiden Längsseiten, 0 = Unterkante des Blatts (Boden)
     doc.setTextColor(0); doc.setDrawColor(0); doc.setFontSize(7);
     for (let cm = 1; cm <= 28; cm++) {
@@ -1147,7 +1147,7 @@
       if (y + bh + 8 > 287) { doc.addPage(); y = 15; }
       doc.addImage(j.url, 'JPEG', 15 + (bw - ww) / 2, y, ww, bh); doc.setFontSize(9); doc.text(T(datum(f.at)), 15, y + bh + 4.5); y += bh + 10;
     }
-    doc.setFontSize(7); doc.setTextColor(120); doc.text(T('Futterbeurteilung v2 · Standort nicht enthalten'), 15, 292);
+    doc.setFontSize(7); doc.setTextColor(120); doc.text(T('AGFF Wiese (Beta) · Standort nicht enthalten'), 15, 292);
     const blob = doc.output('blob'); const url = URL.createObjectURL(blob); const el = document.createElement('a'); el.href = url; el.download = 'Fotopunkt_' + pt.name.replace(/[^\wäöüÄÖÜ-]+/g, '_') + '.pdf'; document.body.appendChild(el); el.click(); el.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
   }
 
@@ -1157,18 +1157,24 @@
   function render() {
     const refs = refsLaden();
     const karte = (wi, t, s, extra) => '<button class="wi-karte" data-wi="' + wi + '"' + (extra || '') + '><b>' + t + '</b><span>' + s + '</span></button>';
-    return '<div class="bar"><h2>Wiese mit Kamera<span class="sub">Hilfen im Live-Bild – ohne KI, alles auf dem Gerät</span></h2></div><div class="pad wiese">' +
+    const aufgabe = (wi, t, text, knoepfe) => '<div class="wi-aufgabe"><div class="wi-aufgabe-t"><b>' + t + '</b><span>' + text + '</span></div><div class="row">' + knoepfe + '</div></div>';
+    const kn = (wi, t, primaer) => '<button class="btn' + (primaer ? ' primary' : '') + ' grow" data-wi="' + wi + '">' + t + '</button>';
+    const weiter = MODUS_WIESE ? 'Ergebnisse (Bestand, Stadium) lassen sich in der <a href="' + '/futter/v2/' + '">Futterbeurteilung</a> als Probe weiterverwenden.'
+      : 'Aus einer Probe in der App «Futter» heraus («Bestand» bzw. «Stadium») werden die Ergebnisse direkt übernommen. Hier ohne Probe: Ergebnis ansehen und bei Bedarf eine neue Probe anlegen.';
+    return '<div class="bar"><h2>Wiese beurteilen<span class="sub">Bestand, Stadium und Ertrag – im Feld, mit dem Handy</span></h2></div><div class="pad wiese">' +
+      '<p class="wi-lead">Was möchten Sie tun?</p>' +
       (kannKamera() ? '' : '<div class="alert info">Live-Kamera in diesem Browser nicht verfügbar – die Werkzeuge arbeiten dann mit einem Foto aus der Kamera-App.</div>') +
-      '<div class="wi-karten">' +
-      karte('raster', 'Bestand schätzen', 'Punktraster antippen: Gräser, Raigras, Klee, Kräuter, Lücken → Vorschlag Bestandestyp') +
-      karte('stadium', 'Stadium vergleichen', 'Leitpflanze im Live-Bild neben die AGFF-Vergleichsbilder halten') +
-      karte('hoehe', 'Wuchshöhe und Ertrag', 'Höhe mit Messkarte oder Doppelmeter im Bild, daraus Ertragsschätzung (kg TS/ha)') +
-      karte('karte-pdf', 'Messkarte drucken', 'A4 mit vier Eckmarken: Raster 50 × 50 cm, Höhe, Farbabgleich') +
-      karte('aufnahmen', 'Wiesenaufnahme', 'Bestand aufnehmen und beurteilen, Standort, Zielbestand und Massnahmen nach AGFF-Merkblatt 8') +
-      karte('fotopunkte', 'Fotopunkte', 'Dieselbe Stelle über die Zeit, mit Vorher-Bild als Ausrichtungshilfe') +
-      karte('pflanzen', 'Pflanzen bestimmen', 'Wichtige Futterpflanzen nach Merkmalen, mit Kamera-Lupe') +
+      '<div class="wi-aufgaben">' +
+      aufgabe('aufnahmen', '📋 Wiese aufnehmen', 'Der ganze Ablauf nach AGFF-Merkblatt 8 in einem Formular: Bestand, Standort, Zielbestand und Massnahmen.', kn('aufnahmen', 'Wiesenaufnahme starten', true)) +
+      aufgabe('raster', '🌿 Bestand schnell schätzen', 'Gräser, Klee und Kräuter in 2 Minuten: Punktraster antippen, die App schlägt den Bestandestyp vor.', kn('raster', 'Punktraster starten', true)) +
+      aufgabe('stadium', '✂️ Wann mähen?', 'Entwicklungsstadium mit den AGFF-Bildern vergleichen und den Ertrag aus der Wuchshöhe schätzen.', kn('stadium', 'Stadium vergleichen') + kn('hoehe', 'Höhe &amp; Ertrag')) +
       '</div>' +
-      '<p class="hint">Aus einer Probe in der App «Futter» heraus («Bestand» bzw. «Stadium») werden die Ergebnisse direkt übernommen. Hier ohne Probe: Ergebnis ansehen und bei Bedarf eine neue Probe anlegen.</p>' +
+      '<div class="wi-karten wi-klein">' +
+      karte('pflanzen', 'Pflanzen bestimmen', 'Nach Merkmalen, mit Kamera-Lupe') +
+      karte('fotopunkte', 'Fotopunkte', 'Dieselbe Stelle über die Zeit') +
+      karte('karte-pdf', 'Messkarte drucken', 'A4: Raster, Höhe, Farbe, Bestimmungshilfen') +
+      '</div>' +
+      '<p class="hint">' + weiter + '</p>' +
       (refs.length ? '<section class="q"><h3>Eigene Referenzbilder (' + refs.length + ')</h3><p class="qhint">Erscheinen beim Stadienvergleich zuerst. Nur auf diesem Gerät.</p><div class="fotos">' +
         refs.map((r) => '<button type="button" class="foto-thumb" data-wi="ref-loeschen" data-id="' + r.id + '" aria-label="Referenzbild löschen"><img alt="" data-ref-img="' + r.id + '"><span class="foto-art">' + esc(K3().REFERENZPFLANZEN[r.lp].split(' /')[0]) + ' · ' + r.st + '</span></button>').join('') + '</div></section>' : '') +
       '<section class="q"><h3>Grenzen</h3><ul class="small" style="margin:0;padding-left:18px"><li>Das Raster misst die Deckung von oben, nicht den Gewichtsanteil – Vorschläge immer mit dem eigenen Blick abgleichen.</li>' +
@@ -1181,7 +1187,7 @@
     const A = app(); const I = A.I;
     const li = (href, ico, t, sub, aktiv) => '<li><a class="item" href="' + href + '" aria-current="' + !!aktiv + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + ico + '</span><span><span class="t">' + t + '</span><span class="s">' + sub + '</span></span></a></li>';
     const lb = (wi, ico, t, sub) => '<li><button type="button" class="item" data-wi="' + wi + '" style="width:100%;text-align:left;background:none;border:0;cursor:pointer;color:inherit"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + ico + '</span><span><span class="t">' + t + '</span><span class="s">' + sub + '</span></span></button></li>';
-    return '<div class="bar"><div class="brand"><img src="assets/icon.svg" alt=""><div><b>' + (MODUS_WIESE ? 'Wiese' : 'Wiesenbeurteilung') + '</b><span class="sub">Bestand · Stadium · Pflanzen <span class="badge-beta">' + (MODUS_WIESE ? 'Wiese Beta' : 'v2 Beta 1') + '</span></span></div></div>' +
+    return '<div class="bar"><div class="brand"><img src="assets/icon-wiese.svg" alt=""><div><b>' + (MODUS_WIESE ? 'Wiese' : 'Wiesenbeurteilung') + '</b><span class="sub">Bestand · Stadium · Pflanzen <span class="badge-beta">' + (MODUS_WIESE ? 'Wiese Beta' : 'v2 Beta 1') + '</span></span></div></div>' +
       A.modusKnopf() + '</div>' + umschalter +
       '<div class="pad stack"><button class="btn primary block" data-wi="raster" style="min-height:56px">' + I.camera + ' Bestand schätzen (Punktraster)</button>' +
       '<div class="row"><button class="btn sm grow" data-wi="stadium">Stadium vergleichen</button><button class="btn sm grow" data-wi="hoehe">Höhe &amp; Ertrag</button></div></div>' +
@@ -1195,8 +1201,25 @@
       li('#/hilfe', '?', 'Hilfe & Merkblätter', 'Unterlagen, Pflanzentabelle, Quellen', r.name === 'hilfe') +
       li('#/daten', I.lock.replace('<svg', '<svg width="22" height="22"'), 'Speicherort, Sicherung', 'Daten liegen nur in diesem Browser', r.name === 'daten') + '</ul>';
   }
+  /** Mittlere Spalte: «Meine Wiesen» – Aufnahmen und Fotopunkte nach Parzelle gruppiert, jüngste zuerst. Auf der Seite Fotopunkte: die Fotopunkt-Liste. */
   function renderListe(r) {
     FP = fpLaden();
+    if (r && r.name === 'fotopunkte') return fpListe(r);
+    const A = app(); const nk = (t) => String(t || '').trim().toLowerCase();
+    const gruppen = new Map(); const add = (label, item) => { const k = nk(label) || '–'; if (!gruppen.has(k)) gruppen.set(k, { label: label || 'Ohne Parzelle', items: [] }); gruppen.get(k).items.push(item); };
+    FP.forEach((p) => { const l = p.fotos[p.fotos.length - 1]; add(p.name, { href: '#/fotopunkte/' + p.id, ico: '📍', t: 'Fotopunkt', s: p.fotos.length + (p.fotos.length === 1 ? ' Foto' : ' Fotos') + (l ? ' · zuletzt ' + datum(l.at) : ''), d: (l && l.at) || p.createdAt, aktiv: r.name === 'fotopunkte' && r.id === p.id }); });
+    ((global.Aufnahme && global.Aufnahme.liste()) || []).forEach((a) => {
+      const fp = a.kopf.fotopunkt && FP.find((x) => x.id === a.kopf.fotopunkt); const e = global.Aufnahme._t.auswerten(a);
+      add(fp ? fp.name : (a.kopf.parzelle || a.kopf.ort), { href: '#/aufnahmen/' + a.id, ico: '📋', t: 'Wiesenaufnahme' + (a.kopf.datum ? ' ' + datum(a.kopf.datum) : ''), s: [e.typ ? 'Typ ' + e.typText.split(' ')[0] : '', e.g != null ? 'G ' + e.g + ' · K ' + e.kl + ' · Kr ' + e.kr + ' %' : ''].filter(Boolean).join(' · ') || 'noch offen', d: a.kopf.datum || a.createdAt, aktiv: r.name === 'aufnahmen' && r.id === a.id });
+    });
+    const gl = [...gruppen.values()].map((g) => { g.items.sort((x, y) => (y.d > x.d ? 1 : -1)); g.neu = g.items[0].d || ''; return g; }).sort((x, y) => (y.neu > x.neu ? 1 : -1));
+    return '<div class="bar"><h2>Meine Wiesen<span class="sub">' + (gl.length ? gl.length + (gl.length === 1 ? ' Parzelle' : ' Parzellen') : 'noch keine') + '</span></h2></div>' +
+      '<div class="pad" style="padding-bottom:0"><div class="row"><a class="btn primary grow" href="#/aufnahmen" data-wi="aufnahmen-neu">' + A.I.plus + ' Wiesenaufnahme</a><button class="btn grow" data-wi="fp-neu">' + A.I.plus + ' Fotopunkt</button></div></div>' +
+      (gl.length ? gl.map((g) => '<div class="section-title" style="padding:10px 12px 0">' + esc(g.label) + ' <span class="muted small">(' + g.items.length + ')</span></div><ul class="list" style="padding:4px 8px">' +
+        g.items.map((i) => '<li><a class="item" href="' + i.href + '" aria-current="' + !!i.aktiv + '"><span class="avatar" style="background:var(--surface-2)">' + i.ico + '</span><span style="min-width:0"><span class="t">' + esc(i.t) + '</span><span class="s">' + esc(i.s) + '</span></span></a></li>').join('') + '</ul>').join('')
+        : '<ul class="list" style="padding:8px"><li class="empty small">Hier erscheinen Ihre Wiesenaufnahmen und Fotopunkte, nach Parzelle geordnet. Beginnen Sie mit einer Wiesenaufnahme.</li></ul>');
+  }
+  function fpListe(r) {
     return '<div class="bar"><h2>Fotopunkte<span class="sub">' + (FP.length ? FP.length + ' Punkte' : 'noch keine') + '</span></h2><button class="icon-btn" data-wi="fp-neu" aria-label="Neuer Fotopunkt">' + app().I.plus + '</button></div>' +
       '<ul class="list" style="padding:8px">' + (FP.length ? FP.map((p) => { const l = p.fotos[p.fotos.length - 1]; return '<li><a class="item" href="#/fotopunkte/' + p.id + '" aria-current="' + (r.name === 'fotopunkte' && r.id === p.id) + '">' + (l ? '<img class="fp-mini" alt="" data-fp-img="' + l.id + '">' : '<span class="avatar">FP</span>') + '<span style="min-width:0"><span class="t">' + esc(p.name) + '</span><span class="s">' + p.fotos.length + ' Fotos' + (l ? ' · ' + datum(l.at) : '') + '</span></span></a></li>'; }).join('')
         : '<li class="empty small">Mit Fotopunkten dieselbe Stelle immer wieder fotografieren – z. B. vor und nach einer Übersaat.</li>') + '</ul>';
@@ -1226,6 +1249,7 @@
       case 'stadium-lp': A.closeSheet(); stadiumStarten(null, Number(t.dataset.lp)); break;
       case 'karte-pdf': messkartePdf().catch((er) => toast(er.message)); break;
       case 'fotopunkte': A.go('#/fotopunkte'); break;
+      case 'aufnahmen-neu': e.preventDefault(); if (global.Aufnahme) global.Aufnahme.neuAnlegen(); break;
       case 'aufnahmen': A.go('#/aufnahmen'); break;
       case 'pflanzen': A.go('#/pflanzen'); break;
       case 'fp-neu': fpNeuSheet(); break;

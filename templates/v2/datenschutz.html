@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Datenschutz – Futterbeurteilung v2</title>
   <meta name="robots" content="noindex">
-  <link rel="stylesheet" href="assets/app.css?v=b1-65">
+  <link rel="stylesheet" href="assets/app.css?v=b1-66">
 </head>
 <body>
 <div class="doc">
@@ -22,6 +22,16 @@
       <li><b>Anonyme Beiträge</b> für Auswertungen sind freiwillig und enthalten keine Namen, Betriebe oder Fotos.</li>
     </ul>
   </div>
+  {% if modus == 'wiese' %}
+  <div class="kurz" role="note"><b>Wiese: Kamera, Standort, Fotopunkte</b>
+    <ul>
+      <li><b>Kamera:</b> Das Live-Bild wird nur auf Ihrem Gerät ausgewertet (Punktraster, Stadienvergleich, Pflanzen-Lupe). Es gibt keine KI-Auswertung auf dem Server und keine Übermittlung.</li>
+      <li><b>Standort:</b> nur wenn Sie ihn für einen Fotopunkt oder eine Wiesenaufnahme speichern; er bleibt auf Ihrem Gerät, ausser Sie schalten die Cloud ein.</li>
+      <li><b>Fotopunkte, Wiesenaufnahmen, Referenzbilder:</b> liegen im Speicher Ihres Browsers; mit Konto und «Wiese in der Cloud» zusätzlich auf dem Server (siehe 4h).</li>
+      <li>Nicht enthalten in PDF-Berichten ist Ihr Standort.</li>
+    </ul>
+  </div>
+  {% endif %}
   <h2>1. Verantwortliche Stelle</h2>
   <p>[Name / Organisation, Adresse, E-Mail – bitte ergänzen]</p>
 

@@ -182,10 +182,10 @@ def code_senden(zweck, email, wozu, link=None):
            'Falls Sie keinen Code angefordert haben, können Sie diese E-Mail ignorieren.\n')
 
 
-def login_senden(email, code, link):
+def login_senden(email, code, link, produkt='Futterbeurteilung'):
     """Anmelde-E-Mail: Code (15 Minuten) und Anmelde-Knopf (Link 24 Monate gültig, widerrufbar)."""
     from html import escape
-    text = (f'Ihr Anmeldecode für die AGFF Futterbeurteilung:\n\n    {code}\n\n'
+    text = (f'Ihr Anmeldecode für AGFF {produkt}:\n\n    {code}\n\n'
             'Der Code ist 15 Minuten gültig.\n\n'
             f'Oder direkt anmelden (auf diesem Gerät antippen):\n{link}\n\n'
             'Der Anmelde-Link bleibt 24 Monate gültig, damit Sie sich später wieder anmelden können. '
@@ -196,7 +196,7 @@ def login_senden(email, code, link):
     html = ('<!doctype html><html><body style="margin:0;background:#f2f5f1;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1d2925">'
             '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:24px 12px">'
             '<table role="presentation" width="100%" style="max-width:480px;background:#ffffff;border-radius:14px;padding:24px" cellpadding="0" cellspacing="0"><tr><td>'
-            '<p style="margin:0 0 4px;font-size:13px;color:#5b6b66">AGFF Futterbeurteilung</p>'
+            f'<p style="margin:0 0 4px;font-size:13px;color:#5b6b66">AGFF {escape(produkt)}</p>'
             '<h1 style="margin:0 0 18px;font-size:20px">Anmelden</h1>'
             f'<p style="margin:0 0 8px;font-size:14px">Ihr Code (15 Minuten gültig):</p>'
             f'<div style="font-size:34px;letter-spacing:10px;font-weight:700;font-family:Menlo,Consolas,monospace;background:#e3f1ea;color:#0f5a43;border-radius:10px;padding:14px 0;text-align:center;-webkit-user-select:all;user-select:all">{escape(code)}</div>'

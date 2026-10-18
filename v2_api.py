@@ -339,7 +339,7 @@ def v2_index():
 
 @v2.route('/v2/datenschutz')
 def v2_privacy():
-    return render_template('v2/datenschutz.html', retention_days=RETENTION_DAYS)
+    return render_template('v2/datenschutz.html', retention_days=RETENTION_DAYS, modus=_modus())
 
 
 @v2.route('/v2/sw.js')
@@ -429,7 +429,7 @@ def v2_basis():
 
 # --- Freigabe-Bereiche (nur mit Zustimmung; Zugriff nur mit Lese-/Bearbeiten-Link) ----
 mimetypes.add_type("image/webp", ".webp")  # fehlt in python:slim
-ASSET_BUILD = 'b1-65'  # gleich wie ?v= in templates/v2/index.html
+ASSET_BUILD = 'b1-66'  # gleich wie ?v= in templates/v2/index.html
 
 
 @v2.route('/v2/api/config')

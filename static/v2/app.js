@@ -509,10 +509,21 @@
       ['AGFF_Schluessel_Kraeuter_vegetativ.pdf', 'Schlüssel Kräuter im vegetativen Zustand', 'AGFF / edition lmz 2016'],
     ]],
   ];
+  /** Merkblätter: im Modus Wiese zuerst die Wiese-Unterlagen, die übrigen (Futter) eingeklappt */
+  const WIESE_DOKS = ['AGFF_MB08_Beurteilung_Wiesenbestaende_2012.pdf', 'AGFF_MB08_Arbeitsblatt.pdf', 'AGFF_MB03_Bewertung_Wiesenfutter_2021.pdf', 'AGFF_Entwicklungsstadien_Graeser_Beschreibung.pdf', 'LMZ_Entwicklungsstadien_Graeser_Zeichnung.pdf',
+    'AGFF_Schluessel_Graeser_vegetativ.pdf', 'AGFF_Schluessel_Graeser_ab_Rispenschieben.pdf', 'AGFF_Schluessel_Leguminosen_vegetativ.pdf', 'AGFF_Schluessel_Kraeuter_vegetativ.pdf'];
+  function doksHtml() {
+    const liste = (l) => '<ul class="doks">' + l.map(([f, t, h]) => '<li><a href="assets/docs/' + f + '" download><span class="doc-ico">PDF</span><span><b>' + esc(t) + '</b><span class="small muted">' + esc(h) + '</span></span></a></li>').join('') + '</ul>';
+    if (!MODUS_WIESE) return DOKS.map(([g, l]) => q(g, '', liste(l))).join('');
+    const alle = DOKS.flatMap(([, l]) => l); const holen = (fs) => fs.map((f) => alle.find((d) => d[0] === f)).filter(Boolean);
+    const gruppen = [['Wiese beurteilen', holen(WIESE_DOKS.slice(0, 3))], ['Entwicklungsstadien der Gräser', holen(WIESE_DOKS.slice(3, 5))], ['Pflanzen bestimmen', holen(WIESE_DOKS.slice(5))]];
+    const rest = alle.filter((d) => !WIESE_DOKS.includes(d[0]));
+    return gruppen.map(([g, l]) => q(g, '', liste(l))).join('') + '<details class="q hilfe-mehr"><summary>Weitere Merkblätter anzeigen (Futter, Silage, Mais, GPS)</summary>' + liste(rest) + '</details>';
+  }
   function renderHilfe() {
     const ext = (u, t, s) => '<li><a href="' + u + '" target="_blank" rel="noopener noreferrer"><b>' + t + '</b> ↗</a><div class="small muted">' + s + '</div></li>';
-    return '<div class="bar"><h2>Hilfe & Merkblätter<span class="sub">Unterlagen, auf denen die App beruht</span></h2></div><div class="pad hilfe">' +
-      DOKS.map(([g, l]) => q(g, '', '<ul class="doks">' + l.map(([f, t, h]) => '<li><a href="assets/docs/' + f + '" download><span class="doc-ico">PDF</span><span><b>' + esc(t) + '</b><span class="small muted">' + esc(h) + '</span></span></a></li>').join('') + '</ul>')).join('') +
+    return '<div class="bar"><h2>Hilfe & Merkblätter<span class="sub">' + (MODUS_WIESE ? 'Unterlagen zur Wiese – AGFF' : 'Unterlagen, auf denen die App beruht') + '</span></h2></div><div class="pad hilfe">' +
+      doksHtml() +
       q('Pflanzen: wichtigste Eigenschaften', 'Alle Arten der vier AGFF-Bestimmungsschlüssel mit Weg im Schlüssel, Merkmalen, Giftigkeit, Raster-Klasse und futterbaulichem Wert (eAGFF).',
         '<div class="row"><button class="btn" data-pf="export" data-v="csv">Tabelle für Excel (CSV)</button><button class="btn" data-pf="export" data-v="pdf">Tabelle als PDF</button><a class="btn ghost" href="#/pflanzen">Pflanzen bestimmen</a></div>') +
       q('Tastatur am Computer', 'Ziffern wählen Optionen, Enter geht weiter, Alt+←/→ wechselt den Schritt, «?» zeigt alle Kürzel. Ctrl kurz halten blendet die Kürzel an den Knöpfen ein.', '<button class="btn" data-act="tastatur">Alle Tastaturkürzel</button>') +

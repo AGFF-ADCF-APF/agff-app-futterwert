@@ -454,7 +454,7 @@
     const kv = (k, v) => { if (v == null || v === '') v = '–'; const z = doc.splitTextToSize(T(String(v)), R - Lx - 62); neueSeite(z.length * 3.8 + 1); doc.setFontSize(8.5); doc.setTextColor(90); doc.text(T(k), Lx, y); doc.setTextColor(10); doc.text(z, Lx + 62, y); y += z.length * 3.8 + 0.8; };
     const absatz = (t) => { if (!t) return; const z = doc.splitTextToSize(T(t), R - Lx); neueSeite(z.length * 3.8 + 2); doc.setFontSize(8.5); doc.setTextColor(10); doc.text(z, Lx, y); y += z.length * 3.8 + 2; };
     doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.text(T('Wiesenaufnahme – ' + titelVon(a)), Lx, y); y += 5;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(90); doc.text(T('Nach AGFF-Merkblatt 8 «Beurteilung von Wiesenbeständen» mit Arbeitsblatt · erstellt mit der AGFF Futterbeurteilung v2'), Lx, y); y += 7;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(90); doc.text(T('Nach AGFF-Merkblatt 8 «Beurteilung von Wiesenbeständen» mit Arbeitsblatt · erstellt mit AGFF Wiese (Beta)'), Lx, y); y += 7;
     const k = a.kopf;
     kv('Ort / Parzelle', [k.ort, k.parzelle].filter(Boolean).join(' / ')); kv('Höhe ü. M.', k.hoehe != null ? k.hoehe + ' m' : ''); kv('Datum', datum(k.datum)); kv('Entwicklungsstadium / Aufwuchs-Nr.', [k.stadium, k.aufwuchs ? k.aufwuchs + '. Aufwuchs' : ''].filter(Boolean).join(' / '));
     if (k.lat != null) kv('Standort (GPS)', k.lat.toFixed(5) + ', ' + k.lon.toFixed(5));
@@ -537,5 +537,5 @@
   function allesLoeschen() { try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ } L = []; }
   const anzahl = () => laden().length;
 
-  global.Aufnahme = { render, renderListe, handle, rasterUebernehmen, sicherung, wiederherstellen, allesLoeschen, anzahl, _t: { auswerten, clean, raigrasHinweis, T1, T3, T4 } };
+  global.Aufnahme = { render, renderListe, handle, liste: () => laden(), neuAnlegen: () => neu(), rasterUebernehmen, sicherung, wiederherstellen, allesLoeschen, anzahl, _t: { auswerten, clean, raigrasHinweis, T1, T3, T4 } };
 })(window);

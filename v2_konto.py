@@ -214,7 +214,7 @@ def konto_code():
         for r in alte:
             conn.execute('UPDATE konto_links SET revoked = 1 WHERE id = ?', (r['id'],))
     link = basis + '#login=' + lid + '.' + geheim
-    M.login_senden(email, code, link)
+    M.login_senden(email, code, link, 'Wiese' if request.headers.get('X-AGFF-Modus') == 'wiese' else 'Futterbeurteilung')
     return jsonify({'status': 'sent'})
 
 

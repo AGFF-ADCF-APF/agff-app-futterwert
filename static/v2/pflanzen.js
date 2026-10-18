@@ -510,7 +510,7 @@
     });
     doc.deletePage(1);
     const n = doc.getNumberOfPages();
-    for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFontSize(6.5); doc.setTextColor(120); doc.text(T('Quellen: AGFF-Bestimmungsschlüssel (edition lmz 2016); Futterbaulicher Wert aus eAGFF (www.eagff.ch). Raster-Klasse: Zuordnung der App. Futterbeurteilung v2 · Seite ' + i + '/' + n), 10, 205); doc.setTextColor(0); }
+    for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFontSize(6.5); doc.setTextColor(120); doc.text(T('Quellen: AGFF-Bestimmungsschlüssel (edition lmz 2016); Futterbaulicher Wert aus eAGFF (www.eagff.ch). Raster-Klasse: Zuordnung der App. AGFF Wiese (Beta) · Seite ' + i + '/' + n), 10, 205); doc.setTextColor(0); }
     laden(doc.output('blob'), 'AGFF_Pflanzen_Eigenschaften.pdf');
   }
   function laden(blob, name) { const url = URL.createObjectURL(blob); const el = document.createElement('a'); el.href = url; el.download = name; document.body.appendChild(el); el.click(); el.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000); }
