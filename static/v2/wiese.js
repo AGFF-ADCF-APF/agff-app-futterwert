@@ -24,6 +24,7 @@
   // =====================================================================
   // Vollbild-Ansichten (Kamera, Werkzeug auf Standbild)
   // =====================================================================
+  const MODUS_WIESE = (global.AGFF_V2 || {}).modus === 'wiese';
   let aktiv = null;
   function ansicht(html, cls) {
     zu();
@@ -482,7 +483,7 @@
     ts.forEach(([a, b], i) => { const yy = y + 11.3 + i * 3.9; doc.setFillColor(...(i === 3 || i === 4 ? [214, 236, 220] : i % 2 === 0 ? [242, 245, 241] : [255, 255, 255])); doc.rect(X + 2, yy - 2.8, 124, 3.9, 'F'); fett(); txt(a, X + 5, yy, 7.2, 15); normal(); txt(b, X + 24, yy, 7.2, 40); });
     txt('optimal 30–40 % TS (grün) · nach AGFF-Schlüssel K3b', X + 5, y + 38.4, 6, 110);
     box(X + 132, y, 46, 40, 'Wiese-App');
-    if (global.FutterIO.qrPdf) await global.FutterIO.qrPdf(doc, global.FutterIO.appUrl() + '#/wiese', X + 142.5, y + 7.8, 25);
+    if (global.FutterIO.qrPdf) await global.FutterIO.qrPdf(doc, (/^(localhost|127\.)/.test(location.hostname) ? global.FutterIO.appUrl() + '#/wiese' : location.origin + '/wiese/'), X + 142.5, y + 7.8, 25);
     txt('Raster · Stadium · Ertrag', X + 155, y + 35.6, 6.2, 60, { align: 'center' }); txt('Pflanzen · Wiesenaufnahme', X + 155, y + 38.2, 6.2, 60, { align: 'center' });
   }
   /** Kreissektor (Grad, 0 = rechts, im Uhrzeigersinn) als gefülltes Polygon */
@@ -1180,7 +1181,7 @@
     const A = app(); const I = A.I;
     const li = (href, ico, t, sub, aktiv) => '<li><a class="item" href="' + href + '" aria-current="' + !!aktiv + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + ico + '</span><span><span class="t">' + t + '</span><span class="s">' + sub + '</span></span></a></li>';
     const lb = (wi, ico, t, sub) => '<li><button type="button" class="item" data-wi="' + wi + '" style="width:100%;text-align:left;background:none;border:0;cursor:pointer;color:inherit"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + ico + '</span><span><span class="t">' + t + '</span><span class="s">' + sub + '</span></span></button></li>';
-    return '<div class="bar"><div class="brand"><img src="assets/icon.svg" alt=""><div><b>Wiesenbeurteilung</b><span class="sub">Bestand · Stadium · Pflanzen <span class="badge-beta">v2 Beta 1</span></span></div></div>' +
+    return '<div class="bar"><div class="brand"><img src="assets/icon.svg" alt=""><div><b>' + (MODUS_WIESE ? 'Wiese' : 'Wiesenbeurteilung') + '</b><span class="sub">Bestand · Stadium · Pflanzen <span class="badge-beta">' + (MODUS_WIESE ? 'Wiese Beta' : 'v2 Beta 1') + '</span></span></div></div>' +
       A.modusKnopf() + '</div>' + umschalter +
       '<div class="pad stack"><button class="btn primary block" data-wi="raster" style="min-height:56px">' + I.camera + ' Bestand schätzen (Punktraster)</button>' +
       '<div class="row"><button class="btn sm grow" data-wi="stadium">Stadium vergleichen</button><button class="btn sm grow" data-wi="hoehe">Höhe &amp; Ertrag</button></div></div>' +

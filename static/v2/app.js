@@ -297,6 +297,7 @@
     else if (r.name === 'kursmail') { history.replaceState(null, '', location.pathname + '#/'); ui.route = { name: 'home' }; render(); window.Kurs.mailLink(r.token); return; }
     else if (r.name === 'kurs') { history.replaceState(null, '', location.pathname + '#/'); ui.route = { name: 'home' }; render(); window.Kurs.beitreten(r.token); return; }
     else ui.route = r;
+    if (MODUS_WIESE && ui.route.name === 'home') { history.replaceState(null, '', location.pathname + location.search + '#/wiese'); ui.route = { name: 'wiese' }; }
     render();
   }
   window.addEventListener('hashchange', route);
@@ -315,7 +316,7 @@
     }
     const SEITEN = ['home', 'daten', 'schweiz', 'bilanz', 'wiese', 'fotopunkte', 'aufnahmen', 'pflanzen', 'hilfe', 'pool'];
     if (SEITEN.includes(r.name) && r.name !== 'home') depth = r.name === 'wiese' ? 0 : 2;
-    const appName = appVon(r); if (!NEUTRAL_ROUTEN.includes(r.name)) { appStand.aktiv = appName; appStand[appName] = location.hash || '#/'; appStandMerken(); }
+    const appName = appVon(r); if (!MODUS_WIESE && !NEUTRAL_ROUTEN.includes(r.name)) { appStand.aktiv = appName; appStand[appName] = location.hash || '#/'; appStandMerken(); }
     document.documentElement.dataset.app = appName;
     ui.ctxAnlass = SEITEN.includes(r.name) ? (ui.ctxAnlass !== undefined ? ui.ctxAnlass : undefined) : anlassId;
     app.dataset.depth = depth;
@@ -344,13 +345,17 @@
   const APP_KEY = 'agffV2Apps';
   const appStand = (() => { try { const z = JSON.parse(localStorage.getItem(APP_KEY) || '{}'); return z && typeof z === 'object' ? z : {}; } catch (e) { return {}; } })();
   const appStandMerken = () => { try { localStorage.setItem(APP_KEY, JSON.stringify(appStand)); } catch (e) { /* privat */ } };
-  function appVon(r) { return WIESE_ROUTEN.includes(r.name) ? 'wiese' : NEUTRAL_ROUTEN.includes(r.name) ? (appStand.aktiv || 'futter') : 'futter'; }
+  /** Adresse /wiese: dieselbe App, nur die Wiese-Seite im Vordergrund (Futter bleibt über einen Link erreichbar) */
+  const MODUS_WIESE = (window.AGFF_V2 || {}).modus === 'wiese';
+  const FUTTER_URL = '/futter/v2/';
+  function appVon(r) { return WIESE_ROUTEN.includes(r.name) ? 'wiese' : NEUTRAL_ROUTEN.includes(r.name) ? (MODUS_WIESE ? 'wiese' : (appStand.aktiv || 'futter')) : 'futter'; }
   const APP_ICON = {
     futter: '<svg viewBox="0 0 32 32" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="9" width="24" height="16" rx="3"/><path d="M4 14h24M4 20h24" stroke-width="1.4" opacity=".7"/><path d="M11 9v16M21 9v16" stroke-width="2.4"/><path d="M7 9l2-3M14 9l1-3M24 9l2-3" stroke-width="1.4"/></svg>',
     wiese: '<svg viewBox="0 0 32 32" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 27h26"/><path d="M7 27c0-6-2-10-4-12M11 27c0-7 1-12 3-15M16 27c0-6 3-9 6-10M21 27c0-4-1-8-4-10M26 27c0-5 1-8 3-9"/><circle cx="24" cy="8" r="2.4" fill="currentColor"/><path d="M24 10.4V17"/></svg>',
   };
   function appUmschalter(aktiv) {
     const k = (id, titel) => '<button type="button" class="app-knopf" data-act="app" data-val="' + id + '" aria-pressed="' + (aktiv === id) + '">' + APP_ICON[id] + '<span>' + titel + '</span></button>';
+    if (MODUS_WIESE) return '<a class="app-zu-futter" href="' + FUTTER_URL + '">' + APP_ICON.futter + '<span>Zur Futterbeurteilung</span><span aria-hidden="true">→</span></a>';
     return '<div class="app-umschalter" role="group" aria-label="App wählen">' + k('futter', 'Futter') + k('wiese', 'Wiese') + '</div>';
   }
   /** Am Computer: mittlere Spalte (Liste) ein-/ausklappen – Knopf in der Kopfzeile des Arbeitsbereichs. */
@@ -368,6 +373,7 @@
   /** Wenn das Menü nicht sichtbar ist (Handy, Tablet): kleiner Umschalter in der Kopfzeile der Ansicht. */
   function appMini() {
     document.querySelectorAll('.app-mini').forEach((x) => x.remove());
+    if (MODUS_WIESE) return;
     const nav = document.querySelector('.region-nav');
     if (nav && getComputedStyle(nav).display !== 'none') return;
     const reg = ['.region-list', '.region-detail'].map((q) => document.querySelector(q)).find((x) => x && getComputedStyle(x).display !== 'none');
@@ -1027,7 +1033,7 @@
     const h1 = document.querySelector('#main .bar h1');
     const sub = h1 && h1.querySelector('.sub'); if (sub) sub.setAttribute('aria-hidden', 'false');
     const text = h1 ? Array.from(h1.childNodes).filter((c) => !(c.nodeType === 1 && c.classList.contains('sub'))).map((c) => c.textContent).join('').trim() : '';
-    document.title = (text ? text + ' – ' : '') + 'Futterbeurteilung';
+    document.title = (text ? text + ' – ' : '') + (MODUS_WIESE ? 'Wiese' : 'Futterbeurteilung');
   }
   function afterRender() {
     titelSetzen();

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="de-CH">
+<html lang="de-CH"{% if modus %} data-modus="{{ modus }}"{% endif %}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Futterbeurteilung v2</title>
+  <title>{% if modus == 'wiese' %}Wiese – AGFF{% else %}Futterbeurteilung v2{% endif %}</title>
   <meta name="description" content="Futterbeurteilung nach AGFF-Merkblättern K3a/K3b/K3c – mobil erfassen, im Büro vergleichen. Daten bleiben im Browser.">
   <meta name="theme-color" content="#0f7f74" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#0d1714" media="(prefers-color-scheme: dark)">
@@ -11,9 +11,9 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/icon-192.png">
-  <link rel="stylesheet" href="assets/app.css?v=b1-64">
-  <script type="application/json" id="agff-config">{{ {'version': '2.0.0-beta.1', 'build': 'b1-64', 'consentVersion': consent_version, 'retentionDays': retention_days, 'privacyUrl': privacy_url or 'datenschutz'}|tojson }}</script>
-  <script src="assets/boot.js?v=b1-64"></script>
+  <link rel="stylesheet" href="assets/app.css?v=b1-65">
+  <script type="application/json" id="agff-config">{{ {'modus': modus, 'version': '2.0.0-beta.1', 'build': 'b1-65', 'consentVersion': consent_version, 'retentionDays': retention_days, 'privacyUrl': privacy_url or 'datenschutz'}|tojson }}</script>
+  <script src="assets/boot.js?v=b1-65"></script>
 </head>
 <body>
   <a class="skip" href="#main">Zum Inhalt</a>
@@ -26,27 +26,27 @@
   <div id="sheet-root"></div>
   <div id="toast" role="status" aria-live="polite"></div>
   <noscript><p style="padding:2rem">Diese Anwendung benötigt JavaScript.</p></noscript>
-  <script src="assets/k3.js?v=b1-64"></script>
-  <script src="assets/model.js?v=b1-64"></script>
-  <script src="assets/crypto.js?v=b1-64"></script>
-  <script src="assets/foto.js?v=b1-64"></script>
-  <script src="assets/wheel.js?v=b1-64"></script>
-  <script src="assets/io.js?v=b1-64"></script>
-  <script src="assets/kurs.js?v=b1-64"></script>
-  <script src="assets/naehrwert.js?v=b1-64"></script>
-  <script src="assets/ocr.js?v=b1-64"></script>
-  <script src="assets/statistik.js?v=b1-64"></script>
-  <script src="assets/assistent.js?v=b1-64"></script>
-  <script src="assets/sammel.js?v=b1-64"></script>
-  <script src="assets/schweiz.js?v=b1-64"></script>
-  <script src="assets/bilanz.js?v=b1-64"></script>
-  <script src="assets/wiese.js?v=b1-64"></script>
-  <script src="assets/aufnahme.js?v=b1-64"></script>
-  <script src="assets/konto.js?v=b1-64"></script>
-  <script src="assets/pflanzen.js?v=b1-64"></script>
-  <script src="assets/pool.js?v=b1-64"></script>
-  <script src="assets/auswahl.js?v=b1-64"></script>
-  <script src="assets/tastatur.js?v=b1-64"></script>
-  <script src="assets/app.js?v=b1-64"></script>
+  <script src="assets/k3.js?v=b1-65"></script>
+  <script src="assets/model.js?v=b1-65"></script>
+  <script src="assets/crypto.js?v=b1-65"></script>
+  <script src="assets/foto.js?v=b1-65"></script>
+  <script src="assets/wheel.js?v=b1-65"></script>
+  <script src="assets/io.js?v=b1-65"></script>
+  <script src="assets/kurs.js?v=b1-65"></script>
+  <script src="assets/naehrwert.js?v=b1-65"></script>
+  <script src="assets/ocr.js?v=b1-65"></script>
+  <script src="assets/statistik.js?v=b1-65"></script>
+  <script src="assets/assistent.js?v=b1-65"></script>
+  <script src="assets/sammel.js?v=b1-65"></script>
+  <script src="assets/schweiz.js?v=b1-65"></script>
+  <script src="assets/bilanz.js?v=b1-65"></script>
+  <script src="assets/wiese.js?v=b1-65"></script>
+  <script src="assets/aufnahme.js?v=b1-65"></script>
+  <script src="assets/konto.js?v=b1-65"></script>
+  <script src="assets/pflanzen.js?v=b1-65"></script>
+  <script src="assets/pool.js?v=b1-65"></script>
+  <script src="assets/auswahl.js?v=b1-65"></script>
+  <script src="assets/tastatur.js?v=b1-65"></script>
+  <script src="assets/app.js?v=b1-65"></script>
 </body>
 </html>

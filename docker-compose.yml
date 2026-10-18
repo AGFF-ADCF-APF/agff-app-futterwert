@@ -40,6 +40,21 @@ services:
       - "traefik.http.middlewares.futter-strip.stripprefix.prefixes=/futter"
       - "traefik.http.routers.futter.middlewares=futter-strip"
       
+      # REGEL 2b: /wiese = dieselbe App im Modus «Wiese» (gleiche Codebasis, gleicher Container).
+      # Ohne Schrägstrich am Ende auf /wiese/ umleiten (relative URLs der App), dann /wiese/... intern auf /v2/... abbilden
+      # und der App per Kopfzeile den Modus mitteilen. ($$ = ein $ in Compose.)
+      - "traefik.http.routers.futterwiese.rule=Host(`apps.graswachstum.ch`) && PathPrefix(`/wiese`)"
+      - "traefik.http.routers.futterwiese.tls.certresolver=${TRAEFIK_CERTRESOLVER:-le-http}"
+      - "traefik.http.routers.futterwiese.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}"
+      - "traefik.http.routers.futterwiese.service=futter"
+      - "traefik.http.middlewares.wiese-slash.redirectregex.regex=^(https?://[^/]+)/wiese$$"
+      - "traefik.http.middlewares.wiese-slash.redirectregex.replacement=$${1}/wiese/"
+      - "traefik.http.middlewares.wiese-slash.redirectregex.permanent=true"
+      - "traefik.http.middlewares.wiese-pfad.replacepathregex.regex=^/wiese(/.*)?$$"
+      - "traefik.http.middlewares.wiese-pfad.replacepathregex.replacement=/v2$${1}"
+      - "traefik.http.middlewares.wiese-modus.headers.customrequestheaders.X-AGFF-Modus=wiese"
+      - "traefik.http.routers.futterwiese.middlewares=wiese-slash,wiese-modus,wiese-pfad"
+
       # REGEL 3: Wohin?
       # Sende es an Port 5000 im Container
       - "traefik.http.services.futter.loadbalancer.server.port=5000"

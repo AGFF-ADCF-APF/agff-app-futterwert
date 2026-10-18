@@ -759,7 +759,7 @@ html.kb-hinweise [data-kb]::after { content: attr(data-kb); position: absolute; 
 .linkbtn { background: none; border: 0; padding: 0; color: var(--schlecht); text-decoration: underline; cursor: pointer; font: inherit; }
 
 
-/* ---- UX-Quick-Wins (b1-64) ---- */
+/* ---- UX-Quick-Wins (b1-65) ---- */
 /* Mindestschrift für Nebentexte, Hinweise in voller Grösse */
 .item .s, .bar .sub { font-size: .875rem; }
 .tbl thead th { font-size: .8rem; color: var(--ink-2); }
@@ -800,3 +800,11 @@ input[aria-invalid="true"] { border-color: var(--schlecht); box-shadow: 0 0 0 2p
 #main .bar { padding-right: 84px; }
 @media (max-width: 900px) { .bar { padding-right: 84px; } }
 @media print { .v1-ecke { display: none; } }
+
+/* Modus «Wiese» (Adresse /wiese) */
+.app-zu-futter { display: flex; align-items: center; gap: 8px; margin: 0 12px 8px; padding: 8px 12px; min-height: 44px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink-2); text-decoration: none; font-size: .9rem; }
+.app-zu-futter svg { width: 20px; height: 20px; }
+.app-zu-futter span:nth-of-type(1) { flex: 1; }
+.app-zu-futter:hover { background: var(--surface-2); }
+html[data-modus="wiese"] .v1-ecke { display: none; }
+html[data-modus="wiese"] #main .bar { padding-right: 12px; }

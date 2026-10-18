@@ -326,10 +326,15 @@ def v2_redirect():
     return redirect('v2/', code=301)
 
 
+def _modus():
+    """'wiese', wenn die Anfrage über /wiese kam (Traefik setzt die Kopfzeile), sonst '' (Futterbeurteilung)."""
+    return 'wiese' if request.headers.get('X-AGFF-Modus') == 'wiese' else ''
+
+
 @v2.route('/v2/')
 def v2_index():
     return render_template('v2/index.html', consent_version=CONSENT_VERSION,
-                           retention_days=RETENTION_DAYS, privacy_url=PRIVACY_URL)
+                           retention_days=RETENTION_DAYS, privacy_url=PRIVACY_URL, modus=_modus())
 
 
 @v2.route('/v2/datenschutz')
@@ -347,7 +352,8 @@ def v2_service_worker():
 
 @v2.route('/v2/manifest.webmanifest')
 def v2_manifest():
-    return send_from_directory(V2_STATIC_DIR, 'manifest.webmanifest', mimetype='application/manifest+json')
+    name = 'manifest-wiese.webmanifest' if _modus() == 'wiese' else 'manifest.webmanifest'
+    return send_from_directory(V2_STATIC_DIR, name, mimetype='application/manifest+json')
 
 
 @v2.route('/v2/assets/<path:filename>')
@@ -423,7 +429,7 @@ def v2_basis():
 
 # --- Freigabe-Bereiche (nur mit Zustimmung; Zugriff nur mit Lese-/Bearbeiten-Link) ----
 mimetypes.add_type("image/webp", ".webp")  # fehlt in python:slim
-ASSET_BUILD = 'b1-62'  # gleich wie ?v= in templates/v2/index.html
+ASSET_BUILD = 'b1-65'  # gleich wie ?v= in templates/v2/index.html
 
 
 @v2.route('/v2/api/config')
