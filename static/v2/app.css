@@ -759,7 +759,7 @@ html.kb-hinweise [data-kb]::after { content: attr(data-kb); position: absolute; 
 .linkbtn { background: none; border: 0; padding: 0; color: var(--schlecht); text-decoration: underline; cursor: pointer; font: inherit; }
 
 
-/* ---- UX-Quick-Wins (b1-62) ---- */
+/* ---- UX-Quick-Wins (b1-63) ---- */
 /* Mindestschrift für Nebentexte, Hinweise in voller Grösse */
 .item .s, .bar .sub { font-size: .875rem; }
 .tbl thead th { font-size: .8rem; color: var(--ink-2); }
@@ -786,3 +786,18 @@ html.kb-hinweise [data-kb]::after { content: attr(data-kb); position: absolute; 
 .doc .kurz { background: var(--brand-soft); border-left: 4px solid var(--brand); border-radius: 8px; padding: 12px 16px; margin: 0 0 20px; }
 .doc .kurz ul { margin: 6px 0 0; padding-left: 20px; }
 input[aria-invalid="true"] { border-color: var(--schlecht); box-shadow: 0 0 0 2px var(--schlecht-soft); }
+
+/* Ecke «zurück zu v1» (grau, Gegenstück zur gelben «v2 testen»-Ecke in v1) */
+.v1-ecke { position: fixed; top: 0; right: 0; width: 132px; height: 132px; overflow: hidden; z-index: 20; pointer-events: none; }
+.v1-ecke a { position: absolute; top: 30px; right: -40px; width: 190px; transform: rotate(45deg); background: #d1d5db; color: #1f2937; text-align: center;
+  font: 800 13px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; letter-spacing: .02em; padding: 9px 0; text-decoration: none;
+  box-shadow: 0 2px 6px rgba(0,0,0,.25); pointer-events: auto; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #9ca3af; }
+.v1-ecke a:hover, .v1-ecke a:focus-visible { background: #e5e7eb; }
+:root[data-theme="dark"] .v1-ecke a { background: #4b5563; color: #f3f4f6; border-top-color: #6b7280; border-bottom-color: #374151; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .v1-ecke a { background: #4b5563; color: #f3f4f6; border-top-color: #6b7280; border-bottom-color: #374151; } }
+:root[data-outdoor="1"] .v1-ecke a { background: #e5e7eb; color: #000; border-color: #000; }
+/* Platz für die Ecke: der Kopfbalken am rechten Rand des Fensters */
+#main .bar { padding-right: 72px; }
+@media (max-width: 900px) { .bar { padding-right: 62px; } }
+@media (max-width: 640px) { .v1-ecke { width: 104px; height: 104px; } .v1-ecke a { top: 22px; right: -46px; width: 170px; font-size: 11.5px; padding: 7px 0; } }
+@media print { .v1-ecke { display: none; } }
