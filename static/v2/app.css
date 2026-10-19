@@ -759,7 +759,7 @@ html.kb-hinweise [data-kb]::after { content: attr(data-kb); position: absolute; 
 .linkbtn { background: none; border: 0; padding: 0; color: var(--schlecht); text-decoration: underline; cursor: pointer; font: inherit; }
 
 
-/* ---- UX-Quick-Wins (b1-66) ---- */
+/* ---- UX-Quick-Wins (b1-67) ---- */
 /* Mindestschrift für Nebentexte, Hinweise in voller Grösse */
 .item .s, .bar .sub { font-size: .875rem; }
 .tbl thead th { font-size: .8rem; color: var(--ink-2); }
@@ -820,3 +820,21 @@ html[data-modus="wiese"] #main .bar { padding-right: 12px; }
 .wi-karten.wi-klein { margin-top: 16px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 .hilfe-mehr { margin-top: 16px; }
 .hilfe-mehr summary { cursor: pointer; font-weight: 600; min-height: 44px; display: flex; align-items: center; }
+
+/* Laboranalyse auswerten */
+.la .la-hero { border: 1px solid var(--line); border-left: 5px solid var(--brand); border-radius: 14px; background: var(--surface); padding: 14px 16px; }
+.la .la-hero p { margin: 0 0 10px; }
+.la-datei { cursor: pointer; }
+.la-punkt { display: inline-block; width: 14px; height: 14px; border-radius: 50%; vertical-align: -2px; flex: none; }
+.la-punkt.gut { background: var(--gut); } .la-punkt.mittel { background: var(--mittel); } .la-punkt.schlecht { background: var(--kritisch); } .la-punkt.offen { background: var(--line-strong); }
+.la-befund { border: 1px solid var(--line); border-left: 5px solid var(--line-strong); border-radius: 12px; background: var(--surface); padding: 10px 14px; margin: 0 0 10px; }
+.la-befund.schlecht { border-left-color: var(--kritisch); } .la-befund.mittel { border-left-color: var(--mittel); } .la-befund.gut { border-left-color: var(--gut); }
+.la-befund p { margin: 6px 0 0; }
+.la-bef-kopf { display: flex; gap: 8px; align-items: center; }
+.la-warum { margin-top: 6px; font-size: .85rem; } .la-warum summary { cursor: pointer; color: var(--brand-ink); min-height: 32px; display: flex; align-items: center; }
+.la-warum ul { margin: 4px 0 0; padding-left: 18px; color: var(--ink-2); }
+.la-tab td { vertical-align: top; } .la-tab td:first-child { width: 22px; }
+.la-tab th { text-align: left; font-size: .8rem; color: var(--ink-2); }
+.la-teaser { border: 1px dashed var(--line-strong); border-radius: 12px; padding: 10px 14px; margin-top: 16px; }
+.la-laden { height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--brand-soft), var(--brand), var(--brand-soft)); background-size: 200% 100%; animation: la-laden 1.2s linear infinite; }
+@keyframes la-laden { from { background-position: 200% 0; } to { background-position: 0 0; } }

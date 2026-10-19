@@ -100,7 +100,11 @@ def _migrate_spaces(conn):
     cols = {r[1] for r in conn.execute('PRAGMA table_info(e2e_spaces)')}
     for c in ('owner_email_hmac', 'owner_email_enc', 'beitritt_hmac', 'beitritt_enc'):
         if c not in cols:
-            conn.execute(f'ALTER TABLE e2e_spaces ADD COLUMN {c} TEXT')
+            try:
+                conn.execute(f'ALTER TABLE e2e_spaces ADD COLUMN {c} TEXT')
+            except sqlite3.OperationalError as e:  # mehrere Worker starten gleichzeitig: Spalte schon angelegt
+                if 'duplicate column' not in str(e):
+                    raise
 
 
 def _now():
@@ -429,7 +433,7 @@ def v2_basis():
 
 # --- Freigabe-Bereiche (nur mit Zustimmung; Zugriff nur mit Lese-/Bearbeiten-Link) ----
 mimetypes.add_type("image/webp", ".webp")  # fehlt in python:slim
-ASSET_BUILD = 'b1-66'  # gleich wie ?v= in templates/v2/index.html
+ASSET_BUILD = 'b1-67'  # gleich wie ?v= in templates/v2/index.html
 
 
 @v2.route('/v2/api/config')

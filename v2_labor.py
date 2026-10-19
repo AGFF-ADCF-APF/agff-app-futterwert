@@ -7,6 +7,7 @@ import threading
 
 from flask import jsonify, request
 
+import labor_bericht
 import labor_parser
 from v2_api import v2, _rate_hit
 
@@ -39,6 +40,46 @@ def labor_lesen():
         _gleichzeitig.release()
         del daten
     resp = jsonify({'quelle': r['quelle'], 'werte': r['werte'], 'sicher': r.get('sicher', {}), 'zeilen': r.get('zeilen', {})})
+    resp.headers['Cache-Control'] = 'no-store'
+    return resp
+
+
+@v2.route('/v2/api/labor/bericht', methods=['POST'])
+def labor_bericht_lesen():
+    """«Laboranalyse auswerten»: ganzer Prüfbericht (PDF, mehrere Proben) oder Foto (eine Probe).
+    Gleiche Regeln wie /labor/lesen: Zustimmung, Grösse, nur im Speicher, nichts protokolliert.
+    Zurück kommen nur Probenangaben und Messwerte – keine Kunden-, Adress- oder Standortdaten."""
+    _rate_hit('ocr', limit=30, window=3600)
+    if request.headers.get('X-OCR-Consent') != OCR_CONSENT_VERSION:
+        return jsonify({'error': 'CONSENT_REQUIRED', 'consentVersion': OCR_CONSENT_VERSION}), 400
+    if (request.content_length or 0) > MAX_BYTES:
+        return jsonify({'error': 'TOO_LARGE'}), 413
+    daten = request.get_data(cache=False)
+    if not daten or len(daten) > MAX_BYTES:
+        return jsonify({'error': 'TOO_LARGE' if daten else 'LEER'}), 413 if daten else 400
+    ist_pdf = daten[:5] == b'%PDF-'
+    ist_bild = daten[:3] == b'\xff\xd8\xff' or daten[:8] == b'\x89PNG\r\n\x1a\n' or (daten[:4] == b'RIFF' and daten[8:12] == b'WEBP')
+    if not (ist_pdf or ist_bild):
+        return jsonify({'error': 'FORMAT'}), 415
+    if not _gleichzeitig.acquire(timeout=60):
+        return jsonify({'error': 'BESCHAEFTIGT'}), 503
+    try:
+        if ist_pdf:
+            r = labor_bericht.lesen(daten)
+            if not r['proben']:  # anderes Layout bzw. gescannt: wie bisher eine Probe lesen
+                e = labor_parser.lesen(daten, 'x.pdf')
+                r['proben'] = [{'nr': '1', 'meta': {}, 'werte': {k: {'v': v} for k, v in e['werte'].items()}, 'kommentare': []}] if e['werte'] else []
+            quelle = 'pdf'
+        else:
+            e = labor_parser.lesen(daten, 'x.img')
+            r = {'labor': None, 'proben': [{'nr': '1', 'meta': {}, 'werte': {k: {'v': v} for k, v in e['werte'].items()}, 'kommentare': []}] if e['werte'] else []}
+            quelle = 'foto'
+    except Exception:  # noqa: BLE001 – Inhalt nie protokollieren
+        return jsonify({'error': 'NICHT_LESBAR'}), 422
+    finally:
+        _gleichzeitig.release()
+        del daten
+    resp = jsonify({'quelle': quelle, 'labor': r['labor'], 'proben': r['proben'][:40]})
     resp.headers['Cache-Control'] = 'no-store'
     return resp
 
