@@ -46,11 +46,21 @@
       '<p class="hint">Gespeichert nur auf diesem Gerät. Kunden-Nr., Adressen und Standortcode des Berichts werden nicht übernommen.</p></div>';
   }
 
+  function enqHtml(e, L, warum) {
+    if (!e) return '';
+    const PF = { besser: '<span class="la-enq besser">▲ besser</span>', schlechter: '<span class="la-enq schlechter">▼ schwächer</span>', gleich: '<span class="la-enq">≈ wie Mittel</span>', neutral: '' };
+    return '<section class="q"><h3>Vergleich mit dem Schweizer Mittel</h3><p class="small muted" style="margin-top:0">' + esc(e.art) + ', Raufutter-Enquête ' + e.jahr + ' (' + Number(e.n).toLocaleString('de-CH').replace(/[’']/g, '\u2009') + ' Proben)' +
+      (e.genau ? '' : ' – neuestes verfügbares Jahr, da das Schnittjahr fehlt oder noch nicht ausgewertet ist') + '</p>' +
+      '<div class="tbl-wrap"><table class="wi-tab la-tab"><tr><th>Wert</th><th class="num">Probe</th><th class="num">Mittel CH</th><th class="num">Differenz</th><th></th></tr>' +
+      e.zeilen.map((z) => { const [t, u, d] = L[z.k] || [z.k, '', 1]; return '<tr><td>' + esc(t) + '</td><td class="num">' + zahl(z.probe, d) + ' <span class="muted small">' + u + '</span></td><td class="num">' + zahl(z.mittel, d) + '</td><td class="num">' + (z.diff > 0 ? '+' : z.diff < 0 ? '−' : '') + zahl(Math.abs(z.diff), d) + '</td><td class="small">' + PF[z.urteil] + '</td></tr>'; }).join('') +
+      '</table></div>' + warum(e.quelle) + '</section>';
+  }
+
   function probeSeite(b, i) {
     const p = b.proben[i]; const a = R().auswerten(p); const I = app().I; const L = R().LABEL;
     const warum = (q) => (q && q.length ? '<details class="la-warum"><summary>Warum?</summary><ul>' + q.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul></details>' : '');
     const befund = (x) => '<div class="la-befund ' + x.ton + '"><div class="la-bef-kopf">' + PUNKT(x.ton) + '<b>' + esc(x.titel) + '</b></div><p>' + esc(x.text) + '</p>' +
-      (x.ration ? '<p class="small"><b>Für die Ration:</b> ' + esc(x.ration) + '</p>' : '') + (x.naechstes ? '<p class="small"><b>Nächstes Mal:</b> ' + esc(x.naechstes) + '</p>' : '') + warum(x.quelle) + '</div>';
+      (x.ration ? '<p class="small"><b>Für die Ration:</b> ' + esc(x.ration) + '</p>' : '') + (x.naechstes ? (Array.isArray(x.naechstes) ? '<p class="small" style="margin-bottom:2px"><b>Nächstes Mal:</b></p><ul class="small la-mass">' + x.naechstes.map((m) => '<li>' + esc(m) + '</li>').join('') + '</ul>' : '<p class="small"><b>Nächstes Mal:</b> ' + esc(x.naechstes) + '</p>') : '') + warum(x.quelle) + '</div>';
     const zeile = (k) => { const w = p.werte[k]; if (!w) return ''; const e = a.werte[k]; const [t, u, d] = L[k] || [k, '', 1];
       const ziel = w.ziel ? (w.ziel[0] != null ? zahl(w.ziel[0], d) + '–' : '≤ ') + zahl(w.ziel[1], d) : '';
       return '<tr><td>' + (e ? PUNKT(e.ton) : '') + '</td><td>' + esc(t) + '</td><td class="num"><b>' + (w.kleiner ? '< ' : '') + zahl(w.v, d) + '</b> <span class="muted small">' + u + '</span></td><td class="small muted">' + esc(ziel) + '</td><td class="small">' + esc(e ? e.text : '') + '</td></tr>'; };
@@ -59,6 +69,7 @@
       (p.meta.bestand || p.meta.bemerkung ? '<p class="small muted" style="margin-top:0">' + esc([p.meta.bestand, p.meta.bemerkung].filter(Boolean).join(' · ')) + '</p>' : '') +
       '<section class="q"><h3>Das Wichtigste</h3>' + a.befunde.map(befund).join('') + '</section>' +
       (a.verhaeltnisse.length ? '<section class="q"><h3>Verhältnisse und Kennzahlen</h3><table class="wi-tab la-tab">' + a.verhaeltnisse.map((x) => '<tr><td>' + PUNKT(x.ton) + '</td><td>' + esc(x.titel) + '</td><td class="num"><b>' + esc(x.wert) + '</b></td><td class="small">' + esc(x.text) + warum(x.quelle) + '</td></tr>').join('') + '</table></section>' : '') +
+      enqHtml(a.enquete, L, warum) +
       R().GRUPPEN.map(([g, ks]) => { const z = ks.map(zeile).join(''); return z ? '<section class="q"><h3>' + esc(g) + '</h3><div class="tbl-wrap"><table class="wi-tab la-tab"><tr><th></th><th>Wert</th><th class="num">Resultat</th><th>Ziel (Labor)</th><th>Bewertung</th></tr>' + z + '</table></div></section>' : ''; }).join('') +
       (p.kommentare && p.kommentare.length ? '<section class="q"><h3>Kommentar des Labors</h3>' + p.kommentare.map((k) => '<p class="small">' + esc(k) + '</p>').join('') + '</section>' : '') +
       '<div class="row" style="margin-top:12px"><button class="btn primary grow" data-la="probe" data-id="' + b.id + '" data-i="' + i + '">' + I.plus + ' Als Probe übernehmen</button><a class="btn grow" href="#/bilanz">Rationscheck</a></div>' +

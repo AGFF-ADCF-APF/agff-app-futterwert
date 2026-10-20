@@ -759,7 +759,7 @@ html.kb-hinweise [data-kb]::after { content: attr(data-kb); position: absolute; 
 .linkbtn { background: none; border: 0; padding: 0; color: var(--schlecht); text-decoration: underline; cursor: pointer; font: inherit; }
 
 
-/* ---- UX-Quick-Wins (b1-67) ---- */
+/* ---- UX-Quick-Wins (b1-68) ---- */
 /* Mindestschrift für Nebentexte, Hinweise in voller Grösse */
 .item .s, .bar .sub { font-size: .875rem; }
 .tbl thead th { font-size: .8rem; color: var(--ink-2); }
@@ -830,6 +830,9 @@ html[data-modus="wiese"] #main .bar { padding-right: 12px; }
 .la-befund { border: 1px solid var(--line); border-left: 5px solid var(--line-strong); border-radius: 12px; background: var(--surface); padding: 10px 14px; margin: 0 0 10px; }
 .la-befund.schlecht { border-left-color: var(--kritisch); } .la-befund.mittel { border-left-color: var(--mittel); } .la-befund.gut { border-left-color: var(--gut); }
 .la-befund p { margin: 6px 0 0; }
+.la-tab td + td { padding-left: 10px; }
+.la-mass { margin: 2px 0 4px; padding-left: 20px; } .la-mass li { margin: 2px 0; }
+.la-enq { white-space: nowrap; color: var(--ink-3); } .la-enq.besser { color: var(--gut); font-weight: 600; } .la-enq.schlechter { color: var(--kritisch); font-weight: 600; }
 .la-bef-kopf { display: flex; gap: 8px; align-items: center; }
 .la-warum { margin-top: 6px; font-size: .85rem; } .la-warum summary { cursor: pointer; color: var(--brand-ink); min-height: 32px; display: flex; align-items: center; }
 .la-warum ul { margin: 4px 0 0; padding-left: 18px; color: var(--ink-2); }

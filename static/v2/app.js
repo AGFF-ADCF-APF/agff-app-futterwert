@@ -493,6 +493,7 @@
       ['AGFF_K3a_Duerrfutter-Qualitaet_2022.pdf', 'K3a Schlüssel zur Beurteilung der Dürrfutter-Qualität', 'AGFF 2022'],
       ['AGFF_K3b_Grassilage-Qualitaet_2023.pdf', 'K3b Schlüssel zur Beurteilung der Grassilage-Qualität', 'AGFF 2023'],
       ['AGFF_K3c_Maissilage-Qualitaet_2021.pdf', 'K3c Schlüssel zur Beurteilung der Maissilage-Qualität', 'AGFF 2021'],
+      ['AGFF_K4b_Interpretation_Silagebewertung_2024.pdf', 'K4b Interpretation der Silagebewertung: Ursachen und Massnahmen (Schimmel, pH, Essig-, Buttersäure, Nacherwärmung)', 'AGFF 2024'],
       ['AGFF_MB03_Bewertung_Wiesenfutter_2021.pdf', 'Merkblatt 3: Bewertung von Wiesenfutter (Bestand, Stadium, Zeitperiode, Konservierung)', 'AGFF 2021'],
       ['AGFF_MB08_Beurteilung_Wiesenbestaende_2012.pdf', 'Merkblatt 8: Beurteilung von Wiesenbeständen (Grundlage der Wiesenaufnahme)', 'AGFF 2012'],
       ['AGFF_MB08_Arbeitsblatt.pdf', 'Arbeitsblatt zu Merkblatt 8 (zum Ausdrucken)', 'AGFF'],
