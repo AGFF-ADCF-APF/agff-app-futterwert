@@ -307,5 +307,5 @@
     return { art: art(p), werte, verhaeltnisse: verhaeltnisse(p), befunde: B, gesamt, enquete: enquete(p) };
   }
 
-  global.LaborRegeln = { auswerten, enquete, LABEL, GRUPPEN, FEST, Q, pHkrit, art };
+  global.LaborRegeln = { auswerten, enquete, LABEL, GRUPPEN, FEST, Q, M, pHkrit, art };
 })(typeof window !== 'undefined' ? window : globalThis);

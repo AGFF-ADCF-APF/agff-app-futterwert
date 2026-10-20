@@ -145,5 +145,5 @@
   }
   document.addEventListener('change', (e) => { const el = e.target.closest && e.target.closest('input[data-la="datei"]'); if (el) { const f = el.files[0]; el.value = ''; einlesen(f); } });
 
-  global.Laborauswertung = { render, handle, einlesen, _t: { bereinigen, lesen } };
+  global.Laborauswertung = { render, handle, einlesen, probe: (id, i) => { const b = lesen().find((x) => x.id === id); return b && b.proben[i] ? b.proben[i] : null; }, _t: { bereinigen, lesen } };
 })(window);

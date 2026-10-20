@@ -1,0 +1,248 @@
+{
+ "stand": "Kantonale Beratungsstellen, Stand Oktober 2026 (Angaben der offiziellen Websites).",
+ "stellen": [
+  {
+   "name": "Strickhof",
+   "kantone": [
+    "ZH"
+   ],
+   "url": "https://www.strickhof.ch/beratung/futterbau-allgemein/",
+   "telefon": "+41 58 105 98 00",
+   "email": "info@strickhof.ch",
+   "hinweis": null
+  },
+  {
+   "name": "INFORAMA Bildungs-, Beratungs- und Tagungszentrum",
+   "kantone": [
+    "BE"
+   ],
+   "url": "https://www.inforama.ch/beratung/pflanzenbau-tierhaltung/ackerbau-futterbau",
+   "telefon": "+41 31 636 41 00",
+   "email": "info@inforama.ch",
+   "hinweis": "Für den Berner Jura ist die FRI zuständig."
+  },
+  {
+   "name": "Fondation Rurale Interjurassienne (FRI)",
+   "kantone": [
+    "JU",
+    "BE"
+   ],
+   "url": "https://www.frij.ch/grandes-cultures-herbages/",
+   "telefon": "+41 32 545 56 00",
+   "email": "info@frij.ch",
+   "hinweis": "Courtemelon; auch für den Berner Jura (Loveresse)."
+  },
+  {
+   "name": "Berufsbildungszentrum Natur und Ernährung (BBZN), Beratung",
+   "kantone": [
+    "LU"
+   ],
+   "url": "https://beruf.lu.ch/Berufslehre/Berufslehre_im_Betrieb/Berufsfachschule/berufsbildungszentren/bbzn/Beratung/Land_und_hauswirtschaftliche_Beratung/Pflanzenbau_Biodiversitaet/Futterbau",
+   "telefon": "+41 41 590 60 02",
+   "email": "landwirtschaft-hohenrain.bbzn@sluz.ch",
+   "hinweis": "Standort Hohenrain; Schüpfheim: 041 590 60 03."
+  },
+  {
+   "name": "Amt für Landwirtschaft Uri, Betriebsberatung",
+   "kantone": [
+    "UR"
+   ],
+   "url": "https://www.ur.ch/wirtschaft/1477",
+   "telefon": "+41 41 875 23 00",
+   "email": "ala.vd@ur.ch",
+   "hinweis": null
+  },
+  {
+   "name": "Amt für Landwirtschaft Schwyz, Beratung und Weiterbildung",
+   "kantone": [
+    "SZ"
+   ],
+   "url": "https://www.sz.ch/verwaltung/volkswirtschaftsdepartement/amt-fuer-landwirtschaft/beratung-und-weiterbildung/pflanzenbau.html/8756-8758-8802-10373-11060-11190-13764",
+   "telefon": "+41 41 819 84 50",
+   "email": "lbw.afl@sz.ch",
+   "hinweis": null
+  },
+  {
+   "name": "Amt für Landwirtschaft und Umwelt Obwalden, Beratung",
+   "kantone": [
+    "OW"
+   ],
+   "url": "https://www.ow.ch/fachbereiche/1828",
+   "telefon": "+41 41 666 63 17",
+   "email": "landwirtschaft@ow.ch",
+   "hinweis": null
+  },
+  {
+   "name": "Amt für Landwirtschaft Nidwalden, Beratung und Weiterbildung",
+   "kantone": [
+    "NW"
+   ],
+   "url": "https://www.nw.ch/beratungweiterbildung/321",
+   "telefon": "+41 41 618 40 40",
+   "email": null,
+   "hinweis": null
+  },
+  {
+   "name": "Plantahof, Landwirtschaftliches Bildungs- und Beratungszentrum",
+   "kantone": [
+    "GR",
+    "GL"
+   ],
+   "url": "https://www.gr.ch/DE/institutionen/verwaltung/dvs/lbbz/beratungfachwissen/pflanzenbau/futterbau",
+   "telefon": "+41 81 257 60 00",
+   "email": "info@plantahof.gr.ch",
+   "hinweis": "Berät im Auftrag des Kantons auch Glarus."
+  },
+  {
+   "name": "LBBZ Schluechthof Cham",
+   "kantone": [
+    "ZG"
+   ],
+   "url": "https://schluechthof.ch/de/beratung/pflanzenbau/futterbau",
+   "telefon": "+41 41 594 50 00",
+   "email": "info@schluechthof.ch",
+   "hinweis": null
+  },
+  {
+   "name": "Grangeneuve – Landwirtschaftliches Institut des Kantons Freiburg",
+   "kantone": [
+    "FR"
+   ],
+   "url": "https://www.fr.ch/de/grangeneuve/landwirtschaft/tierproduktion-und-futterbau",
+   "telefon": "+41 26 305 58 00",
+   "email": "grangeneuve-landwirtschaft@fr.ch",
+   "hinweis": null
+  },
+  {
+   "name": "Bildungszentrum Wallierhof",
+   "kantone": [
+    "SO"
+   ],
+   "url": "https://wallierhof.so.ch/fachwissen-und-beratung/pflanzenbau/futterbau/",
+   "telefon": "+41 32 627 99 11",
+   "email": "wallierhof@vd.so.ch",
+   "hinweis": null
+  },
+  {
+   "name": "Ebenrain-Zentrum für Landwirtschaft, Natur und Ernährung",
+   "kantone": [
+    "BL",
+    "BS"
+   ],
+   "url": "https://www.baselland.ch/politik-und-behorden/direktionen/volkswirtschafts-und-gesundheitsdirektion/landw-zentrum-ebenrain/bildung-und-beratung/beratung",
+   "telefon": "+41 61 552 21 21",
+   "email": "ebenrain@bl.ch",
+   "hinweis": null
+  },
+  {
+   "name": "Landwirtschaftsamt des Kantons Schaffhausen",
+   "kantone": [
+    "SH"
+   ],
+   "url": "https://sh.ch/CMS/Webseite/Kanton-Schaffhausen/Beh-rde/Verwaltung/Volkswirtschaftsdepartement/Landwirtschaftsamt-3870-DE.html",
+   "telefon": null,
+   "email": null,
+   "hinweis": "Telefon und Adresse bitte auf der Website nachsehen."
+  },
+  {
+   "name": "Amt für Landwirtschaft Appenzell Ausserrhoden, Beratung",
+   "kantone": [
+    "AR"
+   ],
+   "url": "https://ar.ch/verwaltung/departement-bau-und-volkswirtschaft/amt-fuer-landwirtschaft/landwirtschaftliche-beratung/futterbau-pflanzenbau/",
+   "telefon": "+41 71 353 61 11",
+   "email": "landwirtschaft@ar.ch",
+   "hinweis": null
+  },
+  {
+   "name": "Landwirtschaftsamt Appenzell Innerrhoden, Landwirtschaftliche Beratung",
+   "kantone": [
+    "AI"
+   ],
+   "url": "https://www.ai.ch/themen/landwirtschaft-tierhaltung/landwirtschaft/landwirtschaftliche-beratung",
+   "telefon": "+41 71 788 95 77",
+   "email": null,
+   "hinweis": null
+  },
+  {
+   "name": "Landwirtschaftliches Zentrum SG (LZSG), Beratung Futterbau",
+   "kantone": [
+    "SG"
+   ],
+   "url": "https://www.sg.ch/umwelt-natur/landwirtschaft/lzsg/Beratung/Futterbau.html",
+   "telefon": "+41 58 228 24 00",
+   "email": "lzsg.salez@sg.ch",
+   "hinweis": null
+  },
+  {
+   "name": "Landwirtschaftliches Zentrum Liebegg",
+   "kantone": [
+    "AG"
+   ],
+   "url": "https://www.liebegg.ch/de/fachwissen/beratung.html",
+   "telefon": "+41 62 855 86 55",
+   "email": "info@liebegg.ch",
+   "hinweis": null
+  },
+  {
+   "name": "BBZ Arenenberg, Beratung",
+   "kantone": [
+    "TG"
+   ],
+   "url": "https://arenenberg.tg.ch/beratung.html/331",
+   "telefon": "+41 58 345 85 00",
+   "email": "beratung.arenenberg@tg.ch",
+   "hinweis": null
+  },
+  {
+   "name": "Sezione dell'agricoltura, Ufficio della consulenza agricola",
+   "kantone": [
+    "TI"
+   ],
+   "url": "https://www4.ti.ch/dfe/de/sa/consulenza-e-servizi/campicoltura-foraggicoltura",
+   "telefon": "+41 91 814 35 47",
+   "email": "dfe-sa@ti.ch",
+   "hinweis": null
+  },
+  {
+   "name": "Proconseil (Prométerre)",
+   "kantone": [
+    "VD"
+   ],
+   "url": "https://www.prometerre.ch/unites/proconseil",
+   "telefon": "+41 21 614 24 30",
+   "email": "proconseil@prometerre.ch",
+   "hinweis": null
+  },
+  {
+   "name": "Service de l'agriculture, Office de l'économie animale et des grandes cultures",
+   "kantone": [
+    "VS"
+   ],
+   "url": "https://www.vs.ch/web/sca/vulgarisation-de-montagne",
+   "telefon": "+41 27 606 75 80",
+   "email": "sca-oea@admin.vs.ch",
+   "hinweis": null
+  },
+  {
+   "name": "Chambre neuchâteloise d'agriculture et de viticulture (CNAV), Vulgarisation",
+   "kantone": [
+    "NE"
+   ],
+   "url": "https://www.cnav.ch/Prestations/Conseils-et-expertises/Production-vegetale",
+   "telefon": "+41 32 889 36 30",
+   "email": null,
+   "hinweis": null
+  },
+  {
+   "name": "AgriGenève – AgriVulg",
+   "kantone": [
+    "GE"
+   ],
+   "url": "https://www.agrigeneve.ch/prestations-agrivulg",
+   "telefon": "+41 22 939 03 10",
+   "email": null,
+   "hinweis": null
+  }
+ ]
+}

@@ -67,6 +67,11 @@
       fachlich: 'Gehalte nach AGFF-Infoblatt K1 (Agroscope-Analysen 2012–13): Triticale 5,3 MJ NEL, 64 g RP; Hafer 4,5 MJ, 52 g RP; Gemenge Triticale/Hafer/Erbsen 5,3 MJ (Streuung 4,9–6,4), 80 g RP. GPS ist proteinarm (RP/NEL meist unter dem Zielwert 20 für Milchkühe) und ergänzt Mais- oder Grassilage vor allem durch wirksame Fasern. Zu frühe Ernte: Mindererertrag, Buttersäurerisiko; zu späte: Körnerverlust, schlechte Verdichtung, Nacherwärmung. Anteil in Milchkuhrationen unter einem Drittel halten.',
       bilder: [B('gps-harvey.webp', 'Visuelle Merkmale nach TS (Harvey 1992, AGFF-Infoblatt K1)')],
     },
+    labor: {
+      titel: 'Fragen zur Analyse?',
+      einfach: 'Ich erkläre dir, woher die Auffälligkeiten kommen und was du beim nächsten Mal anders machen kannst.',
+      fachlich: 'Ursachen und Massnahmen aus AGFF K4b (Silage) und den ADCF/AGRIDEA-Fiches 2.7.9 und 12.4 (Dürrfutter, Heubelüftung).',
+    },
     ergebnis: {
       titel: 'Dein Ergebnis',
       einfach: 'Oben siehst du die Qualitätsklasse und die geschätzten Werte: <b>NEL</b> ist die Energie für Milch, <b>APDE</b> das Eiweiss, das die Kuh nutzen kann. Vergleiche mit dem Zielwert – und wenn du eine Laboranalyse hast, mit dem Labor. Mit «PDF» speicherst du alles; die Daten stecken in der PDF und lassen sich wieder einlesen.',
@@ -247,15 +252,22 @@
     '<rect x="9" y="12" width="3" height="11" rx="1" fill="#4b5a54"/><circle cx="46" cy="40" r="12" fill="#2b2f2d"/><circle cx="46" cy="40" r="5" fill="#f6c35b"/>' +
     '<circle cx="14" cy="44" r="8" fill="#2b2f2d"/><circle cx="14" cy="44" r="3.4" fill="#f6c35b"/><rect x="2" y="27" width="5" height="5" rx="1" fill="#f6c35b"/></svg>';
 
-  let el = null; let offen = false; let aktKey = null;
+  let el = null; let offen = false; let aktKey = null; let aktGk = null;
 
+  const KONSERVE = ['heu', 'gras', 'mais', 'gps'];
+  let aktCtx = null;  // Beratung nach der Analyse: { probe } oder { labor }
   function kontext() {
     const A = app(); if (!A) return null;
-    const r = A.route();
+    const r = A.route(); aktCtx = null;
+    if (r && r.name === 'labor' && r.id && r.i != null && global.Laborauswertung) {
+      const lp = global.Laborauswertung.probe(r.id, r.i); if (!lp) return null;
+      aktCtx = { labor: lp, angebot: 'hilfe:' + r.id + ':' + r.i }; return 'labor';
+    }
     if (!r || r.name !== 'probe') return null;
     const p = A.probeById(r.id); if (!p || !p.typ) return r.step === 'probe' || !r.step ? 'probe' : null;
     const step = r.step || 'probe';
     if (step === 'ts') return p.typ === 'mais' ? 'ts.mais' : 'ts.gras';
+    if (step === 'ergebnis' && KONSERVE.includes(p.typ)) aktCtx = { probe: p, angebot: 'hilfe:' + p.id };
     if (step === 'rad') { const f = A.radFokus(p); return f ? 'rad.' + (p.typ === 'gps' ? 'gras' : p.typ) + '.' + f : null; }
     return T[step] ? step : null;
   }
@@ -275,6 +287,7 @@
     const fach = Z.stufe === 'fachlich';
     return '<div class="assist-head"><b>' + A.esc(t.titel) + '</b><button type="button" class="assist-x" data-as="zu" aria-label="Schliessen">×</button></div>' +
       '<div class="assist-text">' + (fach ? t.fachlich : t.einfach) + '</div>' +
+      (aktCtx && global.Beratung ? '<div class="assist-praxis ber"><b>Fragen zu deinem Futter</b>' + global.Beratung.bubble(aktCtx) + '</div>' : '') +
       (P[key] && P[key].wie ? '<div class="assist-praxis"><b>Erinnert an</b><p>' + A.esc(P[key].wie) + '</p></div>' : '') +
       (P[key] && P[key].vorgehen ? '<div class="assist-praxis"><b>So gehst du vor</b><ol>' + P[key].vorgehen.map((x) => '<li>' + A.esc(x) + '</li>').join('') + '</ol></div>' : '') +
       (key.startsWith('rad.') && !/\.(regen|blaetter|mist|erde|ph)$/.test(key) ? '<button type="button" class="btn sm block assist-riechen" data-as="riechen">👃 So riechst du richtig</button>' : '') +
@@ -288,10 +301,11 @@
   function zeigen(key, kurz) {
     baue(); aktKey = key; offen = true; clearTimeout(teaserTimer);
     const b = el.querySelector('.assist-bubble');
-    b.innerHTML = kurz ? '<button type="button" class="assist-teaser" data-as="mehr"><b>' + app().esc(T[key].titel) + '</b><span>Soll ich dir helfen? Tipp mich an.</span></button>' : bubbleHtml(key);
+    b.innerHTML = kurz ? '<button type="button" class="assist-teaser" data-as="mehr"><b>' + app().esc(T[key].titel) + '</b><span>' + (aktCtx ? 'Fragen zu deinem Futter? Ich habe Tipps.' : 'Soll ich dir helfen? Tipp mich an.') + '</span></button>' : bubbleHtml(key);
     b.classList.toggle('kurz', !!kurz); b.hidden = false;
     el.classList.add('offen');
-    if (!Z.gesehen.includes(key)) { Z.gesehen.push(key); merken(); }
+    const gk = aktCtx ? aktCtx.angebot : key;
+    if (!Z.gesehen.includes(gk)) { Z.gesehen.push(gk); merken(); }
     if (kurz) teaserTimer = setTimeout(() => { if (b.classList.contains('kurz')) schliessen(); }, 9000);
   }
   function schliessen() {
@@ -310,6 +324,8 @@
     }
     const a = t.dataset.as;
     if (a === 'zu') schliessen();
+    if (a === 'frage') { global.Beratung.frageSheet(t.dataset.k, aktCtx); return; }
+    if (a === 'fachstelle') { global.Beratung.fachstelle(aktCtx); return; }
     if (a === 'mehr') zeigen(aktKey);
     if (a === 'stufe') { Z.stufe = t.dataset.v; merken(); zeigen(aktKey); }
     if (a === 'ruhe') { Z.ruhe = true; merken(); schliessen(); el.classList.add('schlaeft'); app().toast('Der Traktor schläft. Antippen weckt ihn wieder.'); }
@@ -326,12 +342,13 @@
   /** Nach jedem Rendern aufrufen: Traktor ein-/ausblenden, beim ersten Besuch selbst melden. */
   function update() {
     const key = kontext();
-    if (!key || !T[key]) { if (el) { el.hidden = true; schliessen(); } aktKey = null; return; }
+    if (!key || !T[key]) { if (el) { el.hidden = true; schliessen(); } aktKey = null; aktGk = null; return; }
     baue(); el.hidden = false; el.classList.toggle('schlaeft', Z.ruhe);
-    const wechsel = key !== aktKey;
+    const gk = aktCtx ? aktCtx.angebot : key;
+    const wechsel = gk !== aktGk; aktGk = gk;
     aktKey = key;
     if (offen && wechsel) schliessen();
-    if (wechsel && !Z.ruhe && !Z.gesehen.includes(key)) zeigen(key, true);
+    if (wechsel && !Z.ruhe && !Z.gesehen.includes(gk)) zeigen(key, true);
   }
 
   global.Assistent = {

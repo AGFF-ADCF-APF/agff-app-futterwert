@@ -759,7 +759,7 @@ html.kb-hinweise [data-kb]::after { content: attr(data-kb); position: absolute; 
 .linkbtn { background: none; border: 0; padding: 0; color: var(--schlecht); text-decoration: underline; cursor: pointer; font: inherit; }
 
 
-/* ---- UX-Quick-Wins (b1-69) ---- */
+/* ---- UX-Quick-Wins (b1-70) ---- */
 /* Mindestschrift für Nebentexte, Hinweise in voller Grösse */
 .item .s, .bar .sub { font-size: .875rem; }
 .tbl thead th { font-size: .8rem; color: var(--ink-2); }
@@ -841,3 +841,13 @@ html[data-modus="wiese"] #main .bar { padding-right: 12px; }
 .la-teaser { border: 1px dashed var(--line-strong); border-radius: 12px; padding: 10px 14px; margin-top: 16px; }
 .la-laden { height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--brand-soft), var(--brand), var(--brand-soft)); background-size: 200% 100%; animation: la-laden 1.2s linear infinite; }
 @keyframes la-laden { from { background-position: 200% 0; } to { background-position: 0 0; } }
+/* Beratung im Traktor */
+.assist-praxis.ber .assist-text { margin: 4px 0; }
+.ber-liste { list-style: none; margin: 4px 0; padding: 0; display: grid; gap: 4px; }
+.ber-frage { width: 100%; text-align: left; min-height: 40px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+.ber-frage.hl { border-color: var(--brand); background: var(--surface-2); font-weight: 600; }
+.ber-mehr summary { cursor: pointer; min-height: 36px; display: flex; align-items: center; color: var(--brand-ink); }
+.ber-h { font-size: 1rem; margin: 14px 0 4px; }
+.ber-punkte { margin: 4px 0; padding-left: 20px; } .ber-punkte li { margin: 3px 0; }
+.ber-stelle { margin: 8px 0; padding: 10px 12px; } .ber-stelle p { margin: 4px 0 0; }
+.ber-plz input { width: 100%; }
