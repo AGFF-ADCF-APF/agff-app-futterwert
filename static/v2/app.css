@@ -759,7 +759,7 @@ html.kb-hinweise [data-kb]::after { content: attr(data-kb); position: absolute; 
 .linkbtn { background: none; border: 0; padding: 0; color: var(--schlecht); text-decoration: underline; cursor: pointer; font: inherit; }
 
 
-/* ---- UX-Quick-Wins (b1-72) ---- */
+/* ---- UX-Quick-Wins (b1-73) ---- */
 /* Mindestschrift für Nebentexte, Hinweise in voller Grösse */
 .item .s, .bar .sub { font-size: .875rem; }
 .tbl thead th { font-size: .8rem; color: var(--ink-2); }

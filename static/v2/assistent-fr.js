@@ -11,7 +11,7 @@
     probe: {
       titel: 'C’est parti !',
       einfach: 'Donnez à l’échantillon un nom que vous reconnaîtrez plus tard, par ex. « Silo nord » ou « Balle ronde 3 ». Choisissez ensuite le type de fourrage : foin/regain, ensilage d’herbe ou ensilage de maïs. Je vous aide à chaque étape.',
-      fachlich: 'La désignation et le type de fourrage déterminent la clé : K3a (fourrage sec), K3b (ensilage d’herbe) ou K3c (ensilage de maïs). Les valeurs de départ proviennent des tables de valeurs nutritives d’Agroscope ; la composition botanique, le stade et l’appréciation sensorielle les corrigent.',
+      fachlich: 'La désignation et le type de fourrage déterminent la clé AGFF utilisée (documents en allemand) : K3a (fourrage sec), K3b (ensilage d’herbe) ou K3c (ensilage de maïs). Les valeurs de départ proviennent des tables de valeurs nutritives d’Agroscope ; la composition botanique, le stade et l’appréciation sensorielle les corrigent.',
     },
     bestand: {
       titel: 'Quelle composition botanique ?',
@@ -48,8 +48,8 @@
     kultur: {
       titel: 'Ensilage de plante entière',
       einfach: 'Choisissez la céréale ou le mélange et sa maturité à la récolte. L’idéal : la plupart des grains sont pâteux (encore marquables à l’ongle), les épis jaunissent et les tiges sont encore vertes – environ 35–40 % de MS. Cette phase ne dure que 3–4 jours : mieux vaut un peu trop tôt que trop tard.',
-      fachlich: 'Teneurs selon la fiche AGFF K1 (analyses Agroscope 2012–13) : triticale 5,3 MJ NEL, 64 g MA ; avoine 4,5 MJ, 52 g MA ; mélange triticale/avoine/pois 5,3 MJ (4,9–6,4), 80 g MA. L’ensilage de plante entière est pauvre en protéines et complète l’ensilage de maïs ou d’herbe surtout par ses fibres efficaces. Trop tôt : moindre rendement, risque d’acide butyrique ; trop tard : pertes de grains, mauvais tassement, échauffement. Garder la part dans les rations de vaches laitières sous un tiers.',
-      bilder: [B('gps-harvey.webp', 'Critères visuels selon la MS (Harvey 1992, fiche AGFF K1)')],
+      fachlich: 'Teneurs selon l’AGFF-Infoblatt K1 (en allemand ; analyses Agroscope 2012–13) : triticale 5,3 MJ NEL, 64 g MA ; avoine 4,5 MJ, 52 g MA ; mélange triticale/avoine/pois 5,3 MJ (4,9–6,4), 80 g MA. L’ensilage de plante entière est pauvre en protéines et complète l’ensilage de maïs ou d’herbe surtout par ses fibres efficaces. Trop tôt : moindre rendement, risque d’acide butyrique ; trop tard : pertes de grains, mauvais tassement, échauffement. Garder la part dans les rations de vaches laitières sous un tiers.',
+      bilder: [B('gps-harvey.webp', 'Critères visuels selon la MS (Harvey 1992, AGFF-Infoblatt K1)')],
     },
     ergebnis: {
       titel: 'Votre résultat',
@@ -164,7 +164,7 @@
     wiese: {
       titel: 'Apprécier la prairie',
       einfach: 'Vous trouvez ici tout pour la prairie : le <b>relevé de prairie</b> pour une appréciation complète, la <b>grille de points</b> pour estimer vite graminées, trèfle et autres plantes, la <b>comparaison des stades</b> pour le bon moment de coupe et <b>hauteur &amp; rendement</b>. Les points photo montrent comment un endroit évolue au fil des ans.',
-      fachlich: 'Le relevé suit la fiche AGFF 8 sur l’appréciation des peuplements prairiaux (peuplement, station, peuplement visé, mesures) ; le type botanique (G, GR, A, AR, L, KF, KG) suit la fiche 3. La grille mesure la couverture vue d’en haut, pas la part en poids – toujours comparer les propositions avec votre propre regard.',
+      fachlich: 'Le relevé suit l’AGFF-Merkblatt 8 « Beurteilung von Wiesenbeständen » (en allemand ; peuplement, station, peuplement visé, mesures) ; le type botanique (G, GR, A, AR, L, KF, KG) suit l’AGFF-Merkblatt 3 (en allemand). La grille mesure la couverture vue d’en haut, pas la part en poids – toujours comparer les propositions avec votre propre regard.',
     },
     fotopunkte: {
       titel: 'Points photo',
@@ -179,17 +179,17 @@
     aufnahmen: {
       titel: 'Relevé de prairie',
       einfach: 'Quatre étapes vers une meilleure prairie : <b>1</b> relever le peuplement, <b>2</b> station et exploitation actuelle, <b>3</b> fixer l’objectif, <b>4</b> mesures. Choisissez une surface d’environ un are, représentative de toute la parcelle.',
-      fachlich: 'Selon la fiche AGFF 8 (2012) avec feuille de travail. Peuplement visé en général 50–70 % de graminées fourragères, 10–30 % de trèfle et 10–30 % d’autres plantes fourragères ; en altitude, tolérer davantage d’autres plantes. Un relevé de suivi (copie) montre l’évolution de la même parcelle.',
+      fachlich: 'Selon l’AGFF-Merkblatt 8 (2012, en allemand) avec feuille de travail. Peuplement visé en général 50–70 % de graminées fourragères, 10–30 % de trèfle et 10–30 % d’autres plantes fourragères ; en altitude, tolérer davantage d’autres plantes. Un relevé de suivi (copie) montre l’évolution de la même parcelle.',
     },
     aufnahme: {
       titel: 'Votre relevé de prairie',
       einfach: 'Estimez d’abord graminées, trèfle et autres plantes dans deux cercles, puis les espèces et leurs parts. L’app propose le type de peuplement, les plantes indicatrices et des mesures.',
-      fachlich: 'Parts de rendement en % de la MS, par pas de 5 %. Les plantes en fleur et les feuilles bien visibles (par ex. trèfle blanc) sont souvent surestimées. Les plantes indicatrices des tableaux 3 et 4 de la fiche signalent dès 5 % des causes (par ex. vides, compaction, surfertilisation, utilisation tardive).',
+      fachlich: 'Parts de rendement en % de la MS, par pas de 5 %. Les plantes en fleur et les feuilles bien visibles (par ex. trèfle blanc) sont souvent surestimées. Les plantes indicatrices des tableaux 3 et 4 de ce Merkblatt signalent dès 5 % des causes (par ex. vides, compaction, surfertilisation, utilisation tardive).',
     },
     labor: {
       titel: 'Des questions sur l’analyse ?',
       einfach: 'Je vous explique d’où viennent les anomalies et ce que vous pouvez changer la prochaine fois.',
-      fachlich: 'Causes et mesures selon la fiche AGFF K4b (ensilage) et les fiches ADCF/AGRIDEA 2.7.9 et 12.4 (fourrage sec, séchage en grange).',
+      fachlich: 'Causes et mesures selon l’AGFF-Merkblatt K4b (ensilage, en allemand) et les fiches ADCF/AGRIDEA 2.7.9 et 12.4 (fourrage sec, séchage en grange).',
     },
   };
 
@@ -249,12 +249,12 @@
 
   // ---------- Conseil : questions (mêmes clés que beratung.js) ----------
   const Q = {
-    k4b: 'Fiche AGFF K4b sur l’interprétation de l’appréciation des ensilages (2024)',
+    k4b: 'AGFF-Merkblatt K4b « Interpretation der Silagebewertung » (2024, document en allemand)',
     adcf279: 'Fiche ADCF/AGRIDEA 2.7.9 « Valeur des fourrages – Améliorations des processus de séchage » (2021)',
     adcf124: 'Fiche ADCF/AGRIDEA 12.4 « Séchage en grange – Check-list de contrôle d’une installation » (2025)',
-    k3: 'Clés AGFF K3a–K3c d’appréciation du fourrage sec, de l’ensilage d’herbe et de l’ensilage de maïs',
-    mb8: 'Fiche AGFF 8 sur l’appréciation des peuplements prairiaux (2012), tableaux 3 et 4',
-    mb3: 'Fiche AGFF 3 sur l’évaluation des fourrages de prairie (type botanique)',
+    k3: 'Clés AGFF K3a–K3c (documents en allemand) d’appréciation du fourrage sec, de l’ensilage d’herbe et de maïs',
+    mb8: 'AGFF-Merkblatt 8 « Beurteilung von Wiesenbeständen » (2012, document en allemand), tableaux 3 et 4',
+    mb3: 'AGFF-Merkblatt 3 « Bewertung von Wiesenfutter » (document en allemand), type botanique',
   };
   const F = {
     butter: { frage: 'Pourquoi mon ensilage sent-il l’acide butyrique ?',
@@ -322,11 +322,11 @@
     luecken: { frage: 'Ma prairie a des vides – que faire ?',
       kurz: 'Sinon, les vides se remplissent d’espèces de faible valeur et de mauvaises herbes (pâturin commun, millets, brome mou, rumex, chardons). Dès 5 % de vides, un sursemis vaut la peine ; dès env. 25 %, examiner aussi un nouveau semis.',
       ursachen: ['Surexploitation et compaction du sol (indicateurs : agrostide stolonifère, grand plantain, pâquerette)', 'Les plantes bouche-trous et mauvaises herbes s’étendent et maintiennent les vides ouverts'],
-      massnahmen: ['Vides jusqu’à env. 25 % : sursemis avec des graminées fourragères adaptées à la station (fiche AGFF 5)', 'Dès env. 25 % : examiner sursemis ou nouveau semis (fiches AGFF 4, 5, 7, 12)', 'Supprimer la cause : exploitation ménageant le sol et moins intensive (tableau 3)'], quelle: [Q.mb8] },
+      massnahmen: ['Vides jusqu’à env. 25 % : sursemis avec des graminées fourragères adaptées à la station', 'Dès env. 25 % : examiner sursemis ou nouveau semis', 'Supprimer la cause : exploitation ménageant le sol et moins intensive (tableau 3)'], quelle: [Q.mb8] },
     unkraut: { frage: 'Mauvaises herbes ou plantes toxiques – comment les faire reculer ?',
       kurz: 'La meilleure prévention est un gazon dense de graminées fourragères de valeur. Les plantes toxiques comme les séneçons, le colchique ou la prêle des marais n’ont pas leur place dans le fourrage.',
       ursachen: ['Vides (les graines germent sur sol nu)', 'Surfertilisation ou accumulation de déjections (rumex, orties)', 'Utilisation tardive ou trop rare'],
-      massnahmen: ['Favoriser un gazon dense, sursemer les vides', 'Empêcher la montée en graines ; arracher ou déterrer les plantes isolées', 'Régulation selon la fiche AGFF 4'], quelle: [Q.mb8] },
+      massnahmen: ['Favoriser un gazon dense, sursemer les vides', 'Empêcher la montée en graines ; arracher ou déterrer les plantes isolées'], quelle: [Q.mb8] },
     kraeuter: { frage: 'Trop de plantes grossières (cerfeuil, berce, renoncule) ?',
       kurz: 'Les plantes à tiges grossières donnent un fourrage aqueux et pauvre, provoquent des pertes par effritement et laissent des vides. Elles indiquent le plus souvent une surfertilisation ou une utilisation tardive.',
       ursachen: ['Trop de lisier ou d’azote', 'Utilisation tardive, montée en graines', 'Gazon lacunaire'],
@@ -338,7 +338,7 @@
     futtergraeser: { frage: 'Trop peu de graminées fourragères de valeur – comment les favoriser ?',
       kurz: 'L’objectif est en général 50–70 % de graminées fourragères, 10–30 % de trèfle et 10–30 % d’autres plantes fourragères. En favorisant des graminées adaptées et de valeur, les espèces de faible valeur reculent en règle générale.',
       ursachen: [],
-      massnahmen: ['Choisir les graminées principales selon la station et l’utilisation (aptitude au ray-grass)', 'Implanter les espèces manquantes par sursemis (fiche AGFF 5)', 'Adapter utilisation et fumure aux graminées souhaitées (tableau 4)'], quelle: [Q.mb8, Q.mb3] },
+      massnahmen: ['Choisir les graminées principales selon la station et l’utilisation (aptitude au ray-grass)', 'Implanter les espèces manquantes par sursemis', 'Adapter utilisation et fumure aux graminées souhaitées (tableau 4)'], quelle: [Q.mb8, Q.mb3] },
     raigras: { frage: 'Le ray-grass convient-il à ma station ?',
       kurz: 'Aptes au ray-grass : situations douces, ensoleillées, tôt déneigées : situations rudes jusqu’à 700 m, douces jusqu’à 900 m (ray-grass anglais jusqu’à 1000 m), sols mi-lourds perméables avec 900–1200 mm de précipitations, P et K moyens à suffisants.',
       ursachen: [],
@@ -366,7 +366,7 @@
     trocken: ['Balles au maximum 55 % de MS, silo tour et couloir au maximum 36 % de MS', 'Tasser particulièrement bien le fourrage sec et fermer hermétiquement rapidement', 'Contrôler régulièrement bâches, portes et couvercles (trous)'],
   };
 
-  // Fiche 8, tableaux 3 et 4 : nom allemand → [nom français, mesure]
+  // AGFF-Merkblatt 8 (allemand), tableaux 3 et 4 : nom allemand → [nom français, mesure]
   const T3 = {
     'Ausläufer-Straussgras': ['Agrostide stolonifère', 'Exploitation ménageant le sol, moins intensive ; pâture tournante plutôt que continue'],
     'Gewöhnliches Rispengras': ['Pâturin commun', 'Sursemis combinés à un déchirage mécanique du feutre'],
@@ -419,7 +419,7 @@
     'Weissklee': ['Trèfle blanc', 'Pâture et fauche précoces, fréquentes et basses'],
   };
 
-  /** Aptitude au ray-grass (fiche 8, section 2) */
+  /** Aptitude au ray-grass (AGFF-Merkblatt 8, section 2) */
   function raigrasHinweis(a) {
     const h = a.kopf.hoehe; const s = a.standort; const t = [];
     if (h != null) {

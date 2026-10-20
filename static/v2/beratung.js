@@ -10,7 +10,9 @@
   const LR = () => global.LaborRegeln;
   const esc = (s) => app().esc(s);
   const PLZ_KEY = 'agffV2BeratungPlz';
-  const FR = () => (global.Assistent && global.Assistent.sprache === 'fr' && global.AssistentFR) || null;
+  /** Übersetzung (fr/it) der im Traktor gewählten Sprache, sonst null = Deutsch */
+  const FR = () => { const s = global.Assistent && global.Assistent.sprache; return (s === 'fr' && global.AssistentFR) || (s === 'it' && global.AssistentIT) || null; };
+  const LA = () => (FR() ? ' lang="' + global.Assistent.sprache + '"' : '');
   const UD = {
     passendProbe: 'Zu deiner Probe passen diese Fragen:', passendAufnahme: 'Zu deiner Aufnahme passen diese Fragen:', keineMaengel: 'Keine grösseren Mängel – trotzdem eine Frage?',
     weitere: 'Weitere Fragen', nichtGefunden: 'Antwort nicht gefunden? Fachstelle in deiner Region',
@@ -217,12 +219,12 @@
     if (!F[k]) return;
     const f = frageText(k); const u = U(); const m = f.mass;
     const ex = f.extra && ctx && ctx.aufnahme ? f.extra(ctx.aufnahme) : [];
-    app().sheet('<h2' + (FR() ? ' lang="fr"' : '') + '>' + esc(f.frage) + '</h2><div' + (FR() ? ' lang="fr"' : '') + '><p>' + esc(f.kurz) + '</p>' +
+    app().sheet('<h2' + LA() + '>' + esc(f.frage) + '</h2><div' + LA() + '><p>' + esc(f.kurz) + '</p>' +
       (f.ursachen.length ? '<h3 class="ber-h">' + u.ursachen + '</h3><ul class="ber-punkte">' + f.ursachen.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '') +
       (f.ration ? '<h3 class="ber-h">' + u.fuetterung + '</h3><p class="small">' + esc(f.ration) + '</p>' : '') +
       (ex.length ? '<h3 class="ber-h">' + u.inAufnahme + '</h3><ul class="ber-punkte">' + ex.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '') +
       (m.length ? '<h3 class="ber-h">' + u.tun + '</h3><ul class="ber-punkte ber-mass">' + m.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '') +
-      '<p class="small muted">' + u.quelle + ' : '.slice(FR() ? 0 : 1) + f.quelle.map(esc).join('; ') + '</p></div>' +
+      '<p class="small muted">' + u.quelle + (global.Assistent && global.Assistent.sprache === 'fr' ? ' : ' : ': ') + f.quelle.map(esc).join('; ') + '</p></div>' +
       '<div class="row" style="margin-top:12px"><button class="btn grow" data-ber="fachstelle">' + esc(u.nochFragen) + '</button><button class="btn primary grow" data-close>' + u.danke + '</button></div>');
     const root = document.getElementById('sheet-root');
     const b = root && root.querySelector('[data-ber="fachstelle"]'); if (b) b.addEventListener('click', () => fachstelle(ctx));

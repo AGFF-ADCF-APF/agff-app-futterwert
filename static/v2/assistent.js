@@ -14,8 +14,8 @@
     let z = null;
     try { z = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { z = null; }
     z = z && typeof z === 'object' ? z : {};
-    let sp = z.sprache === 'fr' || z.sprache === 'de' ? z.sprache : null;
-    if (!sp) { try { sp = /^fr/i.test((navigator.languages && navigator.languages[0]) || navigator.language || '') ? 'fr' : 'de'; } catch (e) { sp = 'de'; } }
+    let sp = ['de', 'fr', 'it'].includes(z.sprache) ? z.sprache : null;
+    if (!sp) { try { const l = ((navigator.languages && navigator.languages[0]) || navigator.language || '').slice(0, 2).toLowerCase(); sp = l === 'fr' || l === 'it' ? l : 'de'; } catch (e) { sp = 'de'; } }
     return { ruhe: z.ruhe === true, stufe: z.stufe === 'fachlich' ? 'fachlich' : 'einfach', sprache: sp, gesehen: Array.isArray(z.gesehen) ? z.gesehen.filter((x) => typeof x === 'string').slice(-200) : [] };
   }
   let Z = zustand();
@@ -277,7 +277,9 @@
     berFutter: 'Fragen zu deinem Futter', berWiese: 'Fragen zu deiner Wiese', erinnert: 'Erinnert an', vorgehen: 'So gehst du vor', riechen: '👃 So riechst du richtig', riechenTitel: 'So riechst du richtig',
     verstanden: 'Verstanden', einfach: 'Einfach', fachlich: 'Fachlich', ruhe: 'Ruhe, bitte', schliessen: 'Schliessen', sprache: 'Sprache', bildQuelle: 'Quelle: AGFF / AGRIDEA',
     schlaeft: 'Der Traktor schläft. Antippen weckt ihn wieder.', btnLabel: 'Traktor-Assistent: Hilfe zu diesem Schritt' };
-  const FRX = () => (Z.sprache === 'fr' && global.AssistentFR) || null;
+  /** Übersetzung der gewählten Sprache (fr/it), sonst null = Deutsch */
+  const FRX = () => (Z.sprache === 'fr' && global.AssistentFR) || (Z.sprache === 'it' && global.AssistentIT) || null;
+  const LANG = () => (FRX() ? ' lang="' + Z.sprache + '"' : '');
   const U = () => (FRX() ? FRX().U : UD);
   const TT = (key) => (FRX() && FRX().T[key]) || T[key];
   const PP = (key) => (FRX() && FRX().P[key]) || P[key];
@@ -330,15 +332,15 @@
   function bubbleHtml(key) {
     const t = TT(key); const A = app(); const u = U(); const pp = PP(key);
     const fach = Z.stufe === 'fachlich';
-    return '<div class="assist-head"' + (FRX() ? ' lang="fr"' : '') + '><b>' + A.esc(t.titel) + '</b><button type="button" class="assist-x" data-as="zu" aria-label="' + u.schliessen + '">×</button></div>' +
-      '<div' + (FRX() ? ' lang="fr"' : '') + '><div class="assist-text">' + (fach ? t.fachlich : t.einfach) + '</div>' +
+    return '<div class="assist-head"' + LANG() + '><b>' + A.esc(t.titel) + '</b><button type="button" class="assist-x" data-as="zu" aria-label="' + u.schliessen + '">×</button></div>' +
+      '<div' + LANG() + '><div class="assist-text">' + (fach ? t.fachlich : t.einfach) + '</div>' +
       (aktCtx && global.Beratung ? '<div class="assist-praxis ber"><b>' + (aktCtx.aufnahme ? u.berWiese : u.berFutter) + '</b>' + global.Beratung.bubble(aktCtx) + '</div>' : '') +
       (pp && pp.wie ? '<div class="assist-praxis"><b>' + u.erinnert + '</b><p>' + A.esc(pp.wie) + '</p></div>' : '') +
       (pp && pp.vorgehen ? '<div class="assist-praxis"><b>' + u.vorgehen + '</b><ol>' + pp.vorgehen.map((x) => '<li>' + A.esc(x) + '</li>').join('') + '</ol></div>' : '') +
       (key.startsWith('rad.') && !/\.(regen|blaetter|mist|erde|ph)$/.test(key) ? '<button type="button" class="btn sm block assist-riechen" data-as="riechen">' + u.riechen + '</button>' : '') + '</div>' +
       (t.bilder ? '<div class="assist-bilder">' + t.bilder.map((b, i) => '<button type="button" data-as="bild" data-i="' + i + '"><img alt="' + A.esc(b.cap) + '" src="' + b.src + '" loading="lazy"><span>' + A.esc(b.cap) + '</span></button>').join('') + '</div>' : '') +
       '<div class="assist-foot"><div class="seg sm" role="group" aria-label="' + u.einfach + ' / ' + u.fachlich + '"><button type="button" data-as="stufe" data-v="einfach" aria-pressed="' + !fach + '">' + u.einfach + '</button><button type="button" data-as="stufe" data-v="fachlich" aria-pressed="' + fach + '">' + u.fachlich + '</button></div>' +
-      '<div class="seg sm" role="group" aria-label="' + u.sprache + '"><button type="button" data-as="sprache" data-v="de" lang="de" aria-pressed="' + (Z.sprache === 'de') + '">DE</button><button type="button" data-as="sprache" data-v="fr" lang="fr" aria-pressed="' + (Z.sprache === 'fr') + '">FR</button></div>' +
+      '<div class="seg sm" role="group" aria-label="' + u.sprache + '"><button type="button" data-as="sprache" data-v="de" lang="de" aria-pressed="' + (Z.sprache === 'de') + '">DE</button><button type="button" data-as="sprache" data-v="fr" lang="fr" aria-pressed="' + (Z.sprache === 'fr') + '">FR</button><button type="button" data-as="sprache" data-v="it" lang="it" aria-pressed="' + (Z.sprache === 'it') + '">IT</button></div>' +
       '<button type="button" class="btn ghost sm" data-as="ruhe">' + u.ruhe + '</button></div>';
   }
 
@@ -348,7 +350,7 @@
     baue(); aktKey = key; offen = true; clearTimeout(teaserTimer);
     const b = el.querySelector('.assist-bubble');
     const u = U();
-    b.innerHTML = kurz ? '<button type="button" class="assist-teaser" data-as="mehr"' + (FRX() ? ' lang="fr"' : '') + '><b>' + app().esc(TT(key).titel) + '</b><span>' + (aktCtx ? (aktCtx.aufnahme ? u.teaserWiese : u.teaserFutter) : u.teaser) + '</span></button>' : bubbleHtml(key);
+    b.innerHTML = kurz ? '<button type="button" class="assist-teaser" data-as="mehr"' + LANG() + '><b>' + app().esc(TT(key).titel) + '</b><span>' + (aktCtx ? (aktCtx.aufnahme ? u.teaserWiese : u.teaserFutter) : u.teaser) + '</span></button>' : bubbleHtml(key);
     b.classList.toggle('kurz', !!kurz); b.hidden = false;
     el.classList.add('offen');
     const gk = aktCtx ? aktCtx.angebot : key;
@@ -375,10 +377,10 @@
     if (a === 'fachstelle') { global.Beratung.fachstelle(aktCtx); return; }
     if (a === 'mehr') zeigen(aktKey);
     if (a === 'stufe') { Z.stufe = t.dataset.v; merken(); zeigen(aktKey); }
-    if (a === 'sprache') { Z.sprache = t.dataset.v === 'fr' ? 'fr' : 'de'; merken(); el.querySelector('.assist-btn').setAttribute('aria-label', U().btnLabel); zeigen(aktKey); }
+    if (a === 'sprache') { Z.sprache = ['fr', 'it'].includes(t.dataset.v) ? t.dataset.v : 'de'; merken(); el.querySelector('.assist-btn').setAttribute('aria-label', U().btnLabel); zeigen(aktKey); }
     if (a === 'ruhe') { Z.ruhe = true; merken(); schliessen(); el.classList.add('schlaeft'); app().toast(U().schlaeft); }
     if (a === 'riechen') {
-      app().sheet('<div' + (FRX() ? ' lang="fr"' : '') + '><h2>' + U().riechenTitel + '</h2><ol class="assist-liste">' + PP('riechen').vorgehen.map((x) => '<li>' + app().esc(x) + '</li>').join('') + '</ol></div><button class="btn primary block" data-close style="margin-top:12px">' + U().verstanden + '</button>');
+      app().sheet('<div' + LANG() + '><h2>' + U().riechenTitel + '</h2><ol class="assist-liste">' + PP('riechen').vorgehen.map((x) => '<li>' + app().esc(x) + '</li>').join('') + '</ol></div><button class="btn primary block" data-close style="margin-top:12px">' + U().verstanden + '</button>');
       return;
     }
     if (a === 'bild') {
@@ -405,7 +407,7 @@
     set ruhe(v) { Z.ruhe = !!v; merken(); if (el) el.classList.toggle('schlaeft', Z.ruhe); if (Z.ruhe) schliessen(); },
     get stufe() { return Z.stufe; },
     get sprache() { return Z.sprache; },
-    set sprache(v) { Z.sprache = v === 'fr' ? 'fr' : 'de'; merken(); if (offen && aktKey) zeigen(aktKey); },
+    set sprache(v) { Z.sprache = ['fr', 'it'].includes(v) ? v : 'de'; merken(); if (offen && aktKey) zeigen(aktKey); },
     set stufe(v) { Z.stufe = v === 'fachlich' ? 'fachlich' : 'einfach'; merken(); if (offen && aktKey) zeigen(aktKey); },
     zuruecksetzen() { Z.gesehen = []; merken(); },
   };
