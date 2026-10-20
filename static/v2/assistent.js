@@ -14,7 +14,9 @@
     let z = null;
     try { z = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { z = null; }
     z = z && typeof z === 'object' ? z : {};
-    return { ruhe: z.ruhe === true, stufe: z.stufe === 'fachlich' ? 'fachlich' : 'einfach', gesehen: Array.isArray(z.gesehen) ? z.gesehen.filter((x) => typeof x === 'string').slice(-200) : [] };
+    let sp = z.sprache === 'fr' || z.sprache === 'de' ? z.sprache : null;
+    if (!sp) { try { sp = /^fr/i.test((navigator.languages && navigator.languages[0]) || navigator.language || '') ? 'fr' : 'de'; } catch (e) { sp = 'de'; } }
+    return { ruhe: z.ruhe === true, stufe: z.stufe === 'fachlich' ? 'fachlich' : 'einfach', sprache: sp, gesehen: Array.isArray(z.gesehen) ? z.gesehen.filter((x) => typeof x === 'string').slice(-200) : [] };
   }
   let Z = zustand();
   const merken = () => { try { localStorage.setItem(KEY, JSON.stringify(Z)); } catch (e) { /* privat: dann eben jedes Mal */ } };
@@ -270,6 +272,16 @@
     haecksel: { vorgehen: ['Auswaschmethode: 1 Liter Silage in einem Kessel mit Wasser umrühren; Körner setzen sich ab.', 'Ganze, unbeschädigte Körner zählen bzw. schätzen.', 'Häcksellänge: eine Handvoll ausbreiten und die Partikel mit einem Massstab abschätzen.'] },
   };
 
+  // ---------- Sprache (Deutsch / Französisch) ----------
+  const UD = { teaser: 'Soll ich dir helfen? Tipp mich an.', teaserFutter: 'Fragen zu deinem Futter? Ich habe Tipps.', teaserWiese: 'Fragen zu deiner Wiese? Ich habe Tipps.',
+    berFutter: 'Fragen zu deinem Futter', berWiese: 'Fragen zu deiner Wiese', erinnert: 'Erinnert an', vorgehen: 'So gehst du vor', riechen: '👃 So riechst du richtig', riechenTitel: 'So riechst du richtig',
+    verstanden: 'Verstanden', einfach: 'Einfach', fachlich: 'Fachlich', ruhe: 'Ruhe, bitte', schliessen: 'Schliessen', sprache: 'Sprache', bildQuelle: 'Quelle: AGFF / AGRIDEA',
+    schlaeft: 'Der Traktor schläft. Antippen weckt ihn wieder.', btnLabel: 'Traktor-Assistent: Hilfe zu diesem Schritt' };
+  const FRX = () => (Z.sprache === 'fr' && global.AssistentFR) || null;
+  const U = () => (FRX() ? FRX().U : UD);
+  const TT = (key) => (FRX() && FRX().T[key]) || T[key];
+  const PP = (key) => (FRX() && FRX().P[key]) || P[key];
+
   // ---------- Darstellung ----------
   const TRAKTOR = '<svg viewBox="0 0 64 56" width="58" height="51" aria-hidden="true">' +
     '<rect x="4" y="22" width="34" height="16" rx="4" fill="#2f9e5f"/><rect x="30" y="8" width="20" height="24" rx="4" fill="#1f7a49"/>' +
@@ -309,24 +321,25 @@
     if (el) return el;
     el = document.createElement('div');
     el.className = 'assist';
-    el.innerHTML = '<div class="assist-bubble" role="dialog" aria-live="polite" hidden></div><button type="button" class="assist-btn" aria-label="Traktor-Assistent: Hilfe zu diesem Schritt">' + TRAKTOR + '<span class="zz" aria-hidden="true">zZ</span></button>';
+    el.innerHTML = '<div class="assist-bubble" role="dialog" aria-live="polite" hidden></div><button type="button" class="assist-btn" aria-label="' + U().btnLabel + '">' + TRAKTOR + '<span class="zz" aria-hidden="true">zZ</span></button>';
     document.body.appendChild(el);
     el.addEventListener('click', klick);
     return el;
   }
 
   function bubbleHtml(key) {
-    const t = T[key]; const A = app();
+    const t = TT(key); const A = app(); const u = U(); const pp = PP(key);
     const fach = Z.stufe === 'fachlich';
-    return '<div class="assist-head"><b>' + A.esc(t.titel) + '</b><button type="button" class="assist-x" data-as="zu" aria-label="Schliessen">×</button></div>' +
-      '<div class="assist-text">' + (fach ? t.fachlich : t.einfach) + '</div>' +
-      (aktCtx && global.Beratung ? '<div class="assist-praxis ber"><b>' + (aktCtx.aufnahme ? 'Fragen zu deiner Wiese' : 'Fragen zu deinem Futter') + '</b>' + global.Beratung.bubble(aktCtx) + '</div>' : '') +
-      (P[key] && P[key].wie ? '<div class="assist-praxis"><b>Erinnert an</b><p>' + A.esc(P[key].wie) + '</p></div>' : '') +
-      (P[key] && P[key].vorgehen ? '<div class="assist-praxis"><b>So gehst du vor</b><ol>' + P[key].vorgehen.map((x) => '<li>' + A.esc(x) + '</li>').join('') + '</ol></div>' : '') +
-      (key.startsWith('rad.') && !/\.(regen|blaetter|mist|erde|ph)$/.test(key) ? '<button type="button" class="btn sm block assist-riechen" data-as="riechen">👃 So riechst du richtig</button>' : '') +
+    return '<div class="assist-head"' + (FRX() ? ' lang="fr"' : '') + '><b>' + A.esc(t.titel) + '</b><button type="button" class="assist-x" data-as="zu" aria-label="' + u.schliessen + '">×</button></div>' +
+      '<div' + (FRX() ? ' lang="fr"' : '') + '><div class="assist-text">' + (fach ? t.fachlich : t.einfach) + '</div>' +
+      (aktCtx && global.Beratung ? '<div class="assist-praxis ber"><b>' + (aktCtx.aufnahme ? u.berWiese : u.berFutter) + '</b>' + global.Beratung.bubble(aktCtx) + '</div>' : '') +
+      (pp && pp.wie ? '<div class="assist-praxis"><b>' + u.erinnert + '</b><p>' + A.esc(pp.wie) + '</p></div>' : '') +
+      (pp && pp.vorgehen ? '<div class="assist-praxis"><b>' + u.vorgehen + '</b><ol>' + pp.vorgehen.map((x) => '<li>' + A.esc(x) + '</li>').join('') + '</ol></div>' : '') +
+      (key.startsWith('rad.') && !/\.(regen|blaetter|mist|erde|ph)$/.test(key) ? '<button type="button" class="btn sm block assist-riechen" data-as="riechen">' + u.riechen + '</button>' : '') + '</div>' +
       (t.bilder ? '<div class="assist-bilder">' + t.bilder.map((b, i) => '<button type="button" data-as="bild" data-i="' + i + '"><img alt="' + A.esc(b.cap) + '" src="' + b.src + '" loading="lazy"><span>' + A.esc(b.cap) + '</span></button>').join('') + '</div>' : '') +
-      '<div class="assist-foot"><div class="seg sm" role="group" aria-label="Sprache"><button type="button" data-as="stufe" data-v="einfach" aria-pressed="' + !fach + '">Einfach</button><button type="button" data-as="stufe" data-v="fachlich" aria-pressed="' + fach + '">Fachlich</button></div>' +
-      '<button type="button" class="btn ghost sm" data-as="ruhe">Ruhe, bitte</button></div>';
+      '<div class="assist-foot"><div class="seg sm" role="group" aria-label="' + u.einfach + ' / ' + u.fachlich + '"><button type="button" data-as="stufe" data-v="einfach" aria-pressed="' + !fach + '">' + u.einfach + '</button><button type="button" data-as="stufe" data-v="fachlich" aria-pressed="' + fach + '">' + u.fachlich + '</button></div>' +
+      '<div class="seg sm" role="group" aria-label="' + u.sprache + '"><button type="button" data-as="sprache" data-v="de" lang="de" aria-pressed="' + (Z.sprache === 'de') + '">DE</button><button type="button" data-as="sprache" data-v="fr" lang="fr" aria-pressed="' + (Z.sprache === 'fr') + '">FR</button></div>' +
+      '<button type="button" class="btn ghost sm" data-as="ruhe">' + u.ruhe + '</button></div>';
   }
 
   let teaserTimer = null;
@@ -334,7 +347,8 @@
   function zeigen(key, kurz) {
     baue(); aktKey = key; offen = true; clearTimeout(teaserTimer);
     const b = el.querySelector('.assist-bubble');
-    b.innerHTML = kurz ? '<button type="button" class="assist-teaser" data-as="mehr"><b>' + app().esc(T[key].titel) + '</b><span>' + (aktCtx ? (aktCtx.aufnahme ? 'Fragen zu deiner Wiese? Ich habe Tipps.' : 'Fragen zu deinem Futter? Ich habe Tipps.') : 'Soll ich dir helfen? Tipp mich an.') + '</span></button>' : bubbleHtml(key);
+    const u = U();
+    b.innerHTML = kurz ? '<button type="button" class="assist-teaser" data-as="mehr"' + (FRX() ? ' lang="fr"' : '') + '><b>' + app().esc(TT(key).titel) + '</b><span>' + (aktCtx ? (aktCtx.aufnahme ? u.teaserWiese : u.teaserFutter) : u.teaser) + '</span></button>' : bubbleHtml(key);
     b.classList.toggle('kurz', !!kurz); b.hidden = false;
     el.classList.add('offen');
     const gk = aktCtx ? aktCtx.angebot : key;
@@ -361,14 +375,15 @@
     if (a === 'fachstelle') { global.Beratung.fachstelle(aktCtx); return; }
     if (a === 'mehr') zeigen(aktKey);
     if (a === 'stufe') { Z.stufe = t.dataset.v; merken(); zeigen(aktKey); }
-    if (a === 'ruhe') { Z.ruhe = true; merken(); schliessen(); el.classList.add('schlaeft'); app().toast('Der Traktor schläft. Antippen weckt ihn wieder.'); }
+    if (a === 'sprache') { Z.sprache = t.dataset.v === 'fr' ? 'fr' : 'de'; merken(); el.querySelector('.assist-btn').setAttribute('aria-label', U().btnLabel); zeigen(aktKey); }
+    if (a === 'ruhe') { Z.ruhe = true; merken(); schliessen(); el.classList.add('schlaeft'); app().toast(U().schlaeft); }
     if (a === 'riechen') {
-      app().sheet('<h2>So riechst du richtig</h2><ol class="assist-liste">' + P.riechen.vorgehen.map((x) => '<li>' + app().esc(x) + '</li>').join('') + '</ol><button class="btn primary block" data-close style="margin-top:12px">Verstanden</button>');
+      app().sheet('<div' + (FRX() ? ' lang="fr"' : '') + '><h2>' + U().riechenTitel + '</h2><ol class="assist-liste">' + PP('riechen').vorgehen.map((x) => '<li>' + app().esc(x) + '</li>').join('') + '</ol></div><button class="btn primary block" data-close style="margin-top:12px">' + U().verstanden + '</button>');
       return;
     }
     if (a === 'bild') {
-      const b = T[aktKey].bilder[Number(t.dataset.i)];
-      app().sheet('<h2>' + app().esc(b.cap) + '</h2><img class="foto-gross" alt="' + app().esc(b.cap) + '" src="' + b.src + '"><p class="small muted">Quelle: AGFF / AGRIDEA</p><button class="btn ghost block" data-close style="margin-top:10px">Schliessen</button>');
+      const b = TT(aktKey).bilder[Number(t.dataset.i)];
+      app().sheet('<h2>' + app().esc(b.cap) + '</h2><img class="foto-gross" alt="' + app().esc(b.cap) + '" src="' + b.src + '"><p class="small muted">' + U().bildQuelle + '</p><button class="btn ghost block" data-close style="margin-top:10px">' + U().schliessen + '</button>');
     }
   }
 
@@ -389,6 +404,8 @@
     get ruhe() { return Z.ruhe; },
     set ruhe(v) { Z.ruhe = !!v; merken(); if (el) el.classList.toggle('schlaeft', Z.ruhe); if (Z.ruhe) schliessen(); },
     get stufe() { return Z.stufe; },
+    get sprache() { return Z.sprache; },
+    set sprache(v) { Z.sprache = v === 'fr' ? 'fr' : 'de'; merken(); if (offen && aktKey) zeigen(aktKey); },
     set stufe(v) { Z.stufe = v === 'fachlich' ? 'fachlich' : 'einfach'; merken(); if (offen && aktKey) zeigen(aktKey); },
     zuruecksetzen() { Z.gesehen = []; merken(); },
   };

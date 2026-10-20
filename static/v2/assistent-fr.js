@@ -1,0 +1,460 @@
+/* Futter v2 – Assistant « Tracteur » en français (textes fixes, pas d'IA).
+ * Mêmes clés que assistent.js et beratung.js ; ce qui manque ici s'affiche en allemand.
+ * Terminologie : MS (matière sèche), NEL, PAIE/PAIN (APDE/APDN), selon les fiches ADCF/AGRIDEA.
+ */
+(function (global) {
+  'use strict';
+  const B = (src, cap) => ({ src: 'assets/bilder/' + src, cap });
+
+  // ---------- Textes par étape (titre, simple, technique) ----------
+  const T = {
+    probe: {
+      titel: 'C’est parti !',
+      einfach: 'Donnez à l’échantillon un nom que vous reconnaîtrez plus tard, par ex. « Silo nord » ou « Balle ronde 3 ». Choisissez ensuite le type de fourrage : foin/regain, ensilage d’herbe ou ensilage de maïs. Je vous aide à chaque étape.',
+      fachlich: 'La désignation et le type de fourrage déterminent la clé : K3a (fourrage sec), K3b (ensilage d’herbe) ou K3c (ensilage de maïs). Les valeurs de départ proviennent des tables de valeurs nutritives d’Agroscope ; la composition botanique, le stade et l’appréciation sensorielle les corrigent.',
+    },
+    bestand: {
+      titel: 'Quelle composition botanique ?',
+      einfach: 'Regardez ce qui pousse dans l’échantillon (ou dans la prairie) : surtout des <b>graminées</b>, beaucoup de <b>trèfle</b> ou beaucoup d’<b>autres plantes</b> comme le dent-de-lion ? Une estimation à 10 % près suffit. Le ray-grass se reconnaît au revers brillant de ses feuilles.',
+      fachlich: 'Déterminante : la part en poids dans le peuplement au moment de la coupe. Riche en graminées : > 70 % de graminées ; équilibré : 50–70 % ; riche en trèfle : > 50 % de trèfle. « Ray-grass » (Gᵣ, Aᵣ) lorsque plus de la moitié des graminées sont des ray-grass – plus riches en sucre et plus digestibles. Riche en autres plantes : à feuilles fines (dent-de-lion, plantain) ou à tiges grossières (cerfeuil, berce), de valeur nutritive plus faible.',
+    },
+    stadium: {
+      titel: 'Quel âge avait le fourrage ?',
+      einfach: 'Plus les plantes sont âgées à la coupe, plus il y a de tiges dures et moins d’énergie. <b>1er cycle :</b> regardez si les épis des graminées sont déjà visibles ou en fleur. <b>Repousses :</b> c’est le nombre de semaines depuis la dernière coupe qui compte. Astuce : touchez les images ci-dessous.',
+      fachlich: 'Au 1er cycle, le stade se détermine sur la plante de référence (par ex. dactyle, ray-grass anglais) : 1 tallage – 2 montaison – 3 début épiaison – 4 pleine épiaison – 5 fin épiaison – 6 floraison – 7 maturité des graines. Par stade, la teneur en NEL baisse d’environ 0,2–0,3 MJ/kg MS. Les repousses ne forment guère d’épis ; on compte donc l’âge en semaines (vieillissement plus lent au-dessus de 600 m et en automne).',
+      bilder: [B('stadien-page-1.webp', 'Stades de développement des graminées'), B('knaulgras.webp', 'Dactyle : stades 3, 4, 6'), B('rotklee.webp', 'Trèfle violet : stades 3, 5, 6'), B('b2-stadien-1.webp', 'Description des stades (AGFF)')],
+    },
+    'ts.gras': {
+      titel: 'Propreté et matière sèche',
+      einfach: '<b>Propreté :</b> voyez-vous de la terre, du sable ou du fumier ? Cela réduit la valeur et augmente le risque de mauvaise fermentation. <b>MS par le test de torsion :</b> prenez une poignée d’ensilage et tordez-la comme un linge. Du jus coule-t-il ? Les mains restent-elles mouillées, humides ou sèches ? Cela indique la teneur en matière sèche.',
+      fachlich: 'La terre et le fumier augmentent la teneur en cendres (> 10 % de la MS = souillé) et apportent des spores de clostridies. Le test de torsion estime la MS à ± 5 % : jus à faible pression < 20 %, jus entre les doigts ~30 %, mains seulement humides ~35 %, mains sèches > 45 %. L’optimum est de 30–40 % de MS : plus humide, risque de jus d’écoulement et d’acide butyrique ; plus sec, risque d’échauffement (mauvais tassement). La MS détermine aussi le pH encore acceptable.',
+      bilder: [B('wringprobe-1.webp', 'Détermination de la MS par le test de torsion')],
+    },
+    'ts.mais': {
+      titel: 'Matière sèche et épis',
+      einfach: 'Pressez une poignée d’ensilage de maïs sans forcer. Si du jus coule, il est trop humide ; si vous ne sentez plus aucune humidité, trop sec. Idéal : un peu d’humidité entre les doigts, sans que cela goutte. Estimez aussi la part d’épis (grains, rafle, spathes) dans la plante.',
+      fachlich: 'L’optimum est de 32–36 % de MS (ligne de lait à ½–⅔ du grain). Sous 30 %, du jus d’écoulement emporte des nutriments ; au-dessus de 38 %, le fourrage se tasse mal → levures, échauffement. La part d’épis détermine la teneur en amidon : au-dessus de 55 % = cas normal ; en dessous, NEL et amidon baissent nettement, cellulose brute et NDF augmentent.',
+    },
+    haecksel: {
+      titel: 'Hachage et grains',
+      einfach: 'Regardez la longueur de hachage : de courts morceaux nets (env. 1 cm) sont bons. Des tiges longues ou effilochées se tassent mal. Important : <b>chaque grain doit être éclaté</b> – les grains entiers traversent la vache sans être digérés.',
+      fachlich: 'Médiane de la longueur des particules autour de 10 mm, au maximum 5 % > 20 mm (boîte à tamis). Des coupes effilochées indiquent des couteaux émoussés ou un mauvais réglage du contre-couteau. Grains : méthode de lavage (échantillon dans l’eau, laisser déposer les grains, compter les grains entiers). Plus c’est sec, plus les grains sont durs – dès 36 % de MS, plus aucun grain entier ; régler l’éclateur (1–3 mm) en conséquence.',
+    },
+    sauber: {
+      titel: 'Fourrage vert propre ?',
+      einfach: 'Regardez si de la terre, du sable ou du lisier colle au fourrage – surtout après la pluie, avec des taupinières ou une faucheuse réglée trop bas. L’herbe souillée contient moins d’énergie et les animaux la mangent moins volontiers.',
+      fachlich: 'Pour le fourrage vert, les valeurs des tables Agroscope s’appliquent par composition, cycle et stade. Les souillures augmentent les cendres (plus de 100 g/kg MS) et abaissent NEL, NEV et PAI (déduction comme K3b : −5 % légère, −10 % forte). Les restes d’engrais de ferme apportent des germes ; épandre donc le lisier tôt et dilué.',
+    },
+    kultur: {
+      titel: 'Ensilage de plante entière',
+      einfach: 'Choisissez la céréale ou le mélange et sa maturité à la récolte. L’idéal : la plupart des grains sont pâteux (encore marquables à l’ongle), les épis jaunissent et les tiges sont encore vertes – environ 35–40 % de MS. Cette phase ne dure que 3–4 jours : mieux vaut un peu trop tôt que trop tard.',
+      fachlich: 'Teneurs selon la fiche AGFF K1 (analyses Agroscope 2012–13) : triticale 5,3 MJ NEL, 64 g MA ; avoine 4,5 MJ, 52 g MA ; mélange triticale/avoine/pois 5,3 MJ (4,9–6,4), 80 g MA. L’ensilage de plante entière est pauvre en protéines et complète l’ensilage de maïs ou d’herbe surtout par ses fibres efficaces. Trop tôt : moindre rendement, risque d’acide butyrique ; trop tard : pertes de grains, mauvais tassement, échauffement. Garder la part dans les rations de vaches laitières sous un tiers.',
+      bilder: [B('gps-harvey.webp', 'Critères visuels selon la MS (Harvey 1992, fiche AGFF K1)')],
+    },
+    ergebnis: {
+      titel: 'Votre résultat',
+      einfach: 'En haut figurent la classe de qualité et les valeurs estimées : <b>NEL</b> est l’énergie pour le lait, <b>APDE (PAIE)</b> la protéine utilisable par la vache. Comparez avec la valeur cible – et, si vous avez une analyse de laboratoire, avec le laboratoire. « PDF » enregistre tout ; les données sont contenues dans le PDF et peuvent être relues.',
+      fachlich: 'L’estimation repose sur les valeurs des tables (composition, stade, conservation) et sur les corrections de la clé (appréciation sensorielle, conditions au champ, qualité de fermentation). NEL/NEV en MJ par kg MS, PAIE/PAIN en g par kg MS – la plus petite valeur PAI est limitante. Les potentiels de lait et d’engraissement indiquent la performance permise par ce seul fourrage ; ce sont des repères, pas un calcul de ration.',
+    },
+    'rad.heu.geruch': {
+      titel: 'Odeur du foin',
+      einfach: 'Un bon foin sent agréablement l’herbe ou les plantes aromatiques. Une légère odeur de caramel ou de pain signifie qu’il s’est un peu échauffé au tas – encore acceptable. Fortement brûlé ou fumé : il a trop chauffé. Une odeur de <b>renfermé</b>, comme du carton mouillé ou une cave, signifie moisissures.',
+      fachlich: 'Un léger échauffement (réaction de Maillard, odeur de caramel ou de malt) réduit la dégradabilité des protéines dans la panse → PAIE un peu plus élevée, énergie inchangée. Un fort échauffement (> 50 °C) rend les protéines indigestibles et coûte de l’énergie (−3 %). L’odeur de renfermé indique des moisissures ; en cas de forte contamination, risque de mycotoxines – ne pas affourager et porter un masque (poumon du fermier).',
+    },
+    'rad.heu.farbe': {
+      titel: 'Couleur des feuilles',
+      einfach: 'Des feuilles vertes montrent un séchage soigné. Des feuilles décolorées (blanchâtres) sont restées longtemps au soleil ou sous la pluie. Brun signifie échauffé. Des <b>taches blanches, grises, roses ou bleues</b> sont des moisissures – alors ne pas affourager.',
+      fachlich: 'La couleur verte (chlorophylle, carotène) se conserve avec un court séjour au champ et le séchage en grange. La décoloration vient des UV et du lessivage lors d’un long séchage au sol – pertes de vitamines et d’énergie (jusqu’à −4 % NEL, −8 % PAIE). Brun = échauffement au tas. Dépôt multicolore = moisissures → risque de mycotoxines.',
+    },
+    'rad.heu.regen': {
+      titel: 'Pluie au champ',
+      einfach: 'A-t-il plu pendant le séchage au sol ? La pluie lessive le sucre et les protéines, et les feuilles tombent plus facilement. Un seul jour de pluie coûte déjà nettement en valeur nutritive.',
+      fachlich: 'La pluie lessive les glucides solubles et les protéines et prolonge les pertes par respiration. Correction selon K3a : 1 jour de pluie −5 % NEL/NEV, −8 % PAIE ; 2 jours et plus −8 % NEL/NEV, −15 % PAIE. Questions utiles : combien de temps le fourrage est-il resté au sol ? A-t-on fané après la pluie ?',
+    },
+    'rad.heu.blaetter': {
+      titel: 'Les feuilles sont-elles encore là ?',
+      einfach: 'Les feuilles de trèfle et d’autres plantes sont la partie la plus précieuse. Si vous ne voyez plus que des tiges, elles se sont brisées au fanage ou à l’andainage. Astuce : travailler le fourrage sec le matin, avec la rosée.',
+      fachlich: 'Les pertes par effritement surviennent surtout chez les légumineuses et autres plantes dès env. 60 % de MS, quand le fourrage est retourné à midi ou fané trop vite. Feuilles absentes malgré des tiges : −4 % NEL, −3 % PAIE/PAIN. Le foin ventilé montre en général encore bien ses feuilles.',
+    },
+    'rad.heu.mist': {
+      titel: 'Restes de fumier ou de lisier',
+      einfach: 'Des restes de fumier ou de lisier collent-ils aux feuilles et aux tiges ? Alors ce fourrage n’a pas sa place dans la crèche – il peut contenir des germes pathogènes.',
+      fachlich: 'Les engrais de ferme sur le fourrage apportent clostridies, listérias et E. coli et réduisent l’appétence. Prévention : épandre le lisier dilué et tôt après la coupe, pas peu avant la récolte ; bien répartir le fumier. Résidus visibles → ne pas affourager.',
+    },
+    'rad.heu.erde': {
+      titel: 'Terre ou sable',
+      einfach: 'Secouez l’échantillon au-dessus d’une feuille de papier : reste-t-il de la terre ou du sable, ou cela crisse-t-il sous la dent ? La terre vient souvent de machines réglées trop bas ou de taupinières.',
+      fachlich: 'La terre augmente les cendres et dilue l’énergie (−4 % NEL), en plus d’apporter des spores. Causes : hauteur de coupe < 7 cm, faneuse ou andaineur trop bas, taupinières, sols mouillés. Objectif : cendres sous 10 % de la MS.',
+    },
+    'rad.heu.staub': {
+      titel: 'Y a-t-il de la poussière ?',
+      einfach: 'Secouez une poignée de foin. Le pollen jaune (par ex. du dent-de-lion) est sans danger. Une poussière grise ou blanche vient des moisissures – alors ne pas affourager et ne pas respirer la poussière.',
+      fachlich: 'La poussière de moisissure est faite de spores ; elle irrite les voies respiratoires des animaux et des personnes (surtout les chevaux) et peut contenir des mycotoxines. Causes : stocké trop humide (> 15–18 % d’eau), ventilation insuffisante, échauffement. Le pollen, lui, est sans importance.',
+    },
+    'rad.gras.essig': {
+      titel: 'Acide acétique',
+      einfach: 'L’ensilage sent-il fortement le vinaigre, au point de piquer le nez ? Il s’est acidifié trop lentement – souvent parce qu’il était trop humide ou manquait de sucre. Les vaches le mangent moins volontiers.',
+      fachlich: 'L’acide acétique est produit par des bactéries lactiques hétérofermentaires et des entérobactéries lorsque l’acidification est lente : peu de sucre (riche en trèfle, humide), pouvoir tampon élevé, mauvais tassement. Un peu d’acide acétique améliore la stabilité aérobie ; au-delà d’env. 3 % de la MS, goût et ingestion baissent.',
+    },
+    'rad.gras.alkohol': {
+      titel: 'Alcool et levures',
+      einfach: 'Cela sent le cidre, la fermentation ou l’alcool ? Ce sont les levures, quand de l’air entre dans l’ensilage. Les levures sont souvent le début d’un échauffement ultérieur.',
+      fachlich: 'Les levures transforment le sucre en éthanol (perte d’énergie) et dégradent l’acide lactique en présence d’air – le pH monte, puis viennent les moisissures. Causes : stockage peu tassé, bâche non étanche, avancement lent. Les esters fruités (acétate d’éthyle) sentent le dissolvant ou les fruits mûrs.',
+    },
+    'rad.gras.erwaermung': {
+      titel: 'Échauffement',
+      einfach: 'L’ensilage sent-il le caramel, le pain, voire le brûlé ? Il s’est échauffé après l’ouverture parce que de l’air y est entré. De l’énergie se perd. Posez la main sur le front d’attaque : est-il chaud ?',
+      fachlich: 'Après l’ouverture, levures et moisissures dégradent acide lactique et sucres ; l’ensilage chauffe (réaction de Maillard, odeur de caramel ou de grillé), perd de l’énergie et ses protéines deviennent moins digestibles. Prévention : bon tassement, front d’attaque lisse, avancement d’au moins 1,5 m par semaine en hiver et 2,5 m en été.',
+    },
+    'rad.gras.butter': {
+      titel: 'Acide butyrique',
+      einfach: 'Cela sent le beurre rance, le vomi ou les matières fécales, et l’odeur reste sur les mains ? C’est l’acide butyrique. Il vient de bactéries issues de la <b>terre et du fumier</b> quand l’ensilage est trop humide. Les spores passent dans le lait et peuvent <b>gâter le fromage</b>.',
+      fachlich: 'Les clostridies (surtout C. tyrobutyricum) arrivent dans le fourrage avec la terre et les engrais de ferme. Dans des ensilages humides, pauvres en sucre, à acidification trop lente, elles transforment l’acide lactique en acide butyrique et les protéines en ammoniac et amines. Leurs spores survivent à la digestion, passent par les fèces dans le lait et provoquent le gonflement tardif des fromages à pâte dure et mi-dure – d’où l’interdiction d’ensilage pour le lait de fromagerie. Fortement déclassé dès env. 0,3 % de la MS.',
+    },
+    'rad.gras.schimmel': {
+      titel: 'Moisissures',
+      einfach: 'Cela sent le renfermé, la cave ou le carton mouillé ? Voyez-vous des taches blanches, grises, vertes ou rouges ? Ce sont des moisissures. Enlever largement les parties moisies et ne pas les affourager.',
+      fachlich: 'Les moisissures ne se développent qu’avec de l’oxygène : aux bords, sous une bâche endommagée, dans des couches peu tassées, au front d’attaque. Certaines produisent des mycotoxines (par ex. Penicillium roqueforti, Aspergillus) nuisibles à la fertilité, à la panse et à l’immunité. Ne pas respirer les spores.',
+    },
+    'rad.gras.farbe': {
+      titel: 'Couleur de l’ensilage',
+      einfach: 'Un bon ensilage d’herbe est vert olive à brun jaune. Brun foncé à couleur tabac signifie échauffé. Vert sale et gluant : acide butyrique. La couleur confirme ce que vous avez déjà senti.',
+      fachlich: 'Vert olive à jaune brunâtre = fermentation lactique normale. Vert clair, peu changé = peu fermenté (par ex. très sec). Brun à brun-noir = échauffement (Maillard), odeur de tabac. Gris olive, gluant = fermentation butyrique/protéolyse. Taches blanches, bleues ou rouges = moisissures.',
+    },
+    'rad.gras.ph': {
+      titel: 'Valeur du pH',
+      einfach: 'Le pH montre l’acidité de l’ensilage. Assez acide signifie stable. Plus l’ensilage est <b>humide</b>, plus il doit être acide. Mesure : couvrir une poignée d’ensilage d’autant d’eau distillée, attendre 10 minutes et mesurer le liquide avec des bandelettes ou un pH-mètre.',
+      fachlich: 'Le pH critique dépend de la MS, car les clostridies sont freinées dans un fourrage plus sec : sous 20 % de MS, moins de 4,2 ; 25–30 %, moins de 4,4 ; 35–45 %, moins de 4,6 ; au-dessus de 45 %, moins de 4,8 (tableau K3b ; chaque 0,4 au-dessus = un point de plus). Au-dessus, l’ensilage n’est pas stable (acide butyrique, échauffement). Déterminer donc d’abord la MS à l’étape « Propreté et MS ».',
+    },
+    'rad.mais.essig': {
+      titel: 'Acides acétique et propionique',
+      einfach: 'Cela pique le nez comme du vinaigre ? Dans l’ensilage de maïs, cela vient souvent d’agents conservateurs contre l’échauffement. Un peu, c’est bien ; trop, les vaches n’aiment pas.',
+      fachlich: 'L’acide propionique (conservateur) et l’acide acétique de bactéries lactiques hétérofermentaires (par ex. L. buchneri) freinent les levures et améliorent la stabilité aérobie. En grande quantité (> 3 % de la MS), ils réduisent l’appétence et l’ingestion.',
+    },
+    'rad.mais.alkohol': {
+      titel: 'Alcool',
+      einfach: 'L’ensilage sent-il le cidre aigre, l’alcool ou les fruits mûrs ? Des levures ont transformé le sucre en alcool. L’ensilage de maïs y est sensible, car riche en sucre et en amidon.',
+      fachlich: 'Les levures se multiplient vite au contact de l’air (ensilage de maïs : souvent > 10⁵ UFC/g) et sont le moteur de l’échauffement. L’éthanol est une perte d’énergie. Prévention : MS pas au-dessus de 36 %, hachage court, tasser en couches minces, couvrir vite, avancement suffisant.',
+    },
+    'rad.mais.erwaermung': {
+      titel: 'Échauffement',
+      einfach: 'Cela sent le caramel, le grill ou la fumée, ou le front d’attaque est chaud ? De l’air est entré et l’ensilage s’est échauffé – il perd de l’énergie et moisit facilement.',
+      fachlich: 'L’ensilage de maïs est très sensible à l’échauffement (beaucoup de sucre résiduel, d’amidon, MS souvent élevée). Mesure : thermomètre à 50 cm dans le front d’attaque – plus de 5 °C au-dessus de la température ambiante = échauffement. Avancement d’au moins 2 m par semaine en hiver, 3,5 m en été ; conservateurs orientés « stabilité aérobie ».',
+    },
+    'rad.mais.butter': {
+      titel: 'Acide butyrique',
+      einfach: 'Odeur rance, écœurante, de vomi ? C’est rare dans l’ensilage de maïs et indique de la terre dans le fourrage ou un ensilage très humide. Les spores peuvent rendre le lait impropre à la fromagerie.',
+      fachlich: 'Le maïs a assez de sucre pour une acidification rapide ; l’acide butyrique est donc rare et vient surtout de souillures (terre du champ ou du bord du silo), d’une MS très basse ou de jus d’écoulement. Spores de clostridies → gonflement tardif du fromage.',
+    },
+    'rad.mais.schimmel': {
+      titel: 'Moisissures',
+      einfach: 'Odeur de renfermé, de cave ou de vieilles chaussettes ? Des taches blanches, bleues ou rouges ? Ce sont des moisissures. Jeter ces parties et ne pas les affourager.',
+      fachlich: 'Les moisissures typiques de l’ensilage de maïs (Penicillium, Aspergillus, Fusarium du champ) produisent des mycotoxines comme le déoxynivalénol, la zéaralénone ou les aflatoxines. Les moisissures suivent en général les levures et l’échauffement ; contrôler surtout les couches de bord et la zone sous la bâche.',
+    },
+    'rad.mais.farbe': {
+      titel: 'Couleur de l’ensilage',
+      einfach: 'Un bon ensilage de maïs est vert-jaune à jaune brunâtre clair. Brun foncé signifie échauffé, des taches signifient moisissures.',
+      fachlich: 'Vert jaunâtre à jaune brunâtre = fermentation normale. Brun à brun foncé = échauffement (Maillard). Gris ou gluant = mauvaise fermentation. Dépôts blancs, bleus, rouges = moisissures.',
+    },
+    'rad.mais.ph': {
+      titel: 'Valeur du pH',
+      einfach: 'L’ensilage de maïs doit être très acide – idéalement sous 4,1. Mesure : couvrir l’ensilage d’autant d’eau distillée, attendre 10 minutes, puis mesurer le liquide.',
+      fachlich: 'Grâce à beaucoup de sucre fermentescible, l’ensilage de maïs atteint en général un pH de 3,7–4,0. Au-dessus de 4,2 : fermentation perturbée ou début d’échauffement (dégradation de l’acide lactique par les levures). Points selon K3c : < 4,1 = 0 ; 4,1–4,2 = 2 ; 4,2–4,5 = 4 ; > 4,5 = 5.',
+    },
+    wiese: {
+      titel: 'Apprécier la prairie',
+      einfach: 'Vous trouvez ici tout pour la prairie : le <b>relevé de prairie</b> pour une appréciation complète, la <b>grille de points</b> pour estimer vite graminées, trèfle et autres plantes, la <b>comparaison des stades</b> pour le bon moment de coupe et <b>hauteur &amp; rendement</b>. Les points photo montrent comment un endroit évolue au fil des ans.',
+      fachlich: 'Le relevé suit la fiche AGFF 8 sur l’appréciation des peuplements prairiaux (peuplement, station, peuplement visé, mesures) ; le type botanique (G, GR, A, AR, L, KF, KG) suit la fiche 3. La grille mesure la couverture vue d’en haut, pas la part en poids – toujours comparer les propositions avec votre propre regard.',
+    },
+    fotopunkte: {
+      titel: 'Points photo',
+      einfach: 'Un point photo est un endroit fixe de la prairie que vous photographiez régulièrement. Vous voyez ainsi sur des mois et des années si les vides se referment, si un sursemis agit ou si des mauvaises herbes progressent.',
+      fachlich: 'Les images sont comparables si l’emplacement, la direction, la hauteur de l’appareil et la saison restent identiques. L’app enregistre la position GPS, vous y ramène avec flèche et boussole et superpose la dernière photo en transparence lors de la suivante.',
+    },
+    fotopunkt: {
+      titel: 'Nouvelle photo au point',
+      einfach: 'Allez à l’emplacement enregistré (« Guider jusqu’à l’emplacement »), puis « Nouvelle photo avec aide d’alignement ». La dernière image apparaît en transparence sur la caméra : faites coïncider des repères (piquet, arbre, pierre) et déclenchez.',
+      fachlich: 'En plein air, le GPS est précis à environ 5–10 m ; aligner les derniers mètres avec la photo précédente en transparence. Pour comparer, photographier si possible à la même saison et avant le même cycle ; « Comparer avant / après » et « Évolution en PDF » montrent le changement.',
+    },
+    aufnahmen: {
+      titel: 'Relevé de prairie',
+      einfach: 'Quatre étapes vers une meilleure prairie : <b>1</b> relever le peuplement, <b>2</b> station et exploitation actuelle, <b>3</b> fixer l’objectif, <b>4</b> mesures. Choisissez une surface d’environ un are, représentative de toute la parcelle.',
+      fachlich: 'Selon la fiche AGFF 8 (2012) avec feuille de travail. Peuplement visé en général 50–70 % de graminées fourragères, 10–30 % de trèfle et 10–30 % d’autres plantes fourragères ; en altitude, tolérer davantage d’autres plantes. Un relevé de suivi (copie) montre l’évolution de la même parcelle.',
+    },
+    aufnahme: {
+      titel: 'Votre relevé de prairie',
+      einfach: 'Estimez d’abord graminées, trèfle et autres plantes dans deux cercles, puis les espèces et leurs parts. L’app propose le type de peuplement, les plantes indicatrices et des mesures.',
+      fachlich: 'Parts de rendement en % de la MS, par pas de 5 %. Les plantes en fleur et les feuilles bien visibles (par ex. trèfle blanc) sont souvent surestimées. Les plantes indicatrices des tableaux 3 et 4 de la fiche signalent dès 5 % des causes (par ex. vides, compaction, surfertilisation, utilisation tardive).',
+    },
+    labor: {
+      titel: 'Des questions sur l’analyse ?',
+      einfach: 'Je vous explique d’où viennent les anomalies et ce que vous pouvez changer la prochaine fois.',
+      fachlich: 'Causes et mesures selon la fiche AGFF K4b (ensilage) et les fiches ADCF/AGRIDEA 2.7.9 et 12.4 (fourrage sec, séchage en grange).',
+    },
+  };
+
+  // ---------- Pratique : « Rappelle » et « Comment faire » ----------
+  const P = {
+    riechen: { vorgehen: [
+      'Prélever l’échantillon à l’intérieur (tas, balle, front d’attaque à 20–30 cm de profondeur) – pas la couche de bord.',
+      'Tenir une poignée dans le creux de la main, presser légèrement et sentir par petites inspirations – ne pas inspirer profondément.',
+      'Du faible au fort : d’abord vinaigre et alcool, puis échauffement, enfin acide butyrique et moisissures – les odeurs fortes masquent les faibles.',
+      'Après 3–4 échantillons, aérer le nez (sentir sa veste ou l’air frais). Fumée, parfum et odeur d’étable faussent l’appréciation.',
+      'Fourrage moisi ou poussiéreux : ne pas respirer directement – en cas de doute, porter un masque.'] },
+    'rad.heu.geruch': { wie: 'Bon foin : comme une tisane, une prairie fraîchement fauchée. Légèrement échauffé : croûte de pain, biscotte, malt, caramel. Fortement échauffé : tabac, fumée, brûlé. Renfermé : carton mouillé, air de cave, vieilles pommes de terre.',
+      vorgehen: ['Secouer et écarter une poignée prise à l’intérieur du tas.', 'Sentir d’abord à env. 20 cm, puis plus près.', 'Si « renfermé » : examiner prudemment l’échantillon pour des taches de moisissure et de la poussière.'] },
+    'rad.heu.farbe': { wie: 'Vert comme des herbes de cuisine séchées ; décoloré comme de la vieille paille ; brun comme du tabac ; moisissure en dépôt blanc, gris ou rose.',
+      vorgehen: ['Regarder à la lumière du jour, pas sous la lampe de l’étable.', 'Observer les feuilles, pas les tiges – les tiges sont souvent plus claires.', 'Écarter l’échantillon : la moisissure est souvent à l’intérieur.'] },
+    'rad.heu.regen': { vorgehen: ['Demander à l’exploitant ou consulter le carnet des champs.', 'Indices sur le fourrage : feuilles décolorées, peu de feuilles, aspect « pailleux ».'] },
+    'rad.heu.blaetter': { vorgehen: ['Tirer quelques tiges de trèfle ou d’autres plantes : les feuilles y sont-elles encore ?', 'Beaucoup de miettes de feuilles au fond du sac ? Alors elles se sont effritées.'] },
+    'rad.heu.mist': { vorgehen: ['Étaler l’échantillon sur un support clair.', 'Chercher des taches sombres et encroûtées sur feuilles et tiges – souvent avec une odeur d’étable.'] },
+    'rad.heu.erde': { vorgehen: ['Secouer vigoureusement l’échantillon au-dessus d’une feuille blanche.', 'Reste-t-il des miettes ou des grains de sable brillants ? Mâcher quelques brins : cela crisse-t-il ?'] },
+    'rad.heu.staub': { wie: 'Pollen : jaunâtre, comme le pollen sur une voiture. Poussière de moisissure : gris-blanc, sent le renfermé, fait tousser.',
+      vorgehen: ['Secouer une poignée devant un fond sombre (par ex. une veste) – à contre-jour, la poussière se voit bien.', 'Ne pas respirer.'] },
+    'rad.gras.essig': { wie: 'Comme un bocal de cornichons ouvert ou une vinaigrette – pique brièvement le nez.',
+      vorgehen: ['Passer brièvement l’échantillon sous le nez, sans renifler dedans.', 'Ça pique tout de suite ? Alors « nettement ». Seulement en sentant de près ? Alors « faiblement ».'] },
+    'rad.gras.alkohol': { wie: 'Comme du moût fermenté, du cidre, des fruits trop mûrs, parfois du dissolvant (esters).',
+      vorgehen: ['Réchauffer un peu l’échantillon dans la main (quelques secondes), puis sentir – l’alcool s’évapore alors davantage.'] },
+    'rad.gras.erwaermung': { wie: 'Léger : croûte de pain, caramel, malt. Fort : café torréfié, tabac, fumée, grill.',
+      vorgehen: ['Poser la main à plat sur le front d’attaque : est-il chaud ?', 'Comparer un échantillon à 30 cm de profondeur avec un échantillon du bord.'] },
+    'rad.gras.butter': { wie: 'Comme du beurre rance, du vieux fromage, de la sueur ou du vomi – désagréable et colle aux mains.',
+      vorgehen: ['Test des mains : frotter vigoureusement l’ensilage entre les paumes, tenir les mains 1 minute loin du visage, puis sentir les paumes.', 'L’odeur persiste-t-elle après le lavage des mains ? Alors il y a beaucoup d’acide butyrique.', 'Faire ce test en dernier – l’odeur masque toutes les autres.'] },
+    'rad.gras.schimmel': { wie: 'Comme une cave humide, du carton mouillé, de vieilles pommes de terre, des champignons.',
+      vorgehen: ['Écarter l’échantillon et chercher des taches blanches, vertes, bleues ou rouges.', 'Ne pas sentir directement les zones suspectes – ne pas respirer les spores.'] },
+    'rad.gras.farbe': { wie: 'Bon : vert olive à brun jaune comme des feuilles de tabac. Échauffé : brun foncé. Acide butyrique : gris-vert sale. Moisissure : taches.',
+      vorgehen: ['Regarder à la lumière du jour, échantillon frais pris à l’intérieur.', 'Comparer la couleur avec l’odeur : correspond-elle à ce que vous avez senti ?'] },
+    'rad.gras.ph': { vorgehen: ['Mettre une poignée d’ensilage dans un verre propre, ajouter autant d’eau distillée.', 'Laisser reposer 10 minutes en remuant de temps en temps.', 'Mesurer le liquide avec une bandelette ou un pH-mètre (étalonné au préalable).'] },
+    'rad.mais.essig': { wie: 'Comme un bocal de cornichons ; avec des conservateurs à l’acide propionique, piquant-acidulé, un peu comme le fromage suisse.',
+      vorgehen: ['Passer brièvement sous le nez, sans renifler dedans.'] },
+    'rad.mais.alkohol': { wie: 'Comme du cidre aigre, des bananes ou des pommes trop mûres.',
+      vorgehen: ['Réchauffer brièvement l’échantillon dans la main, puis sentir.'] },
+    'rad.mais.erwaermung': { wie: 'Léger : pop-corn, croûte de pain. Fort : grill, fumée, pop-corn brûlé.',
+      vorgehen: ['Poser la main sur le front d’attaque ou planter un thermomètre à 50 cm : plus de 5 °C au-dessus de l’air = échauffement.'] },
+    'rad.mais.butter': { wie: 'Beurre rance, vomi – rare dans le maïs.',
+      vorgehen: ['Test des mains : frotter vigoureusement entre les paumes, attendre 1 minute, sentir les mains.'] },
+    'rad.mais.schimmel': { wie: 'Comme une cave humide, de vieilles chaussettes, des champignons.',
+      vorgehen: ['Contrôler surtout les couches de bord et la zone sous la bâche.', 'Enlever largement les zones moisies.'] },
+    'rad.mais.farbe': { wie: 'Bon : vert-jaune à jaune brunâtre clair. Échauffé : brun à brun foncé. Moisissure : taches blanches, bleues, rouges.',
+      vorgehen: ['Regarder à la lumière du jour, échantillon frais pris à l’intérieur.'] },
+    'rad.mais.ph': { vorgehen: ['Couvrir l’ensilage d’autant d’eau distillée, attendre 10 minutes.', 'Mesurer le liquide avec une bandelette ou un pH-mètre.'] },
+    sauber: { vorgehen: ['Secouer une poignée d’herbe au-dessus d’une feuille claire : reste-t-il de la terre ou du sable ?', 'Chercher des taches encroûtées sur les tiges, surtout à la base.'] },
+    kultur: { wie: 'Un bon ensilage de plante entière sent agréablement acidulé, le pain, comme un bon ensilage d’herbe ; le renfermé ou le piquant indiquent moisissures ou mauvaise fermentation.',
+      vorgehen: ['Contrôler plusieurs épis à différents endroits : presser le grain entre les doigts – laiteux, pâteux ou dur ?', 'Regarder tiges et épis : base des tiges jaunâtre et épis vert-jaune = optimal (35–40 % de MS).', 'Estimer grossièrement les légumineuses : un mélange équilibré a au plus un quart de pois/vesces.', 'À la récolte : hachage 4–5 cm, hauteur de coupe env. 10 cm, couches minces et bien tasser ; dès 45 % de MS, écraser les grains.', 'Conservateurs : sous 35 % de MS liste A (acide butyrique), au-dessus de 40 % liste B (échauffement). Avancement en hiver 10–15 cm, en été plus de 25 cm par jour.'] },
+    stadium: { vorgehen: ['Au 1er cycle, observer 10–20 tiges de la plante de référence (par ex. dactyle) et choisir le stade le plus fréquent – pas le plus avancé.', 'Épi/panicule visible ? Alors au moins stade 3. Anthères visibles ? Alors floraison (6).', 'Dans les fourrages conservés : chercher panicules et inflorescences et comparer avec les images.'] },
+    bestand: { vorgehen: ['Étaler l’échantillon sur la table et trier grossièrement graminées, trèfle et autres plantes.', 'Estimer les parts au volume – à 10 % près, cela suffit.'] },
+    'ts.gras': { vorgehen: ['Prendre un échantillon de la taille du poing, le tordre comme un linge (deux fois, fortement).', 'Regarder les mains : le jus goutte-t-il ? Mains mouillées, humides ou sèches ?', 'Ensilage très humide : seulement presser en boule, ne pas tordre.'] },
+    'ts.mais': { vorgehen: ['Presser fortement une poignée et tenir 30 secondes, sans tordre.', 'Ouvrir la main : du jus coule-t-il, reste-t-il une boule humide ou se défait-elle ?'] },
+    haecksel: { vorgehen: ['Méthode de lavage : remuer 1 litre d’ensilage dans un seau d’eau ; les grains se déposent.', 'Compter ou estimer les grains entiers, intacts.', 'Longueur de hachage : étaler une poignée et estimer les particules avec une règle.'] },
+  };
+
+  // ---------- Conseil : questions (mêmes clés que beratung.js) ----------
+  const Q = {
+    k4b: 'Fiche AGFF K4b sur l’interprétation de l’appréciation des ensilages (2024)',
+    adcf279: 'Fiche ADCF/AGRIDEA 2.7.9 « Valeur des fourrages – Améliorations des processus de séchage » (2021)',
+    adcf124: 'Fiche ADCF/AGRIDEA 12.4 « Séchage en grange – Check-list de contrôle d’une installation » (2025)',
+    k3: 'Clés AGFF K3a–K3c d’appréciation du fourrage sec, de l’ensilage d’herbe et de l’ensilage de maïs',
+    mb8: 'Fiche AGFF 8 sur l’appréciation des peuplements prairiaux (2012), tableaux 3 et 4',
+    mb3: 'Fiche AGFF 3 sur l’évaluation des fourrages de prairie (type botanique)',
+  };
+  const F = {
+    butter: { frage: 'Pourquoi mon ensilage sent-il l’acide butyrique ?',
+      kurz: 'Les bactéries butyriques (clostridies) arrivent dans le fourrage avec la terre, le fumier et le lisier. Dans un ensilage humide, pauvre en sucre, qui s’acidifie trop lentement (pH au-dessus de 4,5), elles transforment l’acide lactique en acide butyrique.',
+      ursachen: ['Terre, fumier ou lisier dans le fourrage (taupinières, coupe trop basse, pneus sales)', 'Ensilé trop humide (moins de 30 % de MS), peu de sucre (riche en trèfle et autres plantes)', 'Ensilage par plus de 30 °C, fourrage difficile à ensiler'],
+      ration: 'Affourager seulement en quantité limitée et prélevé proprement. Les spores passent par les fèces dans le lait – pas pour le lait de fromagerie.', quelle: [Q.k4b, Q.k3] },
+    essig: { frage: 'Pourquoi sent-il fortement le vinaigre ?',
+      kurz: 'L’ensilage s’est acidifié trop lentement, souvent parce qu’il contenait de l’air. Un peu d’acide acétique protège de l’échauffement ; beaucoup coûte de la matière sèche et de l’appétence.',
+      ursachen: ['Ensilé humide ou mal tassé – un fourrage fibreux se tasse difficilement', 'Remplissage trop rapide, couches épaisses', 'Silo pas fermé hermétiquement tout de suite'], quelle: [Q.k4b, Q.k3] },
+    alkohol: { frage: 'Pourquoi sent-il l’alcool ou le cidre ?',
+      kurz: 'Des levures transforment le sucre en alcool. Cela arrive avec un fourrage très riche en sucre (maïs, ray-grass, seigle vert) quand il reste de l’air au moment de la fermeture du silo. Un échauffement suit souvent à l’ouverture.',
+      ursachen: ['Air dans le silo à la fermeture (stockage peu tassé, bâche pas tout de suite étanche)', 'Maïs récolté trop sec (plus de 36 % de MS)', 'Avancement insuffisant au désilage'],
+      massnahmen: ['Ensiler le maïs à 32–36 % de MS', 'Tassement de plus de 220 kg MS/m³ (plus de 700 kg de matière fraîche/m³)', 'Fermer le silo hermétiquement tout de suite après le remplissage', 'Assurer un avancement suffisant au désilage'], quelle: [Q.k4b] },
+    erwaermung: { frage: 'Pourquoi l’ensilage chauffe-t-il (échauffement) ?',
+      kurz: 'Dès que l’air atteint l’ensilage, les levures dégradent sucre et acide lactique et produisent de la chaleur. De l’énergie se perd, puis les moisissures suivent souvent.',
+      ursachen: ['Silo ouvert trop tôt ou avancement insuffisant', 'Front d’attaque peu tassé ou effiloché', 'Fourrage sec, mal tassé ; bâche non étanche'],
+      ration: 'Prélever frais chaque jour, écarter les zones chaudes, affourager rapidement.', quelle: [Q.k4b, Q.k3] },
+    schimmel: { frage: 'Pourquoi l’ensilage moisit-il ?',
+      kurz: 'Les moisissures ne se développent qu’avec de l’oxygène : aux endroits non étanches, sous une bâche endommagée, dans des couches peu tassées et au front d’attaque. Certaines produisent des mycotoxines.',
+      ursachen: ['Silo ou balles pas étanches à l’air et à l’eau', 'Ensilé trop sec (silo tour/couloir plus de 36 % de MS, balles plus de 55 % de MS)', 'Température de l’ensilage au-dessus de 20 °C, pH au-dessus de 4,5 (herbe) ou 4,0 (maïs)'],
+      ration: 'Enlever largement les parties moisies et ne pas les affourager. Ne pas respirer les spores.',
+      massnahmen: ['Contrôler régulièrement silo, portes, couvercles, siphon et bâches (trous)', 'Film pour balles de plus de 250 µm, 6–8 couches ; vérifier la qualité du film', 'Silo couloir : sous-bâche (40 µm), film de bordure aux parois et sacs de sable', 'Herbe et maïs au-dessus de 36 % de MS pas en silo tour ou couloir ; balles au maximum 55 % de MS', 'Tassement de plus de 220 kg MS/m³ ; éventuellement conservateur de la liste B'], quelle: [Q.k4b] },
+    ph: { frage: 'Pourquoi le pH est-il trop élevé ?',
+      kurz: 'La fermentation lactique a été trop faible : trop peu de sucre, trop de protéines, trop humide ou trop sec, ou de l’air dans le silo. Plus l’ensilage est humide, plus le pH doit être bas.',
+      ursachen: ['Manque de sucre, excès de protéines (riche en trèfle et autres plantes)', 'Trop humide ou trop sec (effet tampon sur le pH)', 'Pas assez hermétique ; fermentation butyrique ou moisissures'], quelle: [Q.k4b, Q.k3] },
+    anwelken: { frage: 'Jusqu’où dois-je préfaner ?',
+      kurz: 'MS visée selon le stockage : ensilage d’herbe en silo tour et couloir 30–35 % (au maximum 36 %), balles d’ensilage plus de 40 % (au maximum 55 %), maïs 32–36 %, ensilage de plante entière 35–40 %.',
+      ursachen: [], massnahmen: ['Contrôler la MS par le test de torsion (verso de la carte de mesure)', 'Préfaner les peuplements pauvres en ray-grass au-dessus de 30 % de MS', 'Faucher au plus tard au début de l’épiaison des graminées principales'], quelle: [Q.k4b] },
+    verdichten: { frage: 'Jusqu’où dois-je tasser ?',
+      kurz: 'Au moins 220 kg MS/m³ (plus de 700 kg de matière fraîche/m³). Plus le fourrage est sec et long, plus c’est difficile.',
+      ursachen: [], massnahmen: ['Longueur de hachage herbe et plante entière sous 5 cm, maïs env. 0,8 cm', 'Silo couloir : au maximum 30 cm par couche ; au moins trois passages sur toute la surface avant le char suivant', 'Fermer le silo hermétiquement tout de suite ; ouvrir au plus tôt après 4–6 semaines', 'Avancement : au moins 2 m par semaine en été, 1 m en hiver'], quelle: [Q.k4b] },
+    erdeSilage: { frage: 'Comment éviter la terre dans l’ensilage ?',
+      kurz: 'La terre augmente les cendres (propre : 80–100 g/kg MS), coûte de l’énergie et apporte des bactéries butyriques.',
+      ursachen: ['Coupe trop basse, faneuse et andaineur trop bas', 'Taupinières et monticules de campagnols', 'Pneus sales dans le silo couloir, sol mouillé'],
+      massnahmen: ['Respecter une hauteur de coupe de 8–10 cm', 'Lutter contre les campagnols, herser ou rouler les prairies au printemps', 'N’entrer dans le silo couloir qu’avec des pneus propres', 'Épandre le lisier avant la pluie ou le diluer'], quelle: [Q.k4b] },
+    heuBraun: { frage: 'Pourquoi le foin est-il brun ou sent-il le caramel ?',
+      kurz: 'Le foin s’est échauffé au tas parce qu’il a séché trop lentement (4–15 jours avec échauffement). Un léger échauffement reste acceptable, un fort échauffement coûte énergie et protéines.',
+      ursachen: ['Rentré trop humide (moins de 60 % de MS) ou charge journalière trop haute', 'Paquets compactés dans le tas', 'Trop peu d’air ou air trop humide dans le séchoir'], quelle: [Q.adcf279, Q.adcf124] },
+    heuSchimmel: { frage: 'Pourquoi le foin est-il poussiéreux ou moisi ?',
+      kurz: 'Le fourrage n’a été sec qu’après plusieurs semaines. Il est décoloré, gris, blanchâtre à bleuâtre, poussiéreux et sent le renfermé. Ne pas affourager – mycotoxines et poussière nuisent aux animaux et aux personnes.',
+      ursachen: ['Stocké trop humide, séchage trop lent', 'Humidité par la toiture, les parois ou le sol ; condensation', 'Balles pressées trop serré ou empilées trop tôt'],
+      ration: 'Ne pas affourager. Porter un masque lors des manipulations.',
+      massnahmen: ['Ne faucher que si 3 jours de soleil sont assurés', 'Ne pas engranger plus de 1 m par jour (2 m à la première charge), défaire les paquets', 'Séchage terminé seulement quand l’air au-dessus du tas est sous 50 % d’humidité relative', 'Protéger le bâtiment de l’humidité, isoler parois et sol'], quelle: [Q.adcf279, Q.adcf124] },
+    heuBleich: { frage: 'Pourquoi les feuilles sont-elles décolorées ?',
+      kurz: 'Le fourrage est resté longtemps au soleil ou sous la pluie. Cela coûte énergie, protéines et vitamines. Plus le séjour au champ est court, plus le foin est vert.',
+      ursachen: ['Long séchage au sol, pluie au champ', 'Pas de conditionneur, étendu tard'], quelle: [Q.adcf279, Q.k3] },
+    heuBlaetter: { frage: 'Pourquoi les feuilles de trèfle et d’autres plantes manquent-elles ?',
+      kurz: 'Pertes par effritement : les feuilles de trèfle et d’autres plantes cassent quand le fourrage sec est travaillé trop souvent ou trop vigoureusement.',
+      ursachen: ['Fanage et andainage de fourrage sec (dès env. 60 % de MS), à midi', 'Faneuse rotative avec beaucoup de légumineuses'],
+      massnahmen: ['Travailler intensivement le premier jour avec la pirouette et l’andaineur, puis uniquement si les feuilles sont souples', 'Éventuellement déplacer l’andain le dernier jour, avec la rosée (sans pirouette)', 'Préférer un conditionneur à rouleaux s’il y a beaucoup de légumineuses'], quelle: [Q.adcf279, Q.k3] },
+    heuErde: { frage: 'Comment éviter la terre dans le foin ?',
+      kurz: 'La terre augmente les cendres, dilue l’énergie et apporte germes et spores dans le fourrage.',
+      ursachen: ['Machines réglées trop bas', 'Monticules de campagnols et taupinières, restes de fumier', 'Gazon lacunaire ; rosée qui fait coller la terre'], quelle: [Q.adcf279] },
+    heuStock: { frage: 'Mon foin sèche trop lentement au tas – que contrôler ?',
+      kurz: 'Objectif : sec en 3 jours au plus. Les principales valeurs de la check-list de contrôle d’un séchoir :',
+      ursachen: [],
+      massnahmen: ['Débit d’air 0,11 m³ par m² de séchoir et par seconde (0,07–0,14) ; un variateur de fréquence le maintient', 'Pression sous le tas 1–1,5 hPa par m de charge ; elle doit diminuer pendant le séchage', 'Caillebotis à 50 cm (sous 35 cm, répartition inégale), lattes espacées de 10 cm au plus ; hauteur du séchoir sous 5 m', 'Au maximum 2 m de charge par jour ; 5–7 ha par 100 m² de séchoir', 'Air ventilé sous 55 % d’humidité relative ; ne pas réaspirer l’air sortant', 'Récupérateur de chaleur d’au moins 5 fois la surface du séchoir ; chaudière : jamais plus de 40 °C'], quelle: [Q.adcf124] },
+    heuBallen: { frage: 'Mes balles de foin chauffent – que faire ?',
+      kurz: 'Le foin séché au sol doit sécher suffisamment au champ, et les balles ont besoin d’air jusqu’à ce qu’elles aient fait leur « cuite ».',
+      ursachen: ['Pressé trop tôt, cœur des balles trop serré', 'Balles empilées ou rentrées trop tôt'], quelle: [Q.adcf279] },
+    mist: { frage: 'Il y a des restes de fumier ou de lisier dans le fourrage – que faire ?',
+      kurz: 'Les engrais de ferme apportent des germes (clostridies, listérias, E. coli) et réduisent l’appétence. Ne pas affourager un fourrage avec des résidus visibles.',
+      ursachen: ['Lisier épandu peu avant la récolte ou trop épais', 'Fumier mal réparti'],
+      massnahmen: ['Épandre le lisier avant la pluie pour qu’il soit lessivé ; diluer ou enfouir le lisier épais', 'Épandre le lisier tôt après la coupe, pas peu avant la récolte', 'Herser les restes de fumier au printemps'], quelle: [Q.k4b, Q.k3] },
+    luecken: { frage: 'Ma prairie a des vides – que faire ?',
+      kurz: 'Sinon, les vides se remplissent d’espèces de faible valeur et de mauvaises herbes (pâturin commun, millets, brome mou, rumex, chardons). Dès 5 % de vides, un sursemis vaut la peine ; dès env. 25 %, examiner aussi un nouveau semis.',
+      ursachen: ['Surexploitation et compaction du sol (indicateurs : agrostide stolonifère, grand plantain, pâquerette)', 'Les plantes bouche-trous et mauvaises herbes s’étendent et maintiennent les vides ouverts'],
+      massnahmen: ['Vides jusqu’à env. 25 % : sursemis avec des graminées fourragères adaptées à la station (fiche AGFF 5)', 'Dès env. 25 % : examiner sursemis ou nouveau semis (fiches AGFF 4, 5, 7, 12)', 'Supprimer la cause : exploitation ménageant le sol et moins intensive (tableau 3)'], quelle: [Q.mb8] },
+    unkraut: { frage: 'Mauvaises herbes ou plantes toxiques – comment les faire reculer ?',
+      kurz: 'La meilleure prévention est un gazon dense de graminées fourragères de valeur. Les plantes toxiques comme les séneçons, le colchique ou la prêle des marais n’ont pas leur place dans le fourrage.',
+      ursachen: ['Vides (les graines germent sur sol nu)', 'Surfertilisation ou accumulation de déjections (rumex, orties)', 'Utilisation tardive ou trop rare'],
+      massnahmen: ['Favoriser un gazon dense, sursemer les vides', 'Empêcher la montée en graines ; arracher ou déterrer les plantes isolées', 'Régulation selon la fiche AGFF 4'], quelle: [Q.mb8] },
+    kraeuter: { frage: 'Trop de plantes grossières (cerfeuil, berce, renoncule) ?',
+      kurz: 'Les plantes à tiges grossières donnent un fourrage aqueux et pauvre, provoquent des pertes par effritement et laissent des vides. Elles indiquent le plus souvent une surfertilisation ou une utilisation tardive.',
+      ursachen: ['Trop de lisier ou d’azote', 'Utilisation tardive, montée en graines', 'Gazon lacunaire'],
+      massnahmen: ['Fertiliser moins', 'Pâturer au printemps, utiliser plus tôt', 'Favoriser les graminées fourragères avec des sursemis'], quelle: [Q.mb8] },
+    filz: { frage: 'Le peuplement est feutré – qu’est-ce qui aide ?',
+      kurz: 'Les graminées feutrantes comme le pâturin commun ou l’agrostide stolonifère ne donnent du rendement presque qu’au premier cycle et sont délaissées par le bétail.',
+      ursachen: ['Vides refermés par des plantes bouche-trous', 'Compaction, surexploitation'],
+      massnahmen: ['Déchirer mécaniquement le feutre (étrille) et sursemer en même temps', 'Exploiter de manière ménageant le sol et moins intensive ; pâture tournante plutôt que continue'], quelle: [Q.mb8] },
+    futtergraeser: { frage: 'Trop peu de graminées fourragères de valeur – comment les favoriser ?',
+      kurz: 'L’objectif est en général 50–70 % de graminées fourragères, 10–30 % de trèfle et 10–30 % d’autres plantes fourragères. En favorisant des graminées adaptées et de valeur, les espèces de faible valeur reculent en règle générale.',
+      ursachen: [],
+      massnahmen: ['Choisir les graminées principales selon la station et l’utilisation (aptitude au ray-grass)', 'Implanter les espèces manquantes par sursemis (fiche AGFF 5)', 'Adapter utilisation et fumure aux graminées souhaitées (tableau 4)'], quelle: [Q.mb8, Q.mb3] },
+    raigras: { frage: 'Le ray-grass convient-il à ma station ?',
+      kurz: 'Aptes au ray-grass : situations douces, ensoleillées, tôt déneigées : situations rudes jusqu’à 700 m, douces jusqu’à 900 m (ray-grass anglais jusqu’à 1000 m), sols mi-lourds perméables avec 900–1200 mm de précipitations, P et K moyens à suffisants.',
+      ursachen: [],
+      massnahmen: ['Ray-grass anglais : pâture, fauche-pâture ou prairie de fauche avec pâture de printemps', 'Ray-grass d’Italie : prairie de fauche, au plus cinq coupes, laisser grainer de temps en temps', 'Station non apte : choisir d’autres graminées principales, par ex. le vulpin des prés (productif aussi hors des zones à ray-grass)'], quelle: [Q.mb8] },
+  };
+
+  // Mesures (LaborRegeln.M), mêmes clés ; foin d’après le texte original de la fiche 2.7.9
+  const M = {
+    buttersaeure: ['Respecter une hauteur de coupe de 8–10 cm ; lutter contre les campagnols, herser ou rouler les prairies au printemps', 'Épandre le lisier avant la pluie ou le diluer ; n’entrer dans le silo couloir qu’avec des pneus propres',
+      'Préfaner les peuplements pauvres en ray-grass au-dessus de 30 % de MS ; faucher à l’épiaison des graminées principales', 'Ne pas ensiler par plus de 30 °C ; pour un fourrage difficile à ensiler, conservateur de la liste A'],
+    ph: ['Préfaner, mais pas trop : silo tour et couloir jusqu’à 36 % de MS, balles jusqu’à 45 % de MS', 'Préférer les peuplements faciles à ensiler (ray-grass) ; prudence avec les peuplements riches en trèfle et autres plantes',
+      'Faucher au plus tard au début de l’épiaison des graminées principales', 'Tassement de plus de 220 kg MS/m³ (plus de 700 kg de matière fraîche/m³) ; fermer le silo hermétiquement tout de suite ; éventuellement conservateur'],
+    essig: ['Préfaner au-dessus de 30 % de MS, mais pas au-delà de 55 %', 'Hachage de l’herbe sous 5 cm ; silo couloir : au maximum 30 cm par couche, au moins trois passages avant le char suivant',
+      'Tassement de plus de 220 kg MS/m³ ; fermer le silo hermétiquement tout de suite', 'Éventuellement conservateur de la liste B'],
+    nacherw: ['Avancement d’au moins 2 m par semaine en été, 1 m en hiver', 'Laisser la bâche et les sacs de sable jusqu’au front d’attaque ; prélever proprement',
+      'Laisser fermenter le silo au moins 6 semaines avant de l’ouvrir', 'Tassement de plus de 220 kg MS/m³ ; balles avec 6–8 couches de film (plus de 250 µm) sans trous ; éventuellement conservateur de la liste B'],
+    heuFeld: ['Ne faucher que si la météo est sûre pour 3 jours de soleil (foin séché au sol : 4–5 jours à humidité basse), même si le stade est un peu jeune', 'Utiliser un conditionneur ou étendre le fourrage le plus rapidement possible ; s’il y a beaucoup de légumineuses, conditionneur à rouleaux',
+      'Travailler intensivement le premier jour avec la pirouette et l’andaineur, puis uniquement si les feuilles sont souples', 'Pour le séchoir, sécher au champ à ~60 % de MS ; charger sans former de paquets compactés'],
+    heuStock: ['Répartir finement le fourrage par petites couches, défaire les paquets au déchargement', 'Ne pas engranger plus de 1 m de charge à la fois (2 m à la première charge) ; reprendre à la griffe dès le deuxième jour',
+      'Choisir les heures de ventilation selon température et humidité ; séchage terminé quand l’air au-dessus du tas est sous 50 % d’humidité relative', 'Contrôler ventilateur, pression sous le caillebotis et provenance de l’air aspiré (check-list séchage en grange)'],
+    heuBallen: ['Faucher à au moins 8 cm pour assurer une bonne ventilation sous le fourrage', 'Ne pas serrer le cœur des balles (préférence aux presses à chambre fixe)',
+      'Laisser les balles faire leur « cuite » à l’extérieur et ne pas les empiler définitivement avant 7–10 jours', 'Éventuellement un additif de conservation (pas en zone AOP, ni en agriculture biologique)'],
+    heuErde: ['Aplanir les prairies au rouleau ; herser en cas de nombreux campagnols, taupinières ou restes de fumier', 'Régler les machines de fauche et de fenaison à 10 cm ; vérifier l’inclinaison des dents (pirouette, andaineur, pick-up)',
+      'Chercher à créer des prairies denses (sursemer ; alterner fauche et pâture)', 'Faucher l’après-midi ou en soirée, avant la formation de rosée qui pourrait coller la terre'],
+    trocken: ['Balles au maximum 55 % de MS, silo tour et couloir au maximum 36 % de MS', 'Tasser particulièrement bien le fourrage sec et fermer hermétiquement rapidement', 'Contrôler régulièrement bâches, portes et couvercles (trous)'],
+  };
+
+  // Fiche 8, tableaux 3 et 4 : nom allemand → [nom français, mesure]
+  const T3 = {
+    'Ausläufer-Straussgras': ['Agrostide stolonifère', 'Exploitation ménageant le sol, moins intensive ; pâture tournante plutôt que continue'],
+    'Gewöhnliches Rispengras': ['Pâturin commun', 'Sursemis combinés à un déchirage mécanique du feutre'],
+    'Hirse-Arten': ['Millets (panics, sétaires)', 'Sursemis au printemps ; fertiliser et utiliser moins'],
+    'Quecke': ['Chiendent', 'Faucher plus souvent, juste après l’épiaison ; fertiliser moins'],
+    'Rohrschwingel': ['Fétuque élevée', 'Exploitation intensive ménageant le sol ; entretien régulier des pâturages'],
+    'Ruchgras': ['Flouve odorante', 'Exploitation plus intensive'],
+    'Weiche Trespe': ['Brome mou', 'Éviter les vides, évacuer les porte-graines à l’état vert'],
+    'Wolliges Honiggras': ['Houlque laineuse', 'Pâturer au printemps ; faucher avant la floraison ; fertiliser régulièrement'],
+    'Baumtropfen, Geissfuss': ['Égopode podagraire', 'Pâturer au printemps ; fertiliser moins'],
+    'Berg-Kerbel': ['Chérophylle hérissé', 'Fertiliser moins ; pâturer au printemps avec des sursemis'],
+    'Breitwegerich': ['Grand plantain', 'Exploitation ménageant le sol combinée à la fauche-pâture'],
+    'Gänseblümchen': ['Pâquerette', 'Utiliser moins ; pâture tournante réglée ou fauche-pâture'],
+    'Grosse Brennnessel': ['Grande ortie', 'Entretien des pâturages ; éviter l’accumulation de déjections'],
+    'Rote Lichtnelke': ['Silène dioïque', 'Pâturer au printemps ; fumure modérée'],
+    'Sauerampfer': ['Oseille des prés', 'Pâturer au printemps ; faucher tôt de temps en temps'],
+    'Scharfer Hahnenfuss': ['Renoncule âcre', 'Pâturer au printemps ; faucher les refus ; moins de lisier'],
+    'Wald-Storchschnabel': ['Géranium des bois', 'Fertiliser moins ; pâturer au printemps'],
+    'Wallwurz': ['Consoude officinale', 'Arracher'],
+    'Wiesen-Bärenklau': ['Berce des prés', 'Fertiliser moins ; pâturer au printemps avec des sursemis'],
+    'Wiesen-Kerbel': ['Cerfeuil sauvage', 'Fertiliser moins ; pâturer au printemps avec des sursemis'],
+    'Wiesen-Pippau': ['Crépis bisannuel', 'Pâturer au printemps ; utiliser plus souvent'],
+    'Acker-Kratzdistel': ['Cirse des champs', 'Favoriser un gazon dense ; une fois installé, lutte directe nécessaire'],
+    'Adlerfarn': ['Fougère aigle', 'Faucher 2 fois : d’abord à 30–40 cm de hauteur, puis en été'],
+    'Alpen-Blacke': ['Rumex des Alpes', 'Éviter l’accumulation de déjections ; déterrer, sursemer'],
+    'Alpen-Kreuzkraut': ['Séneçon des Alpes', 'Éviter l’accumulation de déjections ; arracher'],
+    'Binsen': ['Joncs', 'Utiliser les endroits mouillés comme litière ; pâture tournante et nettoyage des pâturages'],
+    'Fadenförmiger Ehrenpreis': ['Véronique filiforme', 'Utiliser moins souvent ; pâture tournante réglée ou fauche-pâture'],
+    'Feigwurz, Scharbockskraut': ['Ficaire', 'Fertiliser moins ; sursemis'],
+    'Herbst-Zeitlose': ['Colchique d’automne', 'Courte pâture de printemps (2–3 jours) avec des vaches, nettoyage des pâturages ; intensifier'],
+    'Jakobs-Kreuzkraut': ['Séneçon jacobée', 'Favoriser un gazon dense ; entretien des pâturages ou fauche régulière'],
+    'Sumpf-Schachtelhalm': ['Prêle des marais', 'Nettoyage régulier des pâturages ; utiliser les endroits mouillés comme litière'],
+    'Weisser Germer': ['Vérâtre blanc', 'Pendant 2–3 ans, faucher 1–2 fois quand les plantes atteignent 30 cm'],
+    'Wiesen-Blacke': ['Rumex à feuilles obtuses', 'Favoriser un gazon dense ; empêcher la formation de graines'],
+  };
+  const T4 = {
+    'Englisches Raigras': ['Ray-grass anglais', 'Pâturer au printemps, utilisation fréquente et forte fumure'],
+    'Fromental': ['Fromental', 'Fauche peu intensive combinée à une fumure légère'],
+    'Goldhafer': ['Avoine jaunâtre', 'Fauche peu intensive combinée à une fumure légère'],
+    'Italienisches Raigras': ['Ray-grass d’Italie', 'Fauche, au plus 5 coupes par an ; laisser grainer de temps en temps'],
+    'Kammgras': ['Crételle', 'Laisser grainer de temps en temps ; pâturer'],
+    'Knaulgras': ['Dactyle', 'Laisser grainer de temps en temps ; utilisation moyennement intensive avec forte fumure'],
+    'Rotschwingel': ['Fétuque rouge', 'Fréquence d’utilisation et fumure modérées ; ne pas couper trop bas'],
+    'Timothe': ['Fléole des prés', 'Fréquence d’utilisation et fumure modérées ; laisser grainer de temps en temps'],
+    'Wiesenfuchsschwanz': ['Vulpin des prés', 'Forte fumure ; utilisation fréquente, laisser grainer de temps en temps'],
+    'Wiesenrispengras': ['Pâturin des prés', 'Pâturer au printemps, utilisation fréquente et forte fumure'],
+    'Wiesenschwingel': ['Fétuque des prés', 'Fréquence d’utilisation et fumure modérées'],
+    'Luzerne': ['Luzerne', '3 ou 4 coupes par an ; ne jamais faucher trop bas ; faible fumure azotée'],
+    'Rotklee': ['Trèfle violet', 'Utilisation mi-tardive, modérément fréquente, pas trop basse ; faible fumure azotée'],
+    'Weissklee': ['Trèfle blanc', 'Pâture et fauche précoces, fréquentes et basses'],
+  };
+
+  /** Aptitude au ray-grass (fiche 8, section 2) */
+  function raigrasHinweis(a) {
+    const h = a.kopf.hoehe; const s = a.standort; const t = [];
+    if (h != null) {
+      if (h <= 700) t.push('Altitude ' + h + ' m : apte au ray-grass même en situation rude (jusqu’à 700 m).');
+      else if (h <= 900) t.push('Altitude ' + h + ' m : apte seulement en situation douce (jusqu’à 900 m) ; en situation rude seulement jusqu’à 700 m.');
+      else if (h <= 1000) t.push('Altitude ' + h + ' m : seulement le ray-grass anglais, et seulement en situation douce (jusqu’à 1000 m).');
+      else t.push('Altitude ' + h + ' m : au-dessus de 1000 m, pas apte au ray-grass.');
+    }
+    if (s.wasser === 'trocken' || s.wasser === 'nass') t.push('Régime hydrique « ' + (s.wasser === 'trocken' ? 'sec' : 'mouillé') + ' » : sont aptes les sols normalement perméables avec 900–1200 mm de précipitations.');
+    if (s.boden === 'leicht, sandig' || s.boden === 'schwer, tonig') t.push('Le ray-grass demande des sols mi-lourds à couche supérieure grumeleuse, sans compaction.');
+    if (s.naehrstoff === 'mager') t.push('Le ray-grass demande P et K « moyens » à « suffisants » et de légers apports réguliers d’azote.');
+    if (s.exposition === 'Nord') t.push('Les situations aptes au ray-grass sont douces, ensoleillées et tôt déneigées.');
+    return t;
+  }
+
+  // ---------- Textes de l’interface ----------
+  const U = {
+    teaser: 'Puis-je vous aider ? Touchez-moi.',
+    teaserFutter: 'Des questions sur votre fourrage ? J’ai des conseils.',
+    teaserWiese: 'Des questions sur votre prairie ? J’ai des conseils.',
+    berFutter: 'Questions sur votre fourrage', berWiese: 'Questions sur votre prairie',
+    erinnert: 'Rappelle', vorgehen: 'Comment faire', riechen: '👃 Bien sentir', riechenTitel: 'Bien sentir', verstanden: 'Compris',
+    einfach: 'Simple', fachlich: 'Technique', ruhe: 'Silence, svp', schliessen: 'Fermer', sprache: 'Langue',
+    bildQuelle: 'Source : AGFF / AGRIDEA', schlaeft: 'Le tracteur dort. Touchez-le pour le réveiller.', btnLabel: 'Assistant tracteur : aide pour cette étape',
+    passendProbe: 'Ces questions correspondent à votre échantillon :', passendAufnahme: 'Ces questions correspondent à votre relevé :', keineMaengel: 'Pas de défaut majeur – une question quand même ?',
+    weitere: 'Autres questions', nichtGefunden: 'Pas trouvé la réponse ? Service de conseil de votre région',
+    ursachen: 'Causes fréquentes', fuetterung: 'Pour l’affouragement', inAufnahme: 'Dans votre relevé', tun: 'Ce que vous pouvez faire', quelle: 'Source', nochFragen: 'D’autres questions ? Conseil', danke: 'Merci',
+    fsTitel: 'Service de conseil de votre région', plz: 'NPA', suchen: 'Chercher', keinKanton: 'Je ne connais pas de canton pour ce NPA.',
+    kanton: (kt) => 'Canton ' + kt + ' – la vulgarisation agricole cantonale répond aux questions sur la production fourragère, l’entretien des prairies et la conservation des fourrages.',
+    keineStelle: 'Aucun service n’est encore enregistré pour ce canton.', plzEingeben: 'Saisissez votre NPA, je vous indique le service compétent.',
+    plzLokal: 'Le NPA reste sur cet appareil.', stand: 'Services cantonaux de vulgarisation, état octobre 2026 (indications des sites officiels).', website: 'Site web', offline: 'La liste des services n’est pas disponible hors ligne.',
+    hinweise: { 'Für den Berner Jura ist die FRI zuständig.': 'Pour le Jura bernois, la FRI est compétente.', 'Courtemelon; auch für den Berner Jura (Loveresse).': 'Courtemelon ; aussi pour le Jura bernois (Loveresse).',
+      'Standort Hohenrain; Schüpfheim: 041 590 60 03.': 'Site de Hohenrain ; Schüpfheim : 041 590 60 03.', 'Berät im Auftrag des Kantons auch Glarus.': 'Conseille aussi le canton de Glaris sur mandat.',
+      'Telefon und Adresse bitte auf der Website nachsehen.': 'Téléphone et adresse : voir le site web.' },
+  };
+
+  global.AssistentFR = { T, P, F, M, T3, T4, U, raigrasHinweis };
+})(window);

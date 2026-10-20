@@ -10,6 +10,24 @@
   const LR = () => global.LaborRegeln;
   const esc = (s) => app().esc(s);
   const PLZ_KEY = 'agffV2BeratungPlz';
+  const FR = () => (global.Assistent && global.Assistent.sprache === 'fr' && global.AssistentFR) || null;
+  const UD = {
+    passendProbe: 'Zu deiner Probe passen diese Fragen:', passendAufnahme: 'Zu deiner Aufnahme passen diese Fragen:', keineMaengel: 'Keine grösseren Mängel – trotzdem eine Frage?',
+    weitere: 'Weitere Fragen', nichtGefunden: 'Antwort nicht gefunden? Fachstelle in deiner Region',
+    ursachen: 'Häufige Ursachen', fuetterung: 'Für die Fütterung', inAufnahme: 'In deiner Aufnahme', tun: 'Was du tun kannst', quelle: 'Quelle', nochFragen: 'Noch Fragen? Fachstelle', danke: 'Danke',
+    fsTitel: 'Fachstelle in deiner Region', plz: 'PLZ', suchen: 'Suchen', keinKanton: 'Zu dieser PLZ kenne ich keinen Kanton.',
+    kanton: (kt) => 'Kanton ' + kt + ' – die kantonale landwirtschaftliche Beratung hilft bei Fragen zu Futterbau, Wiesenpflege und Futterkonservierung.',
+    keineStelle: 'Für diesen Kanton ist noch keine Fachstelle hinterlegt.', plzEingeben: 'Gib deine PLZ ein, dann zeige ich die zuständige Fachstelle.',
+    plzLokal: 'Die PLZ bleibt auf diesem Gerät.', stand: null, website: 'Website', offline: 'Die Liste der Fachstellen ist offline nicht verfügbar.', hinweise: {},
+  };
+  const U = () => (FR() ? FR().U : UD);
+  /** Frage in der aktuellen Sprache (fehlende Teile auf Deutsch) */
+  function frageText(k) {
+    const f = F[k]; const fr = FR() && FR().F[k];
+    const t = fr ? Object.assign({}, f, fr) : Object.assign({}, f);
+    t.mass = f.mk ? ((FR() && FR().M[f.mk]) || LR().M[f.mk]) : (t.massnahmen || []);
+    return t;
+  }
 
   const QK4B = 'AGFF-Informationsblatt K4b «Interpretation der Silagebewertung» (2024)';
   const Q279 = 'ADCF/AGRIDEA-Fiche 2.7.9 «Verbesserung der Trocknungsprozesse» (2021), übersetzt';
@@ -19,7 +37,8 @@
   const QMB3 = 'AGFF-Merkblatt 3 «Bewertung von Wiesenfutter» (botanischer Typ)';
   const AU = () => global.Aufnahme && global.Aufnahme._t;
   /** Massnahmen aus MB 8 Tabelle 3 für Arten der Aufnahme (ab 5 %), gefiltert */
-  const t3Fuer = (au, filter) => (au ? au.arten.filter((x) => x.p >= 5 && AU().T3[x.n] && filter(x)).map((x) => x.n + ' (' + x.p + ' %): ' + AU().T3[x.n][0]) : []);
+  const t3Fuer = (au, filter) => (au ? au.arten.filter((x) => x.p >= 5 && AU().T3[x.n] && filter(x)).map((x) => { const fr = FR() && FR().T3[x.n];
+    return fr ? fr[0] + ' (' + x.p + ' %) : ' + fr[1] : x.n + ' (' + x.p + ' %): ' + AU().T3[x.n][0]; }) : []);
 
   // ---------- Fragen ----------
   // art: 'silage' (Gras-, Mais-, Ganzpflanzensilage) oder 'heu'. massnahmen: Liste oder Funktion (dann aus LaborRegeln.M).
@@ -28,11 +47,11 @@
       kurz: 'Buttersäurebakterien (Clostridien) kommen mit Erde, Mist und Gülle ins Futter. In nasser, zuckerarmer Silage, die zu langsam sauer wird (pH über 4,5), bauen sie Milchsäure zu Buttersäure ab.',
       ursachen: ['Erde, Mist oder Gülle im Futter (Maulwurfshaufen, tiefer Schnitt, schmutzige Reifen)', 'Zu nass siliert (unter 30 % TS), wenig Zucker (klee- und kräuterreich)', 'Silieren bei über 30 °C, schwer silierbares Futter'],
       ration: 'Nur begrenzt und sauber entnommen verfüttern. Sporen gelangen über Kot in die Milch – nicht für Käsereimilch.',
-      m: () => LR().M.buttersaeure, quelle: [QK4B, QK3] },
+      mk: 'buttersaeure', quelle: [QK4B, QK3] },
     essig: { art: 'silage', frage: 'Warum riecht sie stechend nach Essig?',
       kurz: 'Die Silage ist zu langsam sauer geworden, oft weil Luft drin war. Etwas Essigsäure schützt vor Nacherwärmung, viel davon kostet Trockenmasse und Schmackhaftigkeit.',
       ursachen: ['Nass siliert oder schlecht verdichtet – faseriges Futter lässt sich schwer verdichten', 'Zu schnell eingeführt, dicke Schichten', 'Silo nicht sofort luftdicht verschlossen'],
-      m: () => LR().M.essig, quelle: [QK4B, QK3] },
+      mk: 'essig', quelle: [QK4B, QK3] },
     alkohol: { art: 'silage', frage: 'Warum riecht sie nach Alkohol oder Most?',
       kurz: 'Hefen vergären Zucker zu Alkohol. Das passiert bei sehr zuckerreichem Futter (Mais, Raigras, Grünschnittroggen), wenn beim Schliessen noch Luft im Silo ist. Oft folgt beim Öffnen Nacherwärmung.',
       ursachen: ['Luft im Silo beim Schliessen (lockere Lagerung, Folie nicht sofort dicht)', 'Silomais zu trocken geerntet (über 36 % TS)', 'Zu wenig Vorschub bei der Entnahme'],
@@ -41,7 +60,7 @@
       kurz: 'Sobald Luft an die Silage kommt, bauen Hefen Zucker und Milchsäure ab und erzeugen Wärme. Energie geht verloren, danach folgt oft Schimmel.',
       ursachen: ['Silo zu früh geöffnet oder zu wenig Vorschub', 'Anschnittfläche locker oder ausgefranst', 'Trockenes, schlecht verdichtetes Futter; undichte Folie'],
       ration: 'Täglich frisch entnehmen, warme Stellen verwerfen, rasch verfüttern.',
-      m: () => LR().M.nacherw, quelle: [QK4B, QK3] },
+      mk: 'nacherw', quelle: [QK4B, QK3] },
     schimmel: { art: 'silage', frage: 'Warum schimmelt die Silage?',
       kurz: 'Schimmelpilze wachsen nur mit Sauerstoff: an undichten Stellen, unter beschädigter Folie, in locker verdichteten Schichten und an der Anschnittfläche. Manche bilden Mykotoxine.',
       ursachen: ['Silo oder Ballen nicht luft- und wasserdicht', 'Zu trocken siliert (Hoch-/Fahrsilo über 36 % TS, Ballen über 55 % TS)', 'Silagetemperatur über 20 °C, pH über 4,5 (Gras) bzw. 4,0 (Mais)'],
@@ -50,7 +69,7 @@
     ph: { art: 'silage', frage: 'Warum ist der pH-Wert zu hoch?',
       kurz: 'Die Milchsäuregärung war zu schwach: zu wenig Zucker, zu viel Eiweiss, zu nass oder zu trocken, oder Luft im Silo. Je nasser die Silage, desto tiefer muss der pH sein.',
       ursachen: ['Zuckermangel, Eiweissüberschuss (klee- und kräuterreich)', 'Zu nass oder zu trocken (pH-Pufferung)', 'Ungenügend luftdicht; Buttersäuregärung oder Schimmel'],
-      m: () => LR().M.ph, quelle: [QK4B, QK3] },
+      mk: 'ph', quelle: [QK4B, QK3] },
     anwelken: { art: 'silage', frage: 'Wie stark soll ich anwelken?',
       kurz: 'Ziel-TS je nach Lagerung: Grassilage im Hoch- und Fahrsilo 30–35 % (höchstens 36 %), Siloballen über 40 % (höchstens 55 %), Silomais 32–36 %, Ganzpflanzensilage 35–40 %.',
       ursachen: [], massnahmen: ['TS mit der Auswringprobe prüfen (Rückseite der Messkarte)', 'Raigrasschwache Bestände über 30 % TS anwelken', 'Spätestens bei Beginn Ährenschieben der Hauptgräser mähen'], quelle: [QK4B] },
@@ -65,7 +84,7 @@
     heuBraun: { art: 'heu', frage: 'Warum ist das Heu braun oder riecht nach Karamell?',
       kurz: 'Das Heu hat sich auf dem Stock erwärmt, weil es zu langsam trocknete (4–15 Tage mit Erwärmung). Leicht erwärmt ist noch in Ordnung, stark erwärmt kostet Energie und Eiweiss.',
       ursachen: ['Zu feucht eingeführt (unter 60 % TS) oder zu hohe Füllung pro Tag', 'Gepresste Klumpen im Stock', 'Zu wenig oder zu feuchte Luft in der Belüftung'],
-      m: () => LR().M.heuStock, quelle: [Q279, Q124] },
+      mk: 'heuStock', quelle: [Q279, Q124] },
     heuSchimmel: { art: 'heu', frage: 'Warum staubt oder schimmelt das Heu?',
       kurz: 'Das Futter wurde erst nach mehreren Wochen trocken. Es ist grau, weisslich bis bläulich, staubig und riecht muffig. Nicht verfüttern – Mykotoxine und Staub schaden Tier und Mensch.',
       ursachen: ['Zu feucht gelagert, Trocknung zu langsam', 'Feuchtigkeit über Dach, Wände oder Boden; Kondenswasser', 'Ballen zu fest gepresst oder zu früh gestapelt'],
@@ -74,7 +93,7 @@
     heuBleich: { art: 'heu', frage: 'Warum sind die Blätter ausgebleicht?',
       kurz: 'Das Futter lag lange in Sonne oder Regen. Das kostet Energie, Eiweiss und Vitamine. Je kürzer die Feldzeit, desto grüner das Heu.',
       ursachen: ['Lange Bodentrocknung, Regen auf dem Feld', 'Kein Aufbereiter, spät breit gestreut'],
-      m: () => LR().M.heuFeld, quelle: [Q279, QK3] },
+      mk: 'heuFeld', quelle: [Q279, QK3] },
     heuBlaetter: { art: 'heu', frage: 'Warum fehlen die Blätter von Klee und Kräutern?',
       kurz: 'Bröckelverluste: Blätter von Klee und Kräutern brechen ab, wenn das trockene Futter zu oft oder zu heftig bearbeitet wird.',
       ursachen: ['Zetten und Schwaden bei trockenem Futter (ab etwa 60 % TS), mittags', 'Kreiselzetter bei viel Leguminosen'],
@@ -82,7 +101,7 @@
     heuErde: { art: 'heu', frage: 'Wie halte ich Erde aus dem Heu?',
       kurz: 'Erde erhöht die Rohasche, verdünnt die Energie und bringt Keime und Sporen ins Futter.',
       ursachen: ['Maschinen zu tief eingestellt', 'Wühlmaus- und Maulwurfshaufen, Mistreste', 'Lückige Grasnarbe; Tau, der die Erde ankleben lässt'],
-      m: () => LR().M.heuErde, quelle: [Q279] },
+      mk: 'heuErde', quelle: [Q279] },
     heuStock: { art: 'heu', frage: 'Mein Heu trocknet auf dem Stock zu langsam – was prüfen?',
       kurz: 'Ziel: in höchstens 3 Tagen trocken. Die wichtigsten Richtwerte der Checkliste Heubelüftung:',
       ursachen: [],
@@ -90,7 +109,7 @@
     heuBallen: { art: 'heu', frage: 'Meine Heuballen werden warm – was tun?',
       kurz: 'Bodenheu muss auf dem Feld weit genug trocknen und die Ballen brauchen Luft, bis sie «ausgeschwitzt» haben.',
       ursachen: ['Zu früh gepresst, Ballenkern zu dicht', 'Ballen zu früh gestapelt oder eingelagert'],
-      m: () => LR().M.heuBallen, quelle: [Q279] },
+      mk: 'heuBallen', quelle: [Q279] },
     // --- Wiese (MB 8) ---
     luecken: { art: 'wiese', frage: 'Meine Wiese hat Lücken – was tun?',
       kurz: 'Lücken füllen sich sonst mit geringwertigen Arten und Unkräutern (Gewöhnliches Rispengras, Hirsen, Weiche Trespe, Blacken, Disteln). Ab 5 % Lücken lohnt sich eine Übersaat, ab etwa 25 % ist auch eine Neuansaat zu prüfen.',
@@ -116,12 +135,12 @@
       kurz: 'Ziel sind meist 50–70 % Futtergräser, 10–30 % Klee und 10–30 % Futterkräuter. Durch die Förderung angepasster, wertvoller Gräser werden geringwertige Arten in der Regel zurückgedrängt.',
       ursachen: [],
       massnahmen: ['Leitgräser passend zu Standort und Nutzung wählen (Raigrasfähigkeit beachten)', 'Fehlende Arten durch Übersaat etablieren (AGFF-Merkblatt 5)', 'Nutzung und Düngung auf die gewünschten Gräser abstimmen (Tabelle 4)'],
-      extra: (au) => (au ? au.ziel.foerdern.filter((n) => AU().T4[n]).map((n) => n + ': ' + AU().T4[n][0]) : []), quelle: [QMB8, QMB3] },
+      extra: (au) => (au ? au.ziel.foerdern.filter((n) => AU().T4[n]).map((n) => { const fr = FR() && FR().T4[n]; return fr ? fr[0] + ' : ' + fr[1] : n + ': ' + AU().T4[n][0]; }) : []), quelle: [QMB8, QMB3] },
     raigras: { art: 'wiese', frage: 'Passt Raigras zu meinem Standort?',
       kurz: 'Raigrasfähig sind milde, sonnige, früh schneefreie Lagen: rauhe Lagen bis 700 m, milde bis 900 m (Englisches Raigras bis 1000 m), mittelschwere durchlässige Böden bei 900–1200 mm Niederschlag, P und K mässig bis genügend.',
       ursachen: [],
       massnahmen: ['Englisches Raigras: Weide, Mähweide oder Mähwiese mit Frühlingsweide', 'Italienisches Raigras: Mähwiese, höchstens fünf Schnitte, gelegentlich versamen lassen', 'Nicht raigrasfähig: andere Leitgräser wählen, z. B. Wiesenfuchsschwanz (ertragreich auch in nicht raigrasfähigen Lagen)'],
-      extra: (au) => (au ? AU().raigrasHinweis(au).t : []), quelle: [QMB8] },
+      extra: (au) => (au ? (FR() ? FR().raigrasHinweis(au) : AU().raigrasHinweis(au).t) : []), quelle: [QMB8] },
 
     mist: { art: 'beide', frage: 'Es hat Mist- oder Güllereste im Futter – was nun?',
       kurz: 'Hofdünger bringt Keime (Clostridien, Listerien, E. coli) ins Futter und mindert die Schmackhaftigkeit. Futter mit sichtbaren Rückständen nicht verfüttern.',
@@ -186,24 +205,25 @@
   function bubble(ctx) {
     const d = kontextDaten(ctx); if (!d.art) return '';
     const rest = Object.keys(F).filter((k) => passt(d.art)(F[k]) && !d.keys.includes(k));
-    const knopf = (k, hl) => '<li><button type="button" class="ber-frage' + (hl ? ' hl' : '') + '" data-as="frage" data-k="' + k + '">' + esc(F[k].frage) + '</button></li>';
-    return '<div class="assist-text">' + (d.keys.length ? (ctx.aufnahme ? 'Zu deiner Aufnahme passen diese Fragen:' : 'Zu deiner Probe passen diese Fragen:') : 'Keine grösseren Mängel – trotzdem eine Frage?') + '</div>' +
+    const u = U();
+    const knopf = (k, hl) => '<li><button type="button" class="ber-frage' + (hl ? ' hl' : '') + '" data-as="frage" data-k="' + k + '">' + esc(frageText(k).frage) + '</button></li>';
+    return '<div class="assist-text">' + (d.keys.length ? (ctx.aufnahme ? u.passendAufnahme : u.passendProbe) : u.keineMaengel) + '</div>' +
       (d.keys.length ? '<ul class="ber-liste">' + d.keys.map((k) => knopf(k, true)).join('') + '</ul>' : '') +
-      (rest.length ? '<details class="ber-mehr"' + (d.keys.length ? '' : ' open') + '><summary>Weitere Fragen (' + rest.length + ')</summary><ul class="ber-liste">' + rest.map((k) => knopf(k, false)).join('') + '</ul></details>' : '') +
-      '<button type="button" class="btn sm block" data-as="fachstelle" style="margin-top:8px">Antwort nicht gefunden? Fachstelle in deiner Region</button>';
+      (rest.length ? '<details class="ber-mehr"' + (d.keys.length ? '' : ' open') + '><summary>' + u.weitere + ' (' + rest.length + ')</summary><ul class="ber-liste">' + rest.map((k) => knopf(k, false)).join('') + '</ul></details>' : '') +
+      '<button type="button" class="btn sm block" data-as="fachstelle" style="margin-top:8px">' + esc(u.nichtGefunden) + '</button>';
   }
 
   function frageSheet(k, ctx) {
-    const f = F[k]; if (!f) return;
-    const m = f.m ? f.m() : f.massnahmen || [];
+    if (!F[k]) return;
+    const f = frageText(k); const u = U(); const m = f.mass;
     const ex = f.extra && ctx && ctx.aufnahme ? f.extra(ctx.aufnahme) : [];
-    app().sheet('<h2>' + esc(f.frage) + '</h2><p>' + esc(f.kurz) + '</p>' +
-      (f.ursachen.length ? '<h3 class="ber-h">Häufige Ursachen</h3><ul class="ber-punkte">' + f.ursachen.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '') +
-      (f.ration ? '<h3 class="ber-h">Für die Fütterung</h3><p class="small">' + esc(f.ration) + '</p>' : '') +
-      (ex.length ? '<h3 class="ber-h">In deiner Aufnahme</h3><ul class="ber-punkte">' + ex.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '') +
-      (m.length ? '<h3 class="ber-h">Was du tun kannst</h3><ul class="ber-punkte ber-mass">' + m.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '') +
-      '<p class="small muted">Quelle: ' + f.quelle.map(esc).join('; ') + '</p>' +
-      '<div class="row" style="margin-top:12px"><button class="btn grow" data-ber="fachstelle">Noch Fragen? Fachstelle</button><button class="btn primary grow" data-close>Danke</button></div>');
+    app().sheet('<h2' + (FR() ? ' lang="fr"' : '') + '>' + esc(f.frage) + '</h2><div' + (FR() ? ' lang="fr"' : '') + '><p>' + esc(f.kurz) + '</p>' +
+      (f.ursachen.length ? '<h3 class="ber-h">' + u.ursachen + '</h3><ul class="ber-punkte">' + f.ursachen.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '') +
+      (f.ration ? '<h3 class="ber-h">' + u.fuetterung + '</h3><p class="small">' + esc(f.ration) + '</p>' : '') +
+      (ex.length ? '<h3 class="ber-h">' + u.inAufnahme + '</h3><ul class="ber-punkte">' + ex.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '') +
+      (m.length ? '<h3 class="ber-h">' + u.tun + '</h3><ul class="ber-punkte ber-mass">' + m.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '') +
+      '<p class="small muted">' + u.quelle + ' : '.slice(FR() ? 0 : 1) + f.quelle.map(esc).join('; ') + '</p></div>' +
+      '<div class="row" style="margin-top:12px"><button class="btn grow" data-ber="fachstelle">' + esc(u.nochFragen) + '</button><button class="btn primary grow" data-close>' + u.danke + '</button></div>');
     const root = document.getElementById('sheet-root');
     const b = root && root.querySelector('[data-ber="fachstelle"]'); if (b) b.addEventListener('click', () => fachstelle(ctx));
   }
@@ -228,21 +248,22 @@
 
   async function fachstelle(ctx, plzEingabe) {
     const A = app();
-    try { await daten(); } catch (e) { A.toast('Die Liste der Fachstellen ist offline nicht verfügbar.', { fehler: true }); return; }
+    const u = U();
+    try { await daten(); } catch (e) { A.toast(u.offline, { fehler: true }); return; }
     const d = ctx ? kontextDaten(ctx) : {}; const plz = plzEingabe || d.plz || gemerktePlz();
     const kt = plz ? kanton(plz) : null;
     const eintraege = kt ? FS.stellen.filter((s) => s.kantone.includes(kt)) : [];
-    const karte = (s) => '<div class="card ber-stelle"><b>' + esc(s.name) + '</b>' + (s.hinweis ? '<p class="small muted">' + esc(s.hinweis) + '</p>' : '') +
+    const karte = (s) => '<div class="card ber-stelle"><b>' + esc(s.name) + '</b>' + (s.hinweis ? '<p class="small muted">' + esc(u.hinweise[s.hinweis] || s.hinweis) + '</p>' : '') +
       '<div class="row" style="margin-top:6px;flex-wrap:wrap;gap:6px">' + (s.telefon ? '<a class="btn sm" href="tel:' + esc(s.telefon.replace(/[^+\d]/g, '')) + '">☎ ' + esc(s.telefon) + '</a>' : '') +
       (s.email ? '<a class="btn sm" href="mailto:' + esc(s.email) + '">✉ ' + esc(s.email) + '</a>' : '') +
-      '<a class="btn sm" href="' + esc(s.url) + '" target="_blank" rel="noopener">Website ↗</a></div></div>';
-    A.sheet('<h2>Fachstelle in deiner Region</h2>' +
-      '<form class="row ber-plz" data-ber="plz" style="gap:8px;align-items:flex-end"><label class="grow">PLZ<input name="plz" inputmode="numeric" pattern="\\d{4}" maxlength="4" value="' + esc(plz || '') + '" autocomplete="postal-code"></label><button class="btn">Suchen</button></form>' +
-      (plz && !kt ? '<p class="small">Zu dieser PLZ kenne ich keinen Kanton.</p>' : '') +
-      (kt ? '<p class="small muted">Kanton ' + esc(kt) + ' – die kantonale landwirtschaftliche Beratung hilft bei Fragen zu Futterbau, Wiesenpflege und Futterkonservierung.</p>' + (eintraege.length ? eintraege.map(karte).join('') : '<p>Für diesen Kanton ist noch keine Fachstelle hinterlegt.</p>') : '') +
-      (!plz ? '<p class="small">Gib deine PLZ ein, dann zeige ich die zuständige Fachstelle.</p>' : '') +
-      '<p class="small muted" style="margin-top:10px">Die PLZ bleibt auf diesem Gerät. ' + esc(FS.stand || '') + '</p>' +
-      '<button class="btn ghost block" data-close style="margin-top:6px">Schliessen</button>');
+      '<a class="btn sm" href="' + esc(s.url) + '" target="_blank" rel="noopener">' + u.website + ' ↗</a></div></div>';
+    A.sheet('<h2>' + u.fsTitel + '</h2>' +
+      '<form class="row ber-plz" data-ber="plz" style="gap:8px;align-items:flex-end"><label class="grow">' + u.plz + '<input name="plz" inputmode="numeric" pattern="\\d{4}" maxlength="4" value="' + esc(plz || '') + '" autocomplete="postal-code"></label><button class="btn">' + u.suchen + '</button></form>' +
+      (plz && !kt ? '<p class="small">' + u.keinKanton + '</p>' : '') +
+      (kt ? '<p class="small muted">' + esc(u.kanton(kt)) + '</p>' + (eintraege.length ? eintraege.map(karte).join('') : '<p>' + u.keineStelle + '</p>') : '') +
+      (!plz ? '<p class="small">' + u.plzEingeben + '</p>' : '') +
+      '<p class="small muted" style="margin-top:10px">' + u.plzLokal + ' ' + esc(u.stand || FS.stand || '') + '</p>' +
+      '<button class="btn ghost block" data-close style="margin-top:6px">' + (FR() ? FR().U.schliessen : 'Schliessen') + '</button>');
     const f = document.querySelector('#sheet-root form[data-ber="plz"]');
     if (f) f.addEventListener('submit', (e) => { e.preventDefault(); const v = String(new FormData(f).get('plz') || '').trim(); if (/^\d{4}$/.test(v)) { merkePlz(v); fachstelle(ctx, v); } });
   }

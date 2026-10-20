@@ -1030,9 +1030,10 @@
       q('Einstellungen', '', '<div class="grid2"><label class="field"><span>Mein Name (Vorschlag für «Beurteilt von»)</span><input class="input" data-pref="beurteiler" value="' + esc(db.prefs.beurteiler) + '"></label>' +
         '<label class="field"><span>Gewicht Referenzkuh (kg)</span><input class="input" inputmode="numeric" data-pref="kuhGewicht" value="' + esc(db.prefs.kuhGewicht) + '"></label>' +
         '<label class="field"><span>Gewicht Mastmuni (kg, ' + K3.MAST.LG_MIN + '–' + K3.MAST.LG_MAX + ')</span><input class="input" inputmode="numeric" data-pref="mastGewicht" value="' + esc(mastGewicht()) + '"></label></div>' +
-        (window.Assistent ? '<div class="row" style="margin-top:12px;align-items:center"><span class="grow"><b>Traktor-Assistent</b><br><span class="small muted">Hilft bei Stadium, TS und jedem Faktor im Rad</span></span>' +
+        (window.Assistent ? '<div class="row" style="margin-top:12px;align-items:center;flex-wrap:wrap;gap:8px"><span class="grow"><b>Traktor-Assistent</b><br><span class="small muted">Hilft bei Stadium, TS und jedem Faktor im Rad</span></span>' +
           '<div class="seg">' + [['an', 'Aktiv'], ['ruhe', 'Schläft']].map(([v, t]) => '<button data-act="assist-ruhe" data-val="' + v + '" aria-pressed="' + ((window.Assistent.ruhe ? 'ruhe' : 'an') === v) + '">' + t + '</button>').join('') + '</div>' +
           '<div class="seg">' + [['einfach', 'Einfach'], ['fachlich', 'Fachlich']].map(([v, t]) => '<button data-act="assist-stufe" data-val="' + v + '" aria-pressed="' + (window.Assistent.stufe === v) + '">' + t + '</button>').join('') + '</div>' +
+          '<div class="seg" role="group" aria-label="Sprache des Traktors">' + [['de', 'Deutsch'], ['fr', 'Français']].map(([v, t]) => '<button data-act="assist-sprache" data-val="' + v + '" lang="' + v + '" aria-pressed="' + (window.Assistent.sprache === v) + '">' + t + '</button>').join('') + '</div>' +
           '<button class="btn sm ghost" data-act="assist-reset">Alle Hilfen nochmals zeigen</button></div>' : '') +
         '<div class="seg" style="margin-top:12px">' + [['', 'Automatisch'], ['light', 'Hell'], ['dark', 'Dunkel']].map(([v, t]) => '<button data-act="theme" data-val="' + v + '" aria-pressed="' + ((document.documentElement.dataset.theme || '') === v) + '">' + t + '</button>').join('') + '</div>') +
       q('Alles löschen', 'Entfernt alle v2-Daten aus diesem Browser. Auf dem Server gespeicherte Anlässe bleiben bestehen, bis Sie sie dort löschen.', '<button class="btn danger" data-act="wipe">Alle lokalen Daten löschen</button>') +
@@ -1772,6 +1773,7 @@
       }
       case 'assist-ruhe': window.Assistent.ruhe = t.dataset.val === 'ruhe'; render(); break;
       case 'assist-stufe': window.Assistent.stufe = t.dataset.val; render(); break;
+      case 'assist-sprache': window.Assistent.sprache = t.dataset.val; render(); break;
       case 'assist-reset': window.Assistent.zuruecksetzen(); window.Assistent.ruhe = false; toast('Der Traktor meldet sich bei jedem Schritt wieder einmal.'); render(); break;
       case 'bilanz-anlass': { const ids = probenOf(id).filter((p) => auswertung(p).vollstaendig).map((p) => p.id); window.Bilanz.hinzufuegen(ids); closeSheet(); go('#/bilanz'); toast(ids.length + ' Proben übernommen – Mengen eintragen.'); break; }
       case 'theme': {
