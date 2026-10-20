@@ -25,6 +25,8 @@
     k4b: 'AGFF-Informationsblatt K4b «Interpretation der Silagebewertung – Optimierung der Silierprozesse» (Aeby, Wyss; AGFF 2024)',
     k4b_ts: 'AGFF K4b: Grassilage im Hoch- und Fahrsilo 30–35 % TS (höchstens 36 %), Siloballen über 40 % TS (höchstens 55 %), Silomais 32–36 % TS',
     dlg_es: 'DLG-Schlüssel zur Beurteilung der Gärqualität: Abzüge ab 3,0 % Essigsäure in der TS (30 g/kg TS)',
+    adcf279: 'ADCF/AGRIDEA-Fiche 2.7.9 «Valeur des fourrages – Améliorations des processus de séchage» (Aeby, Wyss, Amaudruz; Dez. 2021), übersetzt',
+    adcf124: 'ADCF/AGRIDEA-Fiche 12.4 «Séchage en grange – Check-list de contrôle d’une installation» (Aeby; Juli 2025), übersetzt',
     enquete: 'Raufutter-Enquête (AGRIDEA und Agroscope): Schweizer Jahresmittel, Dürrfutter 2015–2025 je Belüftung, Grassilage 2019–2025 (öffentliche Berichte auf agridea.ch; Abschrift)',
   };
 
@@ -179,6 +181,14 @@
       'Verdichtung über 220 kg TS/m³; Silo sofort luftdicht schliessen', 'Evtl. Siliermittel der Liste B'],
     nacherw: ['Vorschub mindestens 2 m pro Woche im Sommer, 1 m im Winter', 'Folie und Sandsäcke bis zur Anschnittfläche liegen lassen; Anschnitt sauber entnehmen',
       'Silo mindestens 6 Wochen gären lassen, bevor es geöffnet wird', 'Verdichtung über 220 kg TS/m³; Ballen mit 6–8 Folienlagen (über 250 µm) ohne Löcher; evtl. Siliermittel der Liste B'],
+    heuFeld: ['Nur mähen, wenn 3 Tage Sonne sicher sind (Bodenheu: 4–5 Tage mit tiefer Luftfeuchtigkeit) – auch wenn das Stadium noch etwas jung ist', 'Mit Aufbereiter mähen oder sofort breit streuen; bei viel Leguminosen Walzenaufbereiter',
+      'Am ersten Tag intensiv zetten und schwaden, danach nur noch, solange die Blätter weich sind', 'Für die Belüftung auf dem Feld auf etwa 60 % TS trocknen; beim Laden keine gepressten Klumpen bilden'],
+    heuStock: ['Futter in dünnen Schichten verteilen, Klumpen beim Abladen auflösen', 'Pro Tag höchstens 1 m einführen (erste Füllung 2 m); ab dem zweiten Tag mit dem Greifer auflockern',
+      'Lüftungszeiten nach Temperatur und Luftfeuchtigkeit wählen; fertig, wenn die Luft über dem Stock unter 50 % relative Feuchte hat', 'Ventilator, Luftdruck unter dem Rost und Herkunft der Ansaugluft prüfen (Checkliste Heubelüftung)'],
+    heuBallen: ['Mindestens 8 cm hoch mähen, damit Luft unter das Futter kommt', 'Ballenkern nicht zu fest pressen (Festkammerpresse bevorzugen)',
+      'Ballen draussen «ausschwitzen» lassen und erst nach 7–10 Tagen definitiv stapeln', 'Evtl. Konservierungsmittel (nicht in AOP-Gebieten und nicht im Biolandbau)'],
+    heuErde: ['Wiesen walzen; bei vielen Wühlmaus- oder Maulwurfshaufen und Mistresten eggen', 'Mäh- und Heumaschinen auf 10 cm Höhe einstellen; Zinkenneigung von Zetter, Schwader und Pick-up prüfen',
+      'Dichte, gut geschlossene Grasnarbe fördern (übersäen; Mähen und Weiden abwechseln)', 'Nachmittags oder abends mähen, bevor Tau die Erde ankleben lässt'],
     trocken: ['Ballen höchstens 55 % TS, Hoch- und Fahrsilo höchstens 36 % TS', 'Trockenes Futter besonders gut verdichten und rasch luftdicht verschliessen', 'Folien, Türen und Deckel regelmässig auf Löcher kontrollieren'],
   };
 
@@ -209,8 +219,8 @@
     if (ra != null && ra > 100) {
       B.push({ id: 'erde', ton: ra > 120 ? 'schlecht' : 'mittel', titel: 'Verschmutzung (Rohasche ' + ra + ' g/kg TS)',
         text: 'Mehr Asche als bei sauberem Futter (80–100 g). Das kostet geschätzt ' + ((ra - 90) / 10 * 0.1).toFixed(1).replace('.', ',') + ' MJ NEL/kg TS und verschlechtert die Gärung.',
-        ration: null, naechstes: ['Schnitthöhe 8–10 cm; Zetter und Schwader nicht zu tief einstellen', 'Wühlmäuse bekämpfen, Wiesen im Frühling eggen oder walzen', 'Nicht bei nassem Boden ernten; Gülle vor Regen ausbringen bzw. verdünnen'],
-        quelle: [Q.swissgenetics, Q.sachsen, Q.k4b] });
+        ration: null, naechstes: a === 'duerr' ? M.heuErde : ['Schnitthöhe 8–10 cm; Zetter und Schwader nicht zu tief einstellen', 'Wühlmäuse bekämpfen, Wiesen im Frühling eggen oder walzen', 'Nicht bei nassem Boden ernten; Gülle vor Regen ausbringen bzw. verdünnen'],
+        quelle: [Q.swissgenetics, Q.sachsen, a === 'duerr' ? Q.adcf279 : Q.k4b] });
     }
     // 2b Essigsäure (K4b «Essigsäuregeruch»)
     const es = w('essigsaeure'); const esGrenze = z('essigsaeure') && z('essigsaeure')[1] != null ? z('essigsaeure')[1] : 30;
@@ -256,7 +266,8 @@
     }
     // 6 Heu nicht lagerfähig
     if (a === 'duerr' && ts != null && ts < 85) {
-      B.push({ id: 'lager', ton: ts < 82 ? 'schlecht' : 'mittel', titel: 'Heu zu feucht für die Lagerung (' + ts.toFixed(1).replace('.', ',') + ' % TS)', text: 'Unter 85 % TS drohen Erwärmung und Schimmel.', ration: 'Futter auf Geruch und Schimmel prüfen, warme Stellen meiden.', naechstes: 'Länger trocknen bzw. belüften; vor dem Einführen die Trockenheit prüfen.', quelle: [Q.lager] });
+      B.push({ id: 'lager', ton: ts < 82 ? 'schlecht' : 'mittel', titel: 'Heu zu feucht für die Lagerung (' + ts.toFixed(1).replace('.', ',') + ' % TS)', text: 'Unter 85 % TS drohen Erwärmung und Schimmel.', ration: 'Futter auf Geruch und Schimmel prüfen, warme Stellen meiden.',
+        naechstes: /unbel|boden/i.test(p.meta.belueftung || '') ? M.heuFeld.slice(0, 2).concat(M.heuBallen) : [M.heuFeld[0], M.heuFeld[3]].concat(M.heuStock), quelle: [Q.lager, Q.adcf279, Q.adcf124] });
     }
     // 7 Pansen-Bilanz
     const vb = verhaeltnisse(p).find((x) => x.id === 'pansen');
