@@ -224,6 +224,7 @@
       (f.ration ? '<h3 class="ber-h">' + u.fuetterung + '</h3><p class="small">' + esc(f.ration) + '</p>' : '') +
       (ex.length ? '<h3 class="ber-h">' + u.inAufnahme + '</h3><ul class="ber-punkte">' + ex.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '') +
       (m.length ? '<h3 class="ber-h">' + u.tun + '</h3><ul class="ber-punkte ber-mass">' + m.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '') +
+      (f.voir && f.voir.length && u.voir ? '<h3 class="ber-h">' + u.voir + '</h3><ul class="ber-punkte small">' + f.voir.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '') +
       '<p class="small muted">' + u.quelle + (global.Assistent && global.Assistent.sprache === 'fr' ? ' : ' : ': ') + f.quelle.map(esc).join('; ') + '</p></div>' +
       '<div class="row" style="margin-top:12px"><button class="btn grow" data-ber="fachstelle">' + esc(u.nochFragen) + '</button><button class="btn primary grow" data-close>' + u.danke + '</button></div>');
     const root = document.getElementById('sheet-root');
