@@ -537,5 +537,5 @@
   function allesLoeschen() { try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ } L = []; }
   const anzahl = () => laden().length;
 
-  global.Aufnahme = { render, renderListe, handle, liste: () => laden(), neuAnlegen: () => neu(), rasterUebernehmen, sicherung, wiederherstellen, allesLoeschen, anzahl, _t: { auswerten, clean, raigrasHinweis, T1, T3, T4 } };
+  global.Aufnahme = { render, renderListe, handle, liste: () => laden(), get: (id) => laden().find((a) => a.id === id) || null, neuAnlegen: () => neu(), rasterUebernehmen, sicherung, wiederherstellen, allesLoeschen, anzahl, _t: { auswerten, clean, raigrasHinweis, T1, T3, T4 } };
 })(window);

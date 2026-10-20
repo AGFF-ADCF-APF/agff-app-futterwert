@@ -15,6 +15,11 @@
   const Q279 = 'ADCF/AGRIDEA-Fiche 2.7.9 «Verbesserung der Trocknungsprozesse» (2021), übersetzt';
   const Q124 = 'ADCF/AGRIDEA-Fiche 12.4 «Heubelüftung – Checkliste zur Kontrolle einer Anlage» (2025), übersetzt';
   const QK3 = 'AGFF-Schlüssel K3a–K3c zur Beurteilung von Dürrfutter, Grassilage und Maissilage';
+  const QMB8 = 'AGFF-Merkblatt 8 «Beurteilung von Wiesenbeständen» (2012), Tabellen 3 und 4';
+  const QMB3 = 'AGFF-Merkblatt 3 «Bewertung von Wiesenfutter» (botanischer Typ)';
+  const AU = () => global.Aufnahme && global.Aufnahme._t;
+  /** Massnahmen aus MB 8 Tabelle 3 für Arten der Aufnahme (ab 5 %), gefiltert */
+  const t3Fuer = (au, filter) => (au ? au.arten.filter((x) => x.p >= 5 && AU().T3[x.n] && filter(x)).map((x) => x.n + ' (' + x.p + ' %): ' + AU().T3[x.n][0]) : []);
 
   // ---------- Fragen ----------
   // art: 'silage' (Gras-, Mais-, Ganzpflanzensilage) oder 'heu'. massnahmen: Liste oder Funktion (dann aus LaborRegeln.M).
@@ -86,6 +91,38 @@
       kurz: 'Bodenheu muss auf dem Feld weit genug trocknen und die Ballen brauchen Luft, bis sie «ausgeschwitzt» haben.',
       ursachen: ['Zu früh gepresst, Ballenkern zu dicht', 'Ballen zu früh gestapelt oder eingelagert'],
       m: () => LR().M.heuBallen, quelle: [Q279] },
+    // --- Wiese (MB 8) ---
+    luecken: { art: 'wiese', frage: 'Meine Wiese hat Lücken – was tun?',
+      kurz: 'Lücken füllen sich sonst mit geringwertigen Arten und Unkräutern (Gewöhnliches Rispengras, Hirsen, Weiche Trespe, Blacken, Disteln). Ab 5 % Lücken lohnt sich eine Übersaat, ab etwa 25 % ist auch eine Neuansaat zu prüfen.',
+      ursachen: ['Übernutzung und Bodenverdichtung (Zeiger: Ausläufer-Straussgras, Breitwegerich, Gänseblümchen)', 'Lückenfüller und Unkräuter breiten sich aus und halten die Lücken offen'],
+      massnahmen: ['Lücken bis etwa 25 %: Übersaat mit standortangepassten Futtergräsern (AGFF-Merkblatt 5)', 'Ab etwa 25 %: Übersaat oder Neuansaat prüfen (AGFF-Merkblätter 4, 5, 7, 12)', 'Ursache abstellen: bodenschonend und weniger intensiv nutzen (Tabelle 3)'],
+      extra: (au) => t3Fuer(au, (x) => /Lücken/.test(AU().T3[x.n][1])), quelle: [QMB8] },
+    unkraut: { art: 'wiese', frage: 'Unkräuter oder Giftpflanzen – wie zurückdrängen?',
+      kurz: 'Die beste Vorbeugung ist eine dichte Grasnarbe mit wertvollen Futtergräsern. Giftpflanzen wie Kreuzkräuter, Herbst-Zeitlose oder Sumpf-Schachtelhalm gehören nicht ins Futter.',
+      ursachen: ['Lücken (Samen keimen im offenen Boden)', 'Überdüngung oder Ansammlung von Ausscheidungen (Blacken, Brennnesseln)', 'Späte oder zu seltene Nutzung'],
+      massnahmen: ['Dichte Grasnarbe fördern, Lücken übersäen', 'Samenbildung verhindern; Einzelpflanzen ausstechen oder ausgraben', 'Regulierung nach AGFF-Merkblatt 4'],
+      extra: (au) => t3Fuer(au, (x) => x.kat === 'uk'), quelle: [QMB8] },
+    kraeuter: { art: 'wiese', frage: 'Zu viele grobe Kräuter (Kerbel, Bärenklau, Hahnenfuss)?',
+      kurz: 'Grobstänglige Kräuter liefern wässriges, nährstoffarmes Futter, verursachen Bröckelverluste und hinterlassen Lücken. Meist zeigen sie Überdüngung oder späte Nutzung an.',
+      ursachen: ['Zu viel Gülle bzw. Stickstoff', 'Späte Nutzung, Versamung', 'Lückige Narbe'],
+      massnahmen: ['Weniger düngen', 'Im Frühling beweiden, früher nutzen', 'In Verbindung mit Übersaaten Futtergräser fördern'],
+      extra: (au) => t3Fuer(au, (x) => x.kat === 'gk'), quelle: [QMB8] },
+    filz: { art: 'wiese', frage: 'Der Bestand ist verfilzt – was hilft?',
+      kurz: 'Filzbildende Gräser wie Gewöhnliches Rispengras oder Ausläufer-Straussgras bringen Ertrag fast nur im ersten Aufwuchs und werden vom Vieh verschmäht.',
+      ursachen: ['Lücken, die sich mit Lückenfüllern schliessen', 'Verdichtung, Übernutzung'],
+      massnahmen: ['Filz mechanisch aufreissen (Striegel) und gleichzeitig übersäen', 'Bodenschonend und weniger intensiv nutzen; Umtriebs- statt Standweide'],
+      extra: (au) => t3Fuer(au, (x) => x.kat === 'gg'), quelle: [QMB8] },
+    futtergraeser: { art: 'wiese', frage: 'Zu wenig wertvolle Futtergräser – wie fördern?',
+      kurz: 'Ziel sind meist 50–70 % Futtergräser, 10–30 % Klee und 10–30 % Futterkräuter. Durch die Förderung angepasster, wertvoller Gräser werden geringwertige Arten in der Regel zurückgedrängt.',
+      ursachen: [],
+      massnahmen: ['Leitgräser passend zu Standort und Nutzung wählen (Raigrasfähigkeit beachten)', 'Fehlende Arten durch Übersaat etablieren (AGFF-Merkblatt 5)', 'Nutzung und Düngung auf die gewünschten Gräser abstimmen (Tabelle 4)'],
+      extra: (au) => (au ? au.ziel.foerdern.filter((n) => AU().T4[n]).map((n) => n + ': ' + AU().T4[n][0]) : []), quelle: [QMB8, QMB3] },
+    raigras: { art: 'wiese', frage: 'Passt Raigras zu meinem Standort?',
+      kurz: 'Raigrasfähig sind milde, sonnige, früh schneefreie Lagen: rauhe Lagen bis 700 m, milde bis 900 m (Englisches Raigras bis 1000 m), mittelschwere durchlässige Böden bei 900–1200 mm Niederschlag, P und K mässig bis genügend.',
+      ursachen: [],
+      massnahmen: ['Englisches Raigras: Weide, Mähweide oder Mähwiese mit Frühlingsweide', 'Italienisches Raigras: Mähwiese, höchstens fünf Schnitte, gelegentlich versamen lassen', 'Nicht raigrasfähig: andere Leitgräser wählen, z. B. Wiesenfuchsschwanz (ertragreich auch in nicht raigrasfähigen Lagen)'],
+      extra: (au) => (au ? AU().raigrasHinweis(au).t : []), quelle: [QMB8] },
+
     mist: { art: 'beide', frage: 'Es hat Mist- oder Güllereste im Futter – was nun?',
       kurz: 'Hofdünger bringt Keime (Clostridien, Listerien, E. coli) ins Futter und mindert die Schmackhaftigkeit. Futter mit sichtbaren Rückständen nicht verfüttern.',
       ursachen: ['Gülle kurz vor der Ernte oder zu dick ausgebracht', 'Mist schlecht verteilt'],
@@ -125,12 +162,23 @@
     });
     return { art: heu ? 'heu' : a.art === 'silage' ? 'silage' : null, keys: [...k] };
   }
+  function relevantAufnahme(au) {
+    const e = AU().auswerten(au); const k = new Set(); const b = au.beurteilung;
+    if (au.luecken != null && au.luecken >= 5) k.add('luecken');
+    if ((e.unkraut || 0) > 0 || b.verunkrautung === 'mittel' || b.verunkrautung === 'stark') k.add('unkraut');
+    if (au.arten.some((x) => x.kat === 'gk' && x.p >= 5)) k.add('kraeuter');
+    if (b.verfilzung === 'mittel' || b.verfilzung === 'stark' || au.arten.some((x) => x.kat === 'gg' && x.p >= 10)) k.add('filz');
+    if (e.fg != null && e.fg < 50) k.add('futtergraeser');
+    if (au.standort.raigras || au.kopf.hoehe != null) k.add('raigras');
+    return [...k];
+  }
   function kontextDaten(ctx) {
+    if (ctx.aufnahme) return { art: 'wiese', keys: relevantAufnahme(ctx.aufnahme).sort((x, y) => ORDNUNG.indexOf(x) - ORDNUNG.indexOf(y)), plz: null };
     const sort = (l) => l.sort((x, y) => ORDNUNG.indexOf(x) - ORDNUNG.indexOf(y));
     if (ctx.labor) { const r = relevantLabor(ctx.labor); return { art: r.art, keys: sort(r.keys), plz: null }; }
     const p = ctx.probe; return { art: p.typ === 'heu' ? 'heu' : 'silage', keys: sort(relevantBeurteilung(p)), plz: p.kopf && p.kopf.plz };
   }
-  const passt = (art) => (f) => f.art === 'beide' || f.art === art;
+  const passt = (art) => (f) => (f.art === 'beide' && art !== 'wiese') || f.art === art;
   const ORDNUNG = Object.keys(F);
 
   // ---------- Darstellung ----------
@@ -139,18 +187,20 @@
     const d = kontextDaten(ctx); if (!d.art) return '';
     const rest = Object.keys(F).filter((k) => passt(d.art)(F[k]) && !d.keys.includes(k));
     const knopf = (k, hl) => '<li><button type="button" class="ber-frage' + (hl ? ' hl' : '') + '" data-as="frage" data-k="' + k + '">' + esc(F[k].frage) + '</button></li>';
-    return '<div class="assist-text">' + (d.keys.length ? 'Zu deiner Probe passen diese Fragen:' : 'Keine grösseren Mängel – trotzdem eine Frage?') + '</div>' +
+    return '<div class="assist-text">' + (d.keys.length ? (ctx.aufnahme ? 'Zu deiner Aufnahme passen diese Fragen:' : 'Zu deiner Probe passen diese Fragen:') : 'Keine grösseren Mängel – trotzdem eine Frage?') + '</div>' +
       (d.keys.length ? '<ul class="ber-liste">' + d.keys.map((k) => knopf(k, true)).join('') + '</ul>' : '') +
-      '<details class="ber-mehr"' + (d.keys.length ? '' : ' open') + '><summary>Weitere Fragen (' + rest.length + ')</summary><ul class="ber-liste">' + rest.map((k) => knopf(k, false)).join('') + '</ul></details>' +
+      (rest.length ? '<details class="ber-mehr"' + (d.keys.length ? '' : ' open') + '><summary>Weitere Fragen (' + rest.length + ')</summary><ul class="ber-liste">' + rest.map((k) => knopf(k, false)).join('') + '</ul></details>' : '') +
       '<button type="button" class="btn sm block" data-as="fachstelle" style="margin-top:8px">Antwort nicht gefunden? Fachstelle in deiner Region</button>';
   }
 
   function frageSheet(k, ctx) {
     const f = F[k]; if (!f) return;
     const m = f.m ? f.m() : f.massnahmen || [];
+    const ex = f.extra && ctx && ctx.aufnahme ? f.extra(ctx.aufnahme) : [];
     app().sheet('<h2>' + esc(f.frage) + '</h2><p>' + esc(f.kurz) + '</p>' +
       (f.ursachen.length ? '<h3 class="ber-h">Häufige Ursachen</h3><ul class="ber-punkte">' + f.ursachen.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '') +
       (f.ration ? '<h3 class="ber-h">Für die Fütterung</h3><p class="small">' + esc(f.ration) + '</p>' : '') +
+      (ex.length ? '<h3 class="ber-h">In deiner Aufnahme</h3><ul class="ber-punkte">' + ex.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '') +
       (m.length ? '<h3 class="ber-h">Was du tun kannst</h3><ul class="ber-punkte ber-mass">' + m.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '') +
       '<p class="small muted">Quelle: ' + f.quelle.map(esc).join('; ') + '</p>' +
       '<div class="row" style="margin-top:12px"><button class="btn grow" data-ber="fachstelle">Noch Fragen? Fachstelle</button><button class="btn primary grow" data-close>Danke</button></div>');
@@ -189,7 +239,7 @@
     A.sheet('<h2>Fachstelle in deiner Region</h2>' +
       '<form class="row ber-plz" data-ber="plz" style="gap:8px;align-items:flex-end"><label class="grow">PLZ<input name="plz" inputmode="numeric" pattern="\\d{4}" maxlength="4" value="' + esc(plz || '') + '" autocomplete="postal-code"></label><button class="btn">Suchen</button></form>' +
       (plz && !kt ? '<p class="small">Zu dieser PLZ kenne ich keinen Kanton.</p>' : '') +
-      (kt ? '<p class="small muted">Kanton ' + esc(kt) + ' – die kantonale landwirtschaftliche Beratung hilft bei Fragen zu Futterbau und Futterkonservierung.</p>' + (eintraege.length ? eintraege.map(karte).join('') : '<p>Für diesen Kanton ist noch keine Fachstelle hinterlegt.</p>') : '') +
+      (kt ? '<p class="small muted">Kanton ' + esc(kt) + ' – die kantonale landwirtschaftliche Beratung hilft bei Fragen zu Futterbau, Wiesenpflege und Futterkonservierung.</p>' + (eintraege.length ? eintraege.map(karte).join('') : '<p>Für diesen Kanton ist noch keine Fachstelle hinterlegt.</p>') : '') +
       (!plz ? '<p class="small">Gib deine PLZ ein, dann zeige ich die zuständige Fachstelle.</p>' : '') +
       '<p class="small muted" style="margin-top:10px">Die PLZ bleibt auf diesem Gerät. ' + esc(FS.stand || '') + '</p>' +
       '<button class="btn ghost block" data-close style="margin-top:6px">Schliessen</button>');
@@ -197,5 +247,5 @@
     if (f) f.addEventListener('submit', (e) => { e.preventDefault(); const v = String(new FormData(f).get('plz') || '').trim(); if (/^\d{4}$/.test(v)) { merkePlz(v); fachstelle(ctx, v); } });
   }
 
-  global.Beratung = { bubble, frageSheet, fachstelle, FRAGEN: F, _t: { kanton, daten, relevantBeurteilung, relevantLabor } };
+  global.Beratung = { bubble, frageSheet, fachstelle, FRAGEN: F, _t: { kanton, daten, relevantBeurteilung, relevantLabor, relevantAufnahme } };
 })(window);

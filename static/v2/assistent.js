@@ -67,6 +67,32 @@
       fachlich: 'Gehalte nach AGFF-Infoblatt K1 (Agroscope-Analysen 2012–13): Triticale 5,3 MJ NEL, 64 g RP; Hafer 4,5 MJ, 52 g RP; Gemenge Triticale/Hafer/Erbsen 5,3 MJ (Streuung 4,9–6,4), 80 g RP. GPS ist proteinarm (RP/NEL meist unter dem Zielwert 20 für Milchkühe) und ergänzt Mais- oder Grassilage vor allem durch wirksame Fasern. Zu frühe Ernte: Mindererertrag, Buttersäurerisiko; zu späte: Körnerverlust, schlechte Verdichtung, Nacherwärmung. Anteil in Milchkuhrationen unter einem Drittel halten.',
       bilder: [B('gps-harvey.webp', 'Visuelle Merkmale nach TS (Harvey 1992, AGFF-Infoblatt K1)')],
     },
+    // --- Wiese ---
+    wiese: {
+      titel: 'Wiese beurteilen',
+      einfach: 'Hier findest du alles für die Wiese: <b>Wiesenaufnahme</b> für die gründliche Beurteilung, das <b>Punktraster</b> für eine schnelle Schätzung von Gräsern, Klee und Kräutern, den <b>Stadienvergleich</b> für den richtigen Schnittzeitpunkt und <b>Höhe &amp; Ertrag</b>. Mit Fotopunkten siehst du, wie sich eine Stelle über die Jahre verändert.',
+      fachlich: 'Die Wiesenaufnahme folgt AGFF-Merkblatt 8 «Beurteilung von Wiesenbeständen» (Bestand, Standort, Zielbestand, Massnahmen); der botanische Typ (G, GR, A, AR, L, KF, KG) folgt Merkblatt 3. Das Punktraster misst die Deckung von oben, nicht den Gewichtsanteil – Vorschläge immer mit dem eigenen Blick abgleichen.',
+    },
+    fotopunkte: {
+      titel: 'Fotopunkte',
+      einfach: 'Ein Fotopunkt ist eine feste Stelle in der Wiese, die du immer wieder fotografierst. So siehst du über Monate und Jahre, ob Lücken zugehen, eine Übersaat wirkt oder Unkräuter zunehmen.',
+      fachlich: 'Vergleichbar werden die Bilder, wenn Standort, Blickrichtung, Höhe der Kamera und Jahreszeit gleich bleiben. Die App speichert den GPS-Standort, führt dich mit Pfeil und Kompass zurück und blendet beim nächsten Foto das letzte Bild halbtransparent ein.',
+    },
+    fotopunkt: {
+      titel: 'Neues Foto am Fotopunkt',
+      einfach: 'Geh zum gespeicherten Standort («Zum Standort führen»), dann «Neues Foto mit Ausrichtungshilfe». Das letzte Bild erscheint durchsichtig über der Kamera: Bring markante Punkte (Zaunpfahl, Baum, Stein) zur Deckung und drück ab.',
+      fachlich: 'GPS ist im Freien auf etwa 5–10 m genau; die letzten Meter über das eingeblendete Vorher-Bild ausrichten. Für den Vergleich möglichst zur gleichen Jahreszeit und vor dem gleichen Aufwuchs fotografieren; «Vorher / Nachher vergleichen» und «Verlauf als PDF» zeigen die Entwicklung.',
+    },
+    aufnahmen: {
+      titel: 'Wiesenaufnahme',
+      einfach: 'In vier Schritten zur besseren Wiese: <b>1</b> Bestand aufnehmen, <b>2</b> Standort und bisherige Bewirtschaftung, <b>3</b> Ziel festlegen, <b>4</b> Massnahmen. Wähle eine Fläche von etwa einer Are, die für die ganze Parzelle typisch ist.',
+      fachlich: 'Nach AGFF-Merkblatt 8 (2012) mit Arbeitsblatt. Zielbestand meist 50–70 % Futtergräser, 10–30 % Klee und 10–30 % Futterkräuter; in höheren Lagen ist ein grösserer Kräuteranteil zu dulden. Eine Folgeaufnahme (Kopie) zeigt die Entwicklung derselben Parzelle.',
+    },
+    aufnahme: {
+      titel: 'Deine Wiesenaufnahme',
+      einfach: 'Schätze zuerst Gräser, Klee und Kräuter in zwei Kreisen, dann die Arten und ihre Anteile. Die App schlägt den Bestandestyp, Zeigerpflanzen und Massnahmen vor.',
+      fachlich: 'Ertragsanteile in % der TS, in 5-%-Schritten. Blühende Pflanzen und gut sichtbare Blätter (z. B. Weissklee) werden gern überschätzt. Zeigerarten aus den Tabellen 3 und 4 des Merkblatts weisen ab 5 % auf Ursachen hin (z. B. Lücken, Verdichtung, Überdüngung, späte Nutzung).',
+    },
     labor: {
       titel: 'Fragen zur Analyse?',
       einfach: 'Ich erkläre dir, woher die Auffälligkeiten kommen und was du beim nächsten Mal anders machen kannst.',
@@ -263,6 +289,13 @@
       const lp = global.Laborauswertung.probe(r.id, r.i); if (!lp) return null;
       aktCtx = { labor: lp, angebot: 'hilfe:' + r.id + ':' + r.i }; return 'labor';
     }
+    if (r && r.name === 'wiese') return 'wiese';
+    if (r && r.name === 'fotopunkte') return r.id ? 'fotopunkt' : 'fotopunkte';
+    if (r && r.name === 'aufnahmen') {
+      const au = r.id && global.Aufnahme && global.Aufnahme.get(r.id); if (!au) return 'aufnahmen';
+      if (au.arten.length || au.luecken != null || au.kreise.some((k) => k.g != null)) aktCtx = { aufnahme: au, angebot: 'hilfe:au:' + au.id };
+      return 'aufnahme';
+    }
     if (!r || r.name !== 'probe') return null;
     const p = A.probeById(r.id); if (!p || !p.typ) return r.step === 'probe' || !r.step ? 'probe' : null;
     const step = r.step || 'probe';
@@ -287,7 +320,7 @@
     const fach = Z.stufe === 'fachlich';
     return '<div class="assist-head"><b>' + A.esc(t.titel) + '</b><button type="button" class="assist-x" data-as="zu" aria-label="Schliessen">×</button></div>' +
       '<div class="assist-text">' + (fach ? t.fachlich : t.einfach) + '</div>' +
-      (aktCtx && global.Beratung ? '<div class="assist-praxis ber"><b>Fragen zu deinem Futter</b>' + global.Beratung.bubble(aktCtx) + '</div>' : '') +
+      (aktCtx && global.Beratung ? '<div class="assist-praxis ber"><b>' + (aktCtx.aufnahme ? 'Fragen zu deiner Wiese' : 'Fragen zu deinem Futter') + '</b>' + global.Beratung.bubble(aktCtx) + '</div>' : '') +
       (P[key] && P[key].wie ? '<div class="assist-praxis"><b>Erinnert an</b><p>' + A.esc(P[key].wie) + '</p></div>' : '') +
       (P[key] && P[key].vorgehen ? '<div class="assist-praxis"><b>So gehst du vor</b><ol>' + P[key].vorgehen.map((x) => '<li>' + A.esc(x) + '</li>').join('') + '</ol></div>' : '') +
       (key.startsWith('rad.') && !/\.(regen|blaetter|mist|erde|ph)$/.test(key) ? '<button type="button" class="btn sm block assist-riechen" data-as="riechen">👃 So riechst du richtig</button>' : '') +
@@ -301,7 +334,7 @@
   function zeigen(key, kurz) {
     baue(); aktKey = key; offen = true; clearTimeout(teaserTimer);
     const b = el.querySelector('.assist-bubble');
-    b.innerHTML = kurz ? '<button type="button" class="assist-teaser" data-as="mehr"><b>' + app().esc(T[key].titel) + '</b><span>' + (aktCtx ? 'Fragen zu deinem Futter? Ich habe Tipps.' : 'Soll ich dir helfen? Tipp mich an.') + '</span></button>' : bubbleHtml(key);
+    b.innerHTML = kurz ? '<button type="button" class="assist-teaser" data-as="mehr"><b>' + app().esc(T[key].titel) + '</b><span>' + (aktCtx ? (aktCtx.aufnahme ? 'Fragen zu deiner Wiese? Ich habe Tipps.' : 'Fragen zu deinem Futter? Ich habe Tipps.') : 'Soll ich dir helfen? Tipp mich an.') + '</span></button>' : bubbleHtml(key);
     b.classList.toggle('kurz', !!kurz); b.hidden = false;
     el.classList.add('offen');
     const gk = aktCtx ? aktCtx.angebot : key;
