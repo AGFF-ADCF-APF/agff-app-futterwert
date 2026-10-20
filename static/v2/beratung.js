@@ -150,6 +150,47 @@
       massnahmen: ['Gülle vor Regen ausbringen, damit sie eingewaschen wird; dicke Gülle verdünnen oder einschlitzen', 'Gülle früh nach dem Schnitt ausbringen, nicht kurz vor der Ernte', 'Mistreste im Frühling eggen'], quelle: [QK4B, QK3] },
   };
 
+  // ---------- Links auf eAGFF (öffentliches Lehrmittel, eagff.ch) ----------
+  let EAG = null;
+  try { fetch('assets/eagff.json').then((r) => (r.ok ? r.json() : null)).then((j) => { EAG = j; }).catch(() => {}); } catch (e) { /* offline */ }
+  const EAG_Q = {
+    butter: ['silageQualitaet', 'silageHerstellen', 'schnitthoehe'], essig: ['silageHerstellen', 'silierprinzip'], alkohol: ['silageHerstellen', 'silofutterBereit'],
+    erwaermung: ['silofutterBereit', 'siliermittel'], schimmel: ['silageHerstellen', 'silofutterBereit'], ph: ['silierprinzip', 'silageQualitaet'],
+    anwelken: ['wieTrocken', 'silierfutterBergung'], verdichten: ['silageHerstellen', 'siliersysteme'], erdeSilage: ['schnitthoehe', 'zetten'],
+    heuBraun: ['belueften', 'einlagern'], heuSchimmel: ['einlagern', 'duerrfutterQualitaet'], heuBleich: ['wannMaehen', 'aufbereiter', 'bodenheu'], heuBlaetter: ['zetten'],
+    heuErde: ['schnitthoehe', 'zetten'], heuStock: ['belueften'], heuBallen: ['bodenheu'],
+    luecken: ['uebersaatWann', 'uebersaatVorgehen', 'neuansaat'], unkraut: ['unkrautUebersicht', 'unkrautVorbeugen', 'unkrautMechanisch'], kraeuter: ['unkrautVorbeugen', 'pflege'],
+    filz: ['uebersaatVorgehen', 'pflege'], futtergraeser: ['zielbestand', 'uebersaatVorgehen'], raigras: ['wiesentypen', 'zielbestand'],
+  };
+  const SPR = () => (global.Assistent && global.Assistent.sprache) || 'de';
+  const EAG_U = { de: { titel: 'Mehr auf eAGFF', arten: 'Arten auf eAGFF', nurDe: '' }, fr: { titel: 'Sur eAGFF', arten: 'Espèces sur eAGFF', nurDe: ' (en allemand)' }, it: { titel: 'Su eAGFF', arten: 'Specie su eAGFF', nurDe: ' (in tedesco)' } };
+  /** Link auf eine eAGFF-Seite in der gewählten Sprache (sonst deutsche Seite mit Hinweis) */
+  function eagA(e, text) {
+    const s = SPR(); const pfad = (s !== 'de' && e[s]) || e.de; const hinweis = s !== 'de' && !e[s] ? EAG_U[s].nurDe : '';
+    return '<a href="' + esc(EAG.basis + pfad) + '" target="_blank" rel="noopener">' + esc(text) + hinweis + ' ↗</a>';
+  }
+  /** Liste mit Themen-Links (Schlüssel aus eagff.json) */
+  function eagLinks(keys, titel) {
+    if (!EAG || !keys || !keys.length) return '';
+    const s = SPR(); const li = keys.filter((k) => EAG.themen[k]).map((k) => '<li>' + eagA(EAG.themen[k], EAG.themen[k].t[s] || EAG.themen[k].t.de) + '</li>');
+    return li.length ? '<div class="ber-eag"><b>' + esc(titel || EAG_U[s].titel) + '</b><ul class="ber-punkte small">' + li.join('') + '</ul></div>' : '';
+  }
+  /** Artenseiten zu Namen aus MB 8 (Anzeige in der Sprache des Traktors) */
+  function eagArten(namen) {
+    if (!EAG || !namen.length) return '';
+    const s = SPR(); const tr = FR();
+    const li = [...new Set(namen)].filter((n) => EAG.arten[n]).map((n) => { const anzeige = tr && (tr.T3[n] || tr.T4[n]) ? (tr.T3[n] || tr.T4[n])[0] : n; return '<li>' + eagA(EAG.arten[n], anzeige) + '</li>'; });
+    return li.length ? '<h3 class="ber-h">' + EAG_U[s].arten + '</h3><ul class="ber-punkte small">' + li.join('') + '</ul>' : '';
+  }
+  // Arten der Aufnahme je Wiesenfrage (gleiche Auswahl wie «In deiner Aufnahme»)
+  const ARTEN_Q = {
+    luecken: (au) => au.arten.filter((x) => x.p >= 5 && AU().T3[x.n] && /Lücken/.test(AU().T3[x.n][1])).map((x) => x.n),
+    unkraut: (au) => au.arten.filter((x) => x.p > 0 && x.kat === 'uk').map((x) => x.n),
+    kraeuter: (au) => au.arten.filter((x) => x.p >= 5 && x.kat === 'gk').map((x) => x.n),
+    filz: (au) => au.arten.filter((x) => x.p >= 5 && x.kat === 'gg').map((x) => x.n),
+    futtergraeser: (au) => au.ziel.foerdern.concat(au.ziel.leitgraeser),
+  };
+
   // ---------- Was passt zur Probe? ----------
   function relevantBeurteilung(p) {
     const A = app(); const r = A.auswertung(p) || {}; const s = r.auswahl || {}; const an = p.antworten || {}; const k = new Set();
@@ -224,6 +265,8 @@
       (f.ration ? '<h3 class="ber-h">' + u.fuetterung + '</h3><p class="small">' + esc(f.ration) + '</p>' : '') +
       (ex.length ? '<h3 class="ber-h">' + u.inAufnahme + '</h3><ul class="ber-punkte">' + ex.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '') +
       (m.length ? '<h3 class="ber-h">' + u.tun + '</h3><ul class="ber-punkte ber-mass">' + m.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '') +
+      (ctx && ctx.aufnahme && ARTEN_Q[k] ? eagArten(ARTEN_Q[k](ctx.aufnahme)) : '') +
+      eagLinks(EAG_Q[k]) +
       (f.voir && f.voir.length && u.voir ? '<h3 class="ber-h">' + u.voir + '</h3><ul class="ber-punkte small">' + f.voir.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '') +
       '<p class="small muted">' + u.quelle + (global.Assistent && global.Assistent.sprache === 'fr' ? ' : ' : ': ') + f.quelle.map(esc).join('; ') + '</p></div>' +
       '<div class="row" style="margin-top:12px"><button class="btn grow" data-ber="fachstelle">' + esc(u.nochFragen) + '</button><button class="btn primary grow" data-close>' + u.danke + '</button></div>');
@@ -271,5 +314,5 @@
     if (f) f.addEventListener('submit', (e) => { e.preventDefault(); const v = String(new FormData(f).get('plz') || '').trim(); if (/^\d{4}$/.test(v)) { merkePlz(v); fachstelle(ctx, v); } });
   }
 
-  global.Beratung = { bubble, frageSheet, fachstelle, FRAGEN: F, _t: { kanton, daten, relevantBeurteilung, relevantLabor, relevantAufnahme } };
+  global.Beratung = { bubble, frageSheet, fachstelle, eagLinks, FRAGEN: F, _t: { kanton, daten, relevantBeurteilung, relevantLabor, relevantAufnahme } };
 })(window);

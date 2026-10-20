@@ -282,6 +282,11 @@
   const LANG = () => (FRX() ? ' lang="' + Z.sprache + '"' : '');
   const U = () => (FRX() ? FRX().U : UD);
   const TT = (key) => (FRX() && FRX().T[key]) || T[key];
+  // eAGFF-Themen je Hilfe-Schritt (Linkliste aus eagff.json, siehe beratung.js)
+  const EAG_T = { stadium: ['stadienGraeser', 'stadienKleeKraeuter'], bestand: ['schluesselGrVeg', 'schluesselGrGen', 'schluesselKlee', 'schluesselKraeuter'], 'ts.gras': ['wieTrocken', 'silierfutterBergung'],
+    sauber: ['schnitthoehe'], ergebnis: ['bewertung'], wiese: ['graslandBeurteilen', 'wiesentypen'], aufnahmen: ['graslandBeurteilen', 'pflanzenAufnehmen', 'zielbestand'], aufnahme: ['pflanzenAufnehmen', 'zielbestand'],
+    labor: ['silageQualitaet', 'duerrfutterQualitaet'] };
+  const eagFuer = (key) => EAG_T[key] || (/^rad\.heu\./.test(key) ? ['duerrfutterQualitaet', 'verlustquellen'] : /^rad\.(gras|mais)\./.test(key) ? ['silageQualitaet', 'silierprinzip'] : null);
   const PP = (key) => (FRX() && FRX().P[key]) || P[key];
 
   // ---------- Darstellung ----------
@@ -337,7 +342,8 @@
       (aktCtx && global.Beratung ? '<div class="assist-praxis ber"><b>' + (aktCtx.aufnahme ? u.berWiese : u.berFutter) + '</b>' + global.Beratung.bubble(aktCtx) + '</div>' : '') +
       (pp && pp.wie ? '<div class="assist-praxis"><b>' + u.erinnert + '</b><p>' + A.esc(pp.wie) + '</p></div>' : '') +
       (pp && pp.vorgehen ? '<div class="assist-praxis"><b>' + u.vorgehen + '</b><ol>' + pp.vorgehen.map((x) => '<li>' + A.esc(x) + '</li>').join('') + '</ol></div>' : '') +
-      (key.startsWith('rad.') && !/\.(regen|blaetter|mist|erde|ph)$/.test(key) ? '<button type="button" class="btn sm block assist-riechen" data-as="riechen">' + u.riechen + '</button>' : '') + '</div>' +
+      (key.startsWith('rad.') && !/\.(regen|blaetter|mist|erde|ph)$/.test(key) ? '<button type="button" class="btn sm block assist-riechen" data-as="riechen">' + u.riechen + '</button>' : '') +
+      (global.Beratung && eagFuer(key) ? global.Beratung.eagLinks(eagFuer(key)) : '') + '</div>' +
       (t.bilder ? '<div class="assist-bilder">' + t.bilder.map((b, i) => '<button type="button" data-as="bild" data-i="' + i + '"><img alt="' + A.esc(b.cap) + '" src="' + b.src + '" loading="lazy"><span>' + A.esc(b.cap) + '</span></button>').join('') + '</div>' : '') +
       '<div class="assist-foot"><div class="seg sm" role="group" aria-label="' + u.einfach + ' / ' + u.fachlich + '"><button type="button" data-as="stufe" data-v="einfach" aria-pressed="' + !fach + '">' + u.einfach + '</button><button type="button" data-as="stufe" data-v="fachlich" aria-pressed="' + fach + '">' + u.fachlich + '</button></div>' +
       '<div class="seg sm" role="group" aria-label="' + u.sprache + '"><button type="button" data-as="sprache" data-v="de" lang="de" aria-pressed="' + (Z.sprache === 'de') + '">DE</button><button type="button" data-as="sprache" data-v="fr" lang="fr" aria-pressed="' + (Z.sprache === 'fr') + '">FR</button><button type="button" data-as="sprache" data-v="it" lang="it" aria-pressed="' + (Z.sprache === 'it') + '">IT</button></div>' +

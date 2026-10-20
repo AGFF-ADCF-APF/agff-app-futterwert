@@ -759,7 +759,7 @@ html.kb-hinweise [data-kb]::after { content: attr(data-kb); position: absolute; 
 .linkbtn { background: none; border: 0; padding: 0; color: var(--schlecht); text-decoration: underline; cursor: pointer; font: inherit; }
 
 
-/* ---- UX-Quick-Wins (b1-74) ---- */
+/* ---- UX-Quick-Wins (b1-75) ---- */
 /* Mindestschrift für Nebentexte, Hinweise in voller Grösse */
 .item .s, .bar .sub { font-size: .875rem; }
 .tbl thead th { font-size: .8rem; color: var(--ink-2); }
@@ -851,3 +851,4 @@ html[data-modus="wiese"] #main .bar { padding-right: 12px; }
 .ber-punkte { margin: 4px 0; padding-left: 20px; } .ber-punkte li { margin: 3px 0; }
 .ber-stelle { margin: 8px 0; padding: 10px 12px; } .ber-stelle p { margin: 4px 0 0; }
 .ber-plz input { width: 100%; }
+.ber-eag { margin: 10px 0 4px; } .ber-eag b { font-size: .85rem; } .ber-eag a, .ber-punkte a { color: var(--brand-ink); }
