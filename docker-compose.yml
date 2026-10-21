@@ -9,6 +9,16 @@ services:
       - ./static:/app/static
     environment:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      # v2 Kursmodus: Versand der Anmeldecodes, Schlüssel für E-Mail-Adressen (Werte nur in .env)
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - SMTP_FROM=${SMTP_FROM}
+      - V2_SERVER_KEY=${V2_SERVER_KEY}
+      # Kursleitung: freigeschaltete Adressen/Domains (kommagetrennt), Empfänger für Anträge
+      - V2_KURSLEITUNG_EMAILS=${V2_KURSLEITUNG_EMAILS:-}
+      - V2_KURSLEITUNG_DOMAINS=${V2_KURSLEITUNG_DOMAINS:-}
+      - V2_ADMIN_MAIL=${V2_ADMIN_MAIL:-}
     networks:
       - web-netzwerk
     labels:
@@ -16,8 +26,13 @@ services:
       
       # REGEL 1: Routing
       # Wenn jemand die IP aufruft UND der Pfad mit /futter beginnt...
-      - "traefik.http.routers.futter.rule=PathPrefix(`/futter`)"
-      - "traefik.http.routers.futter.entrypoints=web"
+      # Host() ist Absicht: Ohne ihn antwortete der Router unter JEDEM
+      # Hostnamen, der auf diesen Traefik zeigt.
+      - "traefik.http.routers.futter.rule=Host(`apps.graswachstum.ch`) && PathPrefix(`/futter`)"
+      # graswachstum.ch liegt in einem fremden DNS-Konto, daher HTTP-01
+      # statt des Wildcard-Resolvers. Name ist serverspezifisch.
+      - "traefik.http.routers.futter.tls.certresolver=${TRAEFIK_CERTRESOLVER:-le-http}"
+      - "traefik.http.routers.futter.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}"
       
       # REGEL 2: Pfad bereinigen (Middleware)
       # Wichtig: Die Python-App erwartet "/", nicht "/futter".
@@ -25,6 +40,21 @@ services:
       - "traefik.http.middlewares.futter-strip.stripprefix.prefixes=/futter"
       - "traefik.http.routers.futter.middlewares=futter-strip"
       
+      # REGEL 2b: /wiese = dieselbe App im Modus «Wiese» (gleiche Codebasis, gleicher Container).
+      # Ohne Schrägstrich am Ende auf /wiese/ umleiten (relative URLs der App), dann /wiese/... intern auf /v2/... abbilden
+      # und der App per Kopfzeile den Modus mitteilen. ($$ = ein $ in Compose.)
+      - "traefik.http.routers.futterwiese.rule=Host(`apps.graswachstum.ch`) && PathPrefix(`/wiese`)"
+      - "traefik.http.routers.futterwiese.tls.certresolver=${TRAEFIK_CERTRESOLVER:-le-http}"
+      - "traefik.http.routers.futterwiese.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}"
+      - "traefik.http.routers.futterwiese.service=futter"
+      - "traefik.http.middlewares.wiese-slash.redirectregex.regex=^(https?://[^/]+)/wiese$$"
+      - "traefik.http.middlewares.wiese-slash.redirectregex.replacement=$${1}/wiese/"
+      - "traefik.http.middlewares.wiese-slash.redirectregex.permanent=true"
+      - "traefik.http.middlewares.wiese-pfad.replacepathregex.regex=^/wiese(/.*)?$$"
+      - "traefik.http.middlewares.wiese-pfad.replacepathregex.replacement=/v2$${1}"
+      - "traefik.http.middlewares.wiese-modus.headers.customrequestheaders.X-AGFF-Modus=wiese"
+      - "traefik.http.routers.futterwiese.middlewares=wiese-slash,wiese-modus,wiese-pfad"
+
       # REGEL 3: Wohin?
       # Sende es an Port 5000 im Container
       - "traefik.http.services.futter.loadbalancer.server.port=5000"

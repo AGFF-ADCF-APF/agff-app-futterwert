@@ -1,0 +1,10 @@
+# Geheimnisse, Daten und Entwicklungsdateien gehören nicht ins Image
+.env
+.env.*
+!.env.example
+.git
+.venv
+__pycache__
+*.pyc
+data
+docker-compose.yml*

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="de-CH">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Datenschutz – Futterbeurteilung v2</title>
+  <meta name="robots" content="noindex">
+  <link rel="stylesheet" href="assets/app.css?v=b1-79">
+</head>
+<body>
+<div class="doc">
+  <p><a href="./">← Zurück zur App</a></p>
+  <h1>Datenschutzerklärung – Futterbeurteilung v2 (Beta)</h1>
+  <p class="draft">ENTWURF – vor der Veröffentlichung durch den Betreiber zu prüfen und zu ergänzen (Verantwortliche Stelle, Kontakt, Serverstandort).</p>
+
+  <div class="kurz" role="note"><b>Das Wichtigste in Kürze</b>
+    <ul>
+      <li><b>Standard:</b> Ihre Daten bleiben nur auf Ihrem Gerät. Kein Konto, kein Tracking.</li>
+      <li><b>Nur mit Ihrer Zustimmung</b> gehen Daten auf den Server: für Gruppen, Kurse oder Ihr Konto mit Cloud-Speicherung.</li>
+      <li><b>Wer sieht was:</b> nur Personen mit Link, Code oder Anmeldung – und der Betreiber für Betrieb und Support.</li>
+      <li><b>Löschen:</b> jederzeit selbst in der App; automatisch nach 24 Monaten ohne Nutzung.</li>
+      <li><b>Anonyme Beiträge</b> für Auswertungen sind freiwillig und enthalten keine Namen, Betriebe oder Fotos.</li>
+    </ul>
+  </div>
+  {% if modus == 'wiese' %}
+  <div class="kurz" role="note"><b>Wiese: Kamera, Standort, Fotopunkte</b>
+    <ul>
+      <li><b>Kamera:</b> Das Live-Bild wird nur auf Ihrem Gerät ausgewertet (Punktraster, Stadienvergleich, Pflanzen-Lupe). Es gibt keine KI-Auswertung auf dem Server und keine Übermittlung.</li>
+      <li><b>Standort:</b> nur wenn Sie ihn für einen Fotopunkt oder eine Wiesenaufnahme speichern; er bleibt auf Ihrem Gerät, ausser Sie schalten die Cloud ein.</li>
+      <li><b>Fotopunkte, Wiesenaufnahmen, Referenzbilder:</b> liegen im Speicher Ihres Browsers; mit Konto und «Wiese in der Cloud» zusätzlich auf dem Server (siehe 4h).</li>
+      <li>Nicht enthalten in PDF-Berichten ist Ihr Standort.</li>
+    </ul>
+  </div>
+  {% endif %}
+  <h2>1. Verantwortliche Stelle</h2>
+  <p>[Name / Organisation, Adresse, E-Mail – bitte ergänzen]</p>
+
+  <h2>2. Grundsatz: Daten bleiben auf Ihrem Gerät</h2>
+  <p>Die Anwendung speichert Ihre Anlässe, Proben und Beurteilungen ausschliesslich im Speicher Ihres Browsers (localStorage) auf dem verwendeten Gerät. Diese Daten werden nicht an uns übertragen. Sie können sie jederzeit unter «Daten & Datenschutz» löschen oder als Datei sichern.</p>
+  <p>Beim Aufruf der Seite lädt die App lediglich ihre Programmdateien sowie die Nährwerttabelle (Agroscope) vom Server. Dabei fallen technisch bedingt Zugriffsdaten an (IP-Adresse, Zeitpunkt, aufgerufene Datei, Browserkennung), die der Webserver bzw. Reverse-Proxy für den sicheren Betrieb kurzzeitig protokollieren kann. [Aufbewahrungsdauer der Server-Logs ergänzen]</p>
+  <p>Es werden keine Cookies, keine Analyse- oder Tracking-Werkzeuge und keine Inhalte von Drittanbietern (z. B. Schriftarten, CDNs) eingesetzt.</p>
+
+  <h2>3. PDF-Berichte und QR-Codes</h2>
+  <p>PDF-Berichte werden direkt in Ihrem Browser erzeugt. Sie enthalten neben der Darstellung die Eingaben in kodierter Form, damit die Beurteilung später wieder importiert werden kann. Der QR-Code enthält die Eingaben im Teil der Adresse nach dem «#»; dieser Teil wird vom Browser nicht an den Server übermittelt. Beachten Sie: Wer den PDF-Bericht oder QR-Code erhält, kann die enthaltenen Angaben lesen.</p>
+
+  <h2>4. Speicherung auf dem Server (nur mit Einwilligung)</h2>
+  <p>Nur wenn Sie für eine Gruppe (früher «Anlass») ausdrücklich «Auf Server speichern» wählen und zustimmen, wird er auf dem Server von apps.graswachstum.ch gespeichert. [Serverstandort / Hoster ergänzen]</p>
+  <ul>
+    <li><b>Gespeichert werden</b> alle Angaben des Anlasses: Titel und Ort, Probenbezeichnungen, Herkunft/Betrieb, Namen der Beurteilenden, Notizen, Fotos und die Beurteilungen. Die Übertragung ist verschlüsselt (HTTPS). Auf dem Server haben nur Personen mit Link sowie der Betreiber (für Betrieb, Sicherung und Support) Zugriff. Die Daten sind in den Sicherungen des Servers enthalten.</li>
+    <li>Die Beurteilungsdaten ohne Personenbezug (Futterart, Bestand, Stadium, Antworten der Beurteilungsräder, Messwerte, Schnittdatum) werden getrennt gespeichert und können für anonyme, zusammenfassende Auswertungen verwendet werden. Der Server weist Daten zurück, die in diesen Feldern Freitext enthalten.</li>
+    <li><b>Zugriff:</b> Es gibt einen Bearbeiten- und einen Nur-Ansehen-Link. Wer einen Link besitzt, sieht alle Angaben des Anlasses. Der Server speichert nur Prüfwerte (Hashes) der Zugriffsschlüssel. Links können jederzeit erneuert werden; alte Links sind danach ungültig.</li>
+    <li><b>Gruppen-Beitrittscode:</b> Zusätzlich zum Link gibt es einen 8-stelligen Code, der wie der Bearbeiten-Link Zugriff gibt. Der Server speichert ihn nur als Prüfwert und zusammen mit dem Link-Schlüssel verschlüsselt; Fehlversuche werden begrenzt. Beim Erneuern der Links wird auch der Code ungültig. Wer beitritt, kann eigene, bereits erfasste Proben auswählen und in die Gruppe verschieben; nur diese werden geteilt. Damit «Eigene» und «Andere Proben» unterschieden werden können, trägt jede Probe eine zufällige Kennung des Geräts (ohne Personenbezug).</li>
+    <li><b>Zweck und Rechtsgrundlage:</b> Zugriff von mehreren Geräten und gemeinsames Erfassen; Ihre Einwilligung (Version und Zeitpunkt werden gespeichert).</li>
+    <li><b>Löschung:</b> Automatisch {{ (retention_days / 30.4)|round|int }} Monate nach der letzten Änderung, jederzeit selbst über «Vom Server löschen».</li>
+    <li><b>Schutz vor Missbrauch:</b> Anfragen werden pro Absender begrenzt; dafür wird ein gekürzter Hashwert der IP-Adresse kurzzeitig im Arbeitsspeicher gehalten, nicht gespeichert.</li>
+  </ul>
+  <p>Erfassen Sie Angaben zu anderen Personen (z. B. Betriebsname) nur, wenn diese damit einverstanden sind.</p>
+
+  <h2>4a. Kursmodus (Schulklassen, Gruppen)</h2>
+  <p>Im Kursmodus werden <b>alle Angaben auf dem Server gespeichert</b>, damit eine Gruppe dieselben Proben beurteilen und vergleichen kann. Die Datenschutzhinweise werden beim Beitritt einmalig angezeigt; ohne Zustimmung ist keine Teilnahme möglich.</p>
+  <ul>
+    <li><b>Gespeichert werden:</b> Vorname bzw. Anzeigename, E-Mail-Adresse (Kursleitung immer, Teilnehmende freiwillig), Angaben zu den Proben (Bezeichnung, Schnitt, Notizen, Standort mit PLZ, Ort, Höhe und auf ca. 1 km gerundeter Position), Fotos vom Futter, Fotos von Laborberichten, Laborwerte sowie die abgegebenen Beurteilungen inklusive Fotos und Laborimport.</li>
+    <li><b>Sichtbarkeit:</b> Die Kursleitung sieht alle Angaben, auch die vollständigen E-Mail-Adressen. Kursmitglieder sehen Namen, Proben und Beurteilungen der anderen; Beurteilungen, Laborwerte und Fotos aus Beurteilungen erst nach der eigenen Abgabe (ausser die Kursleitung gibt einzelne Angaben als Hilfestellung frei). E-Mail-Adressen sehen sie nur gekürzt.</li>
+    <li><b>Technischer Schutz:</b> Übertragung verschlüsselt (HTTPS). E-Mail-Adressen sind mit einem Serverschlüssel verschlüsselt gespeichert und werden nur für Einmal-Codes und Anmeldungen verwendet. Die übrigen Kursdaten liegen auf dem Server; Zugriff haben nur Kursmitglieder gemäss ihrer Rolle sowie der Betreiber (für Betrieb, Sicherung und Support). Wer ein Etikett oder den Kurs-Link besitzt, kann dem Kurs beitreten.</li>
+    <li><b>Kurse wiederfinden:</b> Mit einer im Kurs bestätigten E-Mail-Adresse lassen sich die eigenen Kurse auf einem neuen Gerät wiederherstellen. Dafür speichert der Server den Kurs-Link verschlüsselt (Serverschlüssel).</li>
+    <li><b>Laborberichte:</b> Fotos von Laborberichten werden auf Ihrem Gerät automatisch geschwärzt (Texterkennung ohne KI und ohne Übertragung): sichtbar bleiben nur erkannte Analysezeilen. Sie prüfen das Ergebnis und können weitere Bereiche abdecken. Laborfotos ohne Schwärzung werden anderen Personen nie angezeigt und nicht in den Probenpool übernommen.</li>
+    <li><b>Fotos:</b> höchstens 20 MB je Person und Kurs; Neu-Codierung im Browser entfernt Standort- und Kameradaten aus den Bilddateien.</li>
+    <li><b>Löschung:</b> Teilnehmende können jederzeit austreten (Name, Fotos und Abgaben werden gelöscht). Die Kursleitung kann Personen entfernen oder den Kurs löschen. Automatische Löschung {{ (retention_days / 30.4)|round|int }} Monate nach der letzten Änderung.</li>
+  </ul>
+
+  <h2>4b. Probenpool für Kursleitende</h2>
+  <p>Kursleitende können ausgewählte Proben bewusst für andere freigeschaltete Kursleitende veröffentlichen (Bezeichnung, Beschreibung, Postleitzahl, Ort und Höhe (ohne genaue Position), Laborwerte, Fotos, ausgewählte Beurteilungen als anonyme «Referenz»). Diese Einträge sind für alle Kursleitenden lesbar und mit dem Serverschlüssel gespeichert. Sie enthalten keine Personennamen; die veröffentlichende Person bestätigt dies. Einträge können von ihr oder vom Betreiber gelöscht werden.</p>
+
+  <h2>4c. Antrag Kursleitung</h2>
+  <p>Wer Kurse anlegen möchte, kann einen Antrag stellen (Name, Organisation, kurze Begründung, bestätigte E-Mail-Adresse). Diese Angaben werden verschlüsselt gespeichert und nur vom Betreiber zur Prüfung gelesen.</p>
+
+  <h2>4d. Speichern eigener Anlässe auf dem Server</h2>
+  <p>Erfordert eine bestätigte E-Mail-Adresse (Schutz vor Missbrauch des Speicherplatzes). Sie wird verschlüsselt gespeichert und nicht weitergegeben. Fotos: höchstens 20 MB je Anlass.</p>
+
+  <h2>4e. Laborbericht lesen (Texterkennung)</h2>
+  <ul>
+    <li><b>Auf dem Server</b> (nur nach Zustimmung): Das gewählte PDF bzw. Foto wird verschlüsselt (HTTPS) übertragen, ausschliesslich im Arbeitsspeicher bzw. einem temporären Verzeichnis verarbeitet und unmittelbar danach gelöscht. Es wird nichts gespeichert und der Inhalt nicht protokolliert. Zurückgegeben werden nur die erkannten Laborwerte.</li>
+    <li><b>Auf dem Gerät:</b> Die Erkennung läuft vollständig im Browser; die Datei verlässt das Gerät nicht.</li>
+    <li>Bitte decken Sie Adresse und Namen vor dem Fotografieren ab oder schwärzen Sie sie in der App.</li>
+    <li>Übernommene Laborwerte werden wie die übrigen Angaben behandelt (lokal; bei Freigaben und in Kursen auf dem Server).</li>
+  </ul>
+
+  <h2>4f. Anonyme Beiträge für Auswertungen und Publikationen</h2>
+  <p>Nur mit Ihrer Einwilligung (in den Einstellungen, je Probe abwählbar) werden Proben, bei denen Sie eine Postleitzahl angegeben haben, anonym übermittelt: Postleitzahl, Höhe (auf 100 m gerundet), Monat und Jahr, Futterart, Bestand, Stadium, Ihre Antworten in der Beurteilung, die geschätzten Werte und ggf. Laborwerte. Nicht übermittelt werden Namen, Betrieb, Parzelle, Bezeichnungen, Notizen und Fotos. Die Beiträge dienen anonymen Auswertungen und Publikationen sowie dem regionalen Vergleich in der App; Vergleiche werden erst ab 5 Proben je Gruppe angezeigt. Jeder Beitrag kann nur von Ihrem Gerät aus geändert oder zurückgezogen werden; beim Zurückziehen wird er gelöscht.</p>
+  <p><b>Kursproben:</b> In Kursen trägt die Kursleitung erfasste Kursproben (mit Postleitzahl) anonym bei – einmal je Probe: Postleitzahl, Höhe, Monat und Jahr, Futterart, Laborwerte sowie der Median bzw. die häufigste Antwort aller abgegebenen Beurteilungen und deren Anzahl. Keine Namen, Bezeichnungen, Notizen oder Fotos. Darauf wird beim Kursbeitritt hingewiesen; die Kursleitung kann es ausschalten, dann werden die Beiträge des Kurses gelöscht.</p>
+  <p><b>Auswertung Schweiz:</b> Die App zeigt die Beiträge auf einer Karte nach Postleitzahl-Region (erste zwei Ziffern) und nach Höhenstufe (unter 600 m, 600–1000, 1000–1400, über 1400 m). Kennwerte erscheinen erst ab 5 Proben je Gruppe; kleinere Gruppen nur als Anzahl.</p>
+
+  <h2>4g. Wiese mit Kamera, Fotopunkte</h2>
+  <ul>
+    <li>Das Live-Kamerabild wird ausschliesslich im Browser ausgewertet (Raster, Grünanteil, Messkarte). Es wird nichts übertragen und keine externe Bilderkennung oder KI verwendet. Die Kamera ist nur aktiv, solange die Kameraansicht offen ist.</li>
+    <li>Aufnahmen werden nur gespeichert, wenn Sie das ausdrücklich wählen: zur Probe (wie andere Futterfotos), als eigenes Referenzbild oder an einem Fotopunkt. Gespeichert wird ein neu erzeugtes Bild ohne Standort- und Kameradaten.</li>
+    <li><b>Fotopunkte:</b> Auf Wunsch speichert die App den Standort (Koordinaten) und die Blickrichtung des Fotopunkts, um Sie später zur gleichen Stelle zu führen. Diese Angaben und die Fotos bleiben auf diesem Gerät und sind nur in Ihrer eigenen Sicherungsdatei enthalten, nicht im PDF «Verlauf».</li>
+  </ul>
+
+  <h2>4h. Konto und Cloud-Speicherung (freiwillig)</h2>
+  <p>Mit einem Konto (nur E-Mail-Adresse, kein Passwort) können Sie Ihre Daten in der Cloud sichern und auf mehreren Geräten verwenden – für «Futter» und «Wiese» getrennt einschaltbar.</p>
+  <ul>
+    <li><b>Anmeldung:</b> 6-stelliger Code (15 Minuten gültig) oder Anmelde-Knopf in der E-Mail. Der Anmelde-Link bleibt 24 Monate gültig, damit Sie sich später wieder anmelden können; er kann in der App jederzeit widerrufen werden. Der Server speichert davon nur einen Prüfwert. Wer Zugriff auf Ihr E-Mail-Postfach hat, kann sich anmelden – leiten Sie die E-Mail nicht weiter.</li>
+    <li><b>Gespeichert</b> werden die Adresse (verschlüsselt, Suche über einen Prüfwert), die angemeldeten Geräte (Gerätetyp und Browser, Zeitpunkte) und – nur wenn eingeschaltet – alle Daten der jeweiligen App inklusive Fotos. Ohne Ende-zu-Ende-Verschlüsselung; Zugriff nur mit Ihrer Anmeldung sowie durch den Betreiber für Betrieb und Support.</li>
+    <li><b>Foto-Speicher:</b> begrenzt je Konto; mehr auf Antrag (Angaben im Antrag werden verschlüsselt gespeichert und nur vom Betreiber gelesen).</li>
+    <li><b>Löschung:</b> Cloud je App ausschalten und löschen, Konto komplett löschen – jederzeit unter «Daten». Automatisch {{ (retention_days / 30.4)|round|int }} Monate nach der letzten Nutzung.</li>
+  </ul>
+  <h2>5. Ihre Rechte</h2>
+  <p>Sie haben das Recht auf Auskunft, Berichtigung und Löschung Ihrer Daten sowie auf Widerruf einer Einwilligung mit Wirkung für die Zukunft (nach dem Schweizer Datenschutzgesetz, DSG). Kontakt: [E-Mail ergänzen]</p>
+
+  <p class="muted small">Stand: Oktober 2026 · Entwurf</p>
+</div>
+</body>
+</html>

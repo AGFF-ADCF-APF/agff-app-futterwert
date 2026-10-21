@@ -1,0 +1,16 @@
+{
+  "name": "Wiese – Bestand, Stadium, Pflanzen (AGFF)",
+  "short_name": "Wiese",
+  "description": "Wiesenbestand beurteilen: Punktraster, Stadium, Höhe und Ertrag, Pflanzen bestimmen, Fotopunkte, Wiesenaufnahme nach AGFF-Merkblatt 8 – offline, Daten bleiben im Browser.",
+  "lang": "de-CH",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f6f4",
+  "theme_color": "#0f7f74",
+  "icons": [
+    { "src": "assets/icon-wiese.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "assets/icon-wiese-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icon-wiese-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
