@@ -55,15 +55,18 @@ def _tabellen(conn):
     conn.execute('CREATE TABLE IF NOT EXISTS zentral_ausweise (jti TEXT PRIMARY KEY, expires_at INTEGER)')
 
 
-def _basis():
-    """Öffentliche Adresse der App (Traefik schneidet /futter bzw. /wiese ab und meldet es in X-Forwarded-Prefix)."""
+def _url(rest):
+    """Öffentliche Adresse eines v2-Pfads (rest beginnt mit /): /futter/v2/… (Traefik schneidet /futter ab
+    und meldet es in X-Forwarded-Prefix) bzw. /wiese/… (Traefik bildet /wiese/x auf /v2/x ab, Kopfzeile X-AGFF-Modus)."""
     proto = request.headers.get('X-Forwarded-Proto') or request.scheme
     host = request.headers.get('X-Forwarded-Host') or request.host
-    return f"{proto}://{host}{request.headers.get('X-Forwarded-Prefix', '').rstrip('/')}"
+    if request.headers.get('X-AGFF-Modus') == 'wiese':
+        return f"{proto}://{host}/wiese{rest}"
+    return f"{proto}://{host}{request.headers.get('X-Forwarded-Prefix', '').rstrip('/')}/v2{rest}"
 
 
 def _cookie_pfad():
-    return (request.headers.get('X-Forwarded-Prefix', '').rstrip('/') or '') + '/'
+    return '/'
 
 
 def _sicher():
@@ -115,8 +118,8 @@ def sitzung():
 
 
 SEITE = """<!doctype html><html lang="de-CH"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex"><title>Anmeldung – Futterbeurteilung v2</title><link rel="stylesheet" href="{{ basis }}/v2/assets/app.css"></head>
-<body><div class="doc"><h1>Anmeldung</h1><p class="alert warn">{{ text }}</p><p><a class="btn" href="{{ basis }}/v2/admin">Zur Administration</a></p></div></body></html>"""
+<meta name="robots" content="noindex"><title>Anmeldung – Futterbeurteilung v2</title><link rel="stylesheet" href="{{ css }}"></head>
+<body><div class="doc"><h1>Anmeldung</h1><p class="alert warn">{{ text }}</p><p><a class="btn" href="{{ admin }}">Zur Administration</a></p></div></body></html>"""
 
 
 @v2.route('/v2/anmelden')
@@ -124,7 +127,7 @@ def zentral_anmelden():
     from urllib.parse import quote
     nonce = secrets.token_urlsafe(24)
     ziel = (_zentral_url() + '/eagff-mitwirken/zugang/apps?app=' + quote(_app_id())
-            + '&zurueck=' + quote(_basis() + '/v2/anmelden/rueckweg', safe='') + '&nonce=' + quote(nonce))
+            + '&zurueck=' + quote(_url('/anmelden/rueckweg'), safe='') + '&nonce=' + quote(nonce))
     r = redirect(ziel)
     # SameSite=None: der Rückweg ist ein POST von graswachstum.ch (andere Website)
     r.set_cookie(NONCE_COOKIE, nonce, max_age=900, httponly=True, secure=_sicher(), samesite='None' if _sicher() else 'Lax', path=_cookie_pfad())
@@ -133,14 +136,13 @@ def zentral_anmelden():
 
 @v2.route('/v2/anmelden/rueckweg', methods=['POST'])
 def zentral_rueckweg():
-    basis = _basis()
     try:
         d = ausweis_pruefen(request.form.get('ausweis', ''), request.cookies.get(NONCE_COOKIE, ''))
     except ValueError as e:
-        return render_template_string(SEITE, basis=basis, text=str(e)), 400
+        return render_template_string(SEITE, admin=_url('/admin'), css=_url('/assets/app.css'), text=str(e)), 400
     rechte = d.get('rechte') or {}
     if not (rechte.get('admin') or rechte.get('apps_admin')):
-        return render_template_string(SEITE, basis=basis, text='Ihr Konto hat keinen Zugang zur Administration von Futter v2. '
+        return render_template_string(SEITE, admin=_url('/admin'), css=_url('/assets/app.css'), text='Ihr Konto hat keinen Zugang zur Administration von Futter v2. '
                                       'Freigabe über graswachstum.ch/admin (Recht «Apps verwalten»).'), 403
     token = secrets.token_urlsafe(32)
     jetzt = int(time.time())
@@ -149,7 +151,7 @@ def zentral_rueckweg():
         conn.execute('DELETE FROM zentral_sitzungen WHERE expires_at < ?', (jetzt,))
         conn.execute('INSERT INTO zentral_sitzungen (token_hash, sub, name, methode, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
                      (hashlib.sha256(token.encode()).hexdigest(), d.get('sub'), d.get('name'), d.get('methode'), jetzt, jetzt + SITZUNG_DAUER))
-    r = make_response(redirect(basis + '/v2/admin'), 303)
+    r = make_response(redirect(_url('/admin')), 303)
     r.set_cookie(SITZUNG_COOKIE, token, max_age=SITZUNG_DAUER, httponly=True, secure=_sicher(), samesite='Lax', path=_cookie_pfad())
     r.delete_cookie(NONCE_COOKIE, path=_cookie_pfad())
     return r
