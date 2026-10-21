@@ -759,7 +759,7 @@ html.kb-hinweise [data-kb]::after { content: attr(data-kb); position: absolute; 
 .linkbtn { background: none; border: 0; padding: 0; color: var(--schlecht); text-decoration: underline; cursor: pointer; font: inherit; }
 
 
-/* ---- UX-Quick-Wins (b1-78) ---- */
+/* ---- UX-Quick-Wins (b1-79) ---- */
 /* Mindestschrift für Nebentexte, Hinweise in voller Grösse */
 .item .s, .bar .sub { font-size: .875rem; }
 .tbl thead th { font-size: .8rem; color: var(--ink-2); }
@@ -862,3 +862,4 @@ html[data-modus="wiese"] #main .bar { padding-right: 12px; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .la-beta-band { background: #3a3014; color: #fbe8b0; border-color: #6b5520; } }
 :root[data-theme="dark"] .la-beta-band { background: #3a3014; color: #fbe8b0; border-color: #6b5520; }
 .au-eag { font-size: .72rem; font-weight: 600; color: var(--brand-ink); white-space: nowrap; margin-left: 4px; }
+.app-zu-futter.app-unten { margin: 4px 12px 24px; }

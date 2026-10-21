@@ -299,6 +299,7 @@
     else if (r.name === 'kursmail') { history.replaceState(null, '', location.pathname + '#/'); ui.route = { name: 'home' }; render(); window.Kurs.mailLink(r.token); return; }
     else if (r.name === 'kurs') { history.replaceState(null, '', location.pathname + '#/'); ui.route = { name: 'home' }; render(); window.Kurs.beitreten(r.token); return; }
     else ui.route = r;
+    if (!MODUS_WIESE && !LOKAL && NUR_WIESE.includes(ui.route.name)) { location.replace(WIESE_URL + location.hash); return; }  // alte Lesezeichen
     if (MODUS_WIESE && ui.route.name === 'home') { history.replaceState(null, '', location.pathname + location.search + '#/wiese'); ui.route = { name: 'wiese' }; }
     render();
   }
@@ -350,15 +351,25 @@
   /** Adresse /wiese: dieselbe App, nur die Wiese-Seite im Vordergrund (Futter bleibt über einen Link erreichbar) */
   const MODUS_WIESE = (window.AGFF_V2 || {}).modus === 'wiese';
   const FUTTER_URL = '/futter/v2/';
-  function appVon(r) { return WIESE_ROUTEN.includes(r.name) ? 'wiese' : NEUTRAL_ROUTEN.includes(r.name) ? (MODUS_WIESE ? 'wiese' : (appStand.aktiv || 'futter')) : 'futter'; }
+  // Futter (/futter/v2) und Wiese (/wiese) sind getrennte Apps; auf dem Testserver (localhost) bleibt alles in einer App erreichbar.
+  const WIESE_URL = '/wiese/';
+  const LOKAL = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+  const NUR_WIESE = ['wiese', 'fotopunkte', 'aufnahmen'];
+  function appVon(r) { if (!MODUS_WIESE && !LOKAL) return 'futter'; return WIESE_ROUTEN.includes(r.name) ? 'wiese' : NEUTRAL_ROUTEN.includes(r.name) ? (MODUS_WIESE ? 'wiese' : (appStand.aktiv || 'futter')) : 'futter'; }
   const APP_ICON = {
     futter: '<svg viewBox="0 0 32 32" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="9" width="24" height="16" rx="3"/><path d="M4 14h24M4 20h24" stroke-width="1.4" opacity=".7"/><path d="M11 9v16M21 9v16" stroke-width="2.4"/><path d="M7 9l2-3M14 9l1-3M24 9l2-3" stroke-width="1.4"/></svg>',
     wiese: '<svg viewBox="0 0 32 32" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 27h26"/><path d="M7 27c0-6-2-10-4-12M11 27c0-7 1-12 3-15M16 27c0-6 3-9 6-10M21 27c0-4-1-8-4-10M26 27c0-5 1-8 3-9"/><circle cx="24" cy="8" r="2.4" fill="currentColor"/><path d="M24 10.4V17"/></svg>',
   };
+  /** Oben: nur noch auf dem Testserver ein Umschalter (beide Apps in einer). Live sind Futter und Wiese getrennt. */
   function appUmschalter(aktiv) {
+    if (MODUS_WIESE || !LOKAL) return '';
     const k = (id, titel) => '<button type="button" class="app-knopf" data-act="app" data-val="' + id + '" aria-pressed="' + (aktiv === id) + '">' + APP_ICON[id] + '<span>' + titel + '</span></button>';
-    if (MODUS_WIESE) return '<a class="app-zu-futter" href="' + FUTTER_URL + '">' + APP_ICON.futter + '<span>Zur Futterbeurteilung</span><span aria-hidden="true">→</span></a>';
     return '<div class="app-umschalter" role="group" aria-label="App wählen">' + k('futter', 'Futter') + k('wiese', 'Wiese') + '</div>';
+  }
+  /** Zuunterst in der Seitenleiste: Link zur jeweils anderen App */
+  function appLinkUnten() {
+    return MODUS_WIESE ? '<a class="app-zu-futter app-unten" href="' + FUTTER_URL + '">' + APP_ICON.futter + '<span>Zur Futterbeurteilung</span><span aria-hidden="true">→</span></a>'
+      : '<a class="app-zu-futter app-unten" href="' + WIESE_URL + '">' + APP_ICON.wiese + '<span>Zur Wiesenbeurteilung</span><span aria-hidden="true">→</span></a>';
   }
   /** Am Computer: mittlere Spalte (Liste) ein-/ausklappen – Knopf in der Kopfzeile des Arbeitsbereichs. */
   const LISTE_KEY = 'agffV2Liste';
@@ -375,7 +386,7 @@
   /** Wenn das Menü nicht sichtbar ist (Handy, Tablet): kleiner Umschalter in der Kopfzeile der Ansicht. */
   function appMini() {
     document.querySelectorAll('.app-mini').forEach((x) => x.remove());
-    if (MODUS_WIESE) return;
+    if (MODUS_WIESE || !LOKAL) return;
     const nav = document.querySelector('.region-nav');
     if (nav && getComputedStyle(nav).display !== 'none') return;
     const reg = ['.region-list', '.region-detail'].map((q) => document.querySelector(q)).find((x) => x && getComputedStyle(x).display !== 'none');
@@ -409,7 +420,7 @@
   }
 
   function renderNav(r) {
-    if (appVon(r) === 'wiese') return window.Wiese.renderNav(r, appUmschalter('wiese'));
+    if (appVon(r) === 'wiese') return window.Wiese.renderNav(r, appUmschalter('wiese'), appLinkUnten());
     const cur = r.name === 'anlass' ? r.id : (r.name === 'probe' ? (probeById(r.id) || {}).anlassId : undefined);
     const anl = db.anlaesse.slice().sort((x, y) => ((y.datum || y.createdAt) > (x.datum || x.createdAt) ? 1 : -1));
     const einzel = probenOf(null).length;
@@ -436,7 +447,7 @@
       '<li><a class="item" href="#/pool" aria-current="' + (r.name === 'pool') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.table.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Musterproben</span><span class="s">Öffentlicher Probenpool mit Laborwerten</span></span></a></li>' +
       '<li><a class="item" href="#/hilfe" aria-current="' + (r.name === 'hilfe') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">?</span><span><span class="t">Hilfe & Merkblätter</span><span class="s">Unterlagen, Pflanzentabelle, Quellen</span></span></a></li>' +
       '<li><a class="item" href="../"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">v1</span><span><span class="t">Zur bisherigen Version</span><span class="s">Futterwert-Rechner v1</span></span></a></li>' +
-      '</ul>';
+      '</ul>' + appLinkUnten();
   }
 
   /** Farbiges Merkblatt-Kürzel (K3a/K3b/K3c) zur schnellen Unterscheidung der Futterart. */

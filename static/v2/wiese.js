@@ -1183,7 +1183,7 @@
   }
 
   // ---------- Eigene App «Wiesenbeurteilung»: Menü (links bzw. Startseite auf dem Handy) und Liste ----------
-  function renderNav(r, umschalter) {
+  function renderNav(r, umschalter, linkUnten) {
     const A = app(); const I = A.I;
     const li = (href, ico, t, sub, aktiv) => '<li><a class="item" href="' + href + '" aria-current="' + !!aktiv + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + ico + '</span><span><span class="t">' + t + '</span><span class="s">' + sub + '</span></span></a></li>';
     const lb = (wi, ico, t, sub) => '<li><button type="button" class="item" data-wi="' + wi + '" style="width:100%;text-align:left;background:none;border:0;cursor:pointer;color:inherit"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + ico + '</span><span><span class="t">' + t + '</span><span class="s">' + sub + '</span></span></button></li>';
@@ -1199,7 +1199,7 @@
       li('#/wiese', I.camera.replace('<svg', '<svg width="22" height="22"'), 'Übersicht', 'Alle Werkzeuge und Grenzen', r.name === 'wiese') + '</ul>' +
       '<div class="section-title" style="padding:0 12px">Daten & Hilfe</div><ul class="list" style="padding:0 8px 24px">' +
       li('#/hilfe', '?', 'Hilfe & Merkblätter', 'Unterlagen, Pflanzentabelle, Quellen', r.name === 'hilfe') +
-      li('#/daten', I.lock.replace('<svg', '<svg width="22" height="22"'), 'Speicherort, Sicherung', 'Daten liegen nur in diesem Browser', r.name === 'daten') + '</ul>';
+      li('#/daten', I.lock.replace('<svg', '<svg width="22" height="22"'), 'Speicherort, Sicherung', 'Daten liegen nur in diesem Browser', r.name === 'daten') + '</ul>' + (linkUnten || '');
   }
   /** Mittlere Spalte: «Meine Wiesen» – Aufnahmen und Fotopunkte nach Parzelle gruppiert, jüngste zuerst. Auf der Seite Fotopunkte: die Fotopunkt-Liste. */
   function renderListe(r) {
