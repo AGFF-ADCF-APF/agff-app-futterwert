@@ -277,7 +277,7 @@
       const liste = a.arten.map((x, i) => Object.assign({ i }, x)).filter((x) => x.kat === c.id);
       const sum = e.kat[c.id];
       return '<div class="au-kat"><div class="au-kat-kopf"><b>' + c.t + '</b><span class="muted small">Total ' + sum + ' %</span></div>' +
-        liste.map((x) => { const t3 = T3[x.n]; const t4 = T4[x.n]; const info = t1Info(x.n); return '<div class="au-art"><span class="au-art-n" title="' + esc(info ? info[1] : '') + '">' + esc(x.n) + (t3 || t4 ? ' <span class="chip au-zeiger" title="Zeiger für: ' + esc((t3 || t4)[1]) + '">Zeiger</span>' : '') + '</span>' + stepper('arten.' + x.i + '.p', x.p, x.n) + '<button type="button" class="icon-btn au-weg-btn" data-au="art-weg" data-i="' + x.i + '" aria-label="' + esc(x.n) + ' entfernen">×</button></div>'; }).join('') +
+        liste.map((x) => { const t3 = T3[x.n]; const t4 = T4[x.n]; const info = t1Info(x.n); return '<div class="au-art"><span class="au-art-n" title="' + esc(info ? info[1] : '') + '">' + esc(x.n) + (global.Beratung && global.Beratung.eagUrl(x.n) ? ' <a class="au-eag" href="' + esc(global.Beratung.eagUrl(x.n)) + '" target="_blank" rel="noopener" title="Porträt auf eagff.ch" aria-label="' + esc(x.n) + ' auf eagff.ch">eAGFF ↗</a>' : '') + (t3 || t4 ? ' <span class="chip au-zeiger" title="Zeiger für: ' + esc((t3 || t4)[1]) + '">Zeiger</span>' : '') + '</span>' + stepper('arten.' + x.i + '.p', x.p, x.n) + '<button type="button" class="icon-btn au-weg-btn" data-au="art-weg" data-i="' + x.i + '" aria-label="' + esc(x.n) + ' entfernen">×</button></div>'; }).join('') +
         '<button type="button" class="btn sm ghost" data-au="art-neu" data-kat="' + c.id + '">' + app().I.plus + ' Art</button></div>';
     };
     const gesamt = e.artenSumme;

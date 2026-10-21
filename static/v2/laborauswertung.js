@@ -23,9 +23,12 @@
     if (r.id) { const b = L.find((x) => x.id === r.id); if (b) return r.i != null && b.proben[r.i] ? probeSeite(b, r.i) : berichtSeite(b); }
     return start(L);
   }
+  // Deutlicher Beta-Hinweis bei Eingabe und Resultaten (Regeln werden fachlich geprüft)
+  const BETA = '<span class="la-beta" title="Bewertungsregeln werden zurzeit fachlich geprüft">Beta</span>';
+  const BETA_BAND = '<div class="la-beta-band" role="note"><b>Beta</b> – Die Bewertungsregeln werden zurzeit von Fachleuten geprüft. Ergebnisse kritisch lesen und bei wichtigen Entscheiden die Fachstelle beiziehen.</div>';
   function start(L) {
     const I = app().I;
-    return '<div class="bar"><h2>Laboranalyse auswerten<span class="sub">Prüfbericht fotografieren oder als PDF laden</span></h2></div><div class="pad la">' +
+    return '<div class="bar"><h2>' + BETA + 'Laboranalyse auswerten<span class="sub">Prüfbericht fotografieren oder als PDF laden</span></h2></div><div class="pad la">' + BETA_BAND +
       '<div class="la-hero"><p><b>Bericht erhalten? Gleich einlesen.</b> Die App bewertet jeden Wert mit einer Ampel, prüft wichtige Verhältnisse (z. B. Gärqualität, Pansen-Bilanz, Verschmutzung) und erklärt Ursachen und Massnahmen – ausführlicher als der Postbericht.</p>' +
       '<div class="row"><label class="btn primary grow la-datei">' + I.camera + ' Foto aufnehmen<input type="file" accept="image/*" capture="environment" data-la="datei" hidden></label>' +
       '<label class="btn grow la-datei">' + I.upload + ' PDF oder Bild wählen<input type="file" accept="application/pdf,image/*" data-la="datei" hidden></label></div>' +
@@ -38,8 +41,8 @@
 
   function berichtSeite(b) {
     const I = app().I;
-    return '<div class="bar"><a class="icon-btn" href="#/labor" aria-label="Zurück">' + I.back + '</a><h2>' + esc(b.titel) + '<span class="sub">' + esc([b.labor, b.proben.length + ' Proben'].filter(Boolean).join(' · ')) + '</span></h2>' +
-      '<button class="icon-btn" data-la="loeschen" data-id="' + b.id + '" aria-label="Bericht entfernen">✕</button></div><div class="pad la"><ul class="list la-proben">' +
+    return '<div class="bar"><a class="icon-btn" href="#/labor" aria-label="Zurück">' + I.back + '</a><h2>' + BETA + esc(b.titel) + '<span class="sub">' + esc([b.labor, b.proben.length + ' Proben'].filter(Boolean).join(' · ')) + '</span></h2>' +
+      '<button class="icon-btn" data-la="loeschen" data-id="' + b.id + '" aria-label="Bericht entfernen">✕</button></div><div class="pad la">' + BETA_BAND + '<ul class="list la-proben">' +
       b.proben.map((p, i) => { const a = R().auswerten(p); const top = a.befunde[0];
         return '<li><a class="item" href="#/labor/' + b.id + '/' + i + '"><span class="avatar" style="background:var(--surface-2)">' + PUNKT(a.gesamt) + '</span><span style="min-width:0"><span class="t">' + esc(name(p, i)) + '</span><span class="s">' + esc([({ silage: 'Silage', duerr: 'Dürrfutter', gruen: 'Frisches Futter' }[a.art]), p.meta.bezeichnung && p.meta.bezeichnung !== p.meta.name ? p.meta.bezeichnung : '', p.meta.schnitt ? p.meta.schnitt + ' Schnitt' : '', top ? top.titel : ''].filter(Boolean).join(' · ')) + '</span></span>' +
           '<span class="meta"><span class="num">' + (p.werte.nel ? zahl(p.werte.nel.v, 1) : '–') + '</span><br><span class="small muted">MJ NEL</span></span></a></li>'; }).join('') + '</ul>' +
@@ -65,7 +68,7 @@
       const ziel = w.ziel ? (w.ziel[0] != null ? zahl(w.ziel[0], d) + '–' : '≤ ') + zahl(w.ziel[1], d) : '';
       return '<tr><td>' + (e ? PUNKT(e.ton) : '') + '</td><td>' + esc(t) + '</td><td class="num"><b>' + (w.kleiner ? '< ' : '') + zahl(w.v, d) + '</b> <span class="muted small">' + u + '</span></td><td class="small muted">' + esc(ziel) + '</td><td class="small">' + esc(e ? e.text : '') + '</td></tr>'; };
     const kopf = [({ silage: 'Silage', duerr: 'Dürrfutter', gruen: 'Frisches Futter' }[a.art]), p.meta.bezeichnung, p.meta.schnitt ? p.meta.schnitt + ' Schnitt' : '', p.meta.schnittdatum ? datum(p.meta.schnittdatum) : '', p.meta.hoehe].filter(Boolean).join(' · ');
-    return '<div class="bar"><a class="icon-btn" href="#/labor/' + b.id + '" aria-label="Zurück">' + I.back + '</a><h2>' + esc(name(p, i)) + '<span class="sub">' + esc(kopf) + '</span></h2></div><div class="pad la">' +
+    return '<div class="bar"><a class="icon-btn" href="#/labor/' + b.id + '" aria-label="Zurück">' + I.back + '</a><h2>' + BETA + esc(name(p, i)) + '<span class="sub">' + esc(kopf) + '</span></h2></div><div class="pad la">' + BETA_BAND +
       (p.meta.bestand || p.meta.bemerkung ? '<p class="small muted" style="margin-top:0">' + esc([p.meta.bestand, p.meta.bemerkung].filter(Boolean).join(' · ')) + '</p>' : '') +
       '<section class="q"><h3>Das Wichtigste</h3>' + a.befunde.map(befund).join('') + '</section>' +
       (a.verhaeltnisse.length ? '<section class="q"><h3>Verhältnisse und Kennzahlen</h3><table class="wi-tab la-tab">' + a.verhaeltnisse.map((x) => '<tr><td>' + PUNKT(x.ton) + '</td><td>' + esc(x.titel) + '</td><td class="num"><b>' + esc(x.wert) + '</b></td><td class="small">' + esc(x.text) + warum(x.quelle) + '</td></tr>').join('') + '</table></section>' : '') +

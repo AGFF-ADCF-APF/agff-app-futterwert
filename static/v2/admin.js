@@ -1,5 +1,5 @@
 /* Futter v2 – Administration: Freischaltung Kursleitung, Einladungscodes, Probenpool, Speicher. */
-(function () {
+(function (global) {
   'use strict';
   let pw = '';
   try { pw = sessionStorage.getItem('agffV2Admin') || ''; } catch (e) { /* egal */ }
@@ -20,6 +20,7 @@
     $('#inhalt').innerHTML =
       '<div class="kpis"><div class="kpi"><div class="l">Kurse</div><div class="v">' + s.kurse + '</div></div><div class="kpi"><div class="l">Teilnehmende</div><div class="v">' + s.teilnehmende + '</div></div>' +
       '<div class="kpi"><div class="l">Freigaben</div><div class="v">' + s.freigaben + '</div></div><div class="kpi"><div class="l">Fotos</div><div class="v">' + Math.round(s.fotoBytes / 1048576) + '<small> / ' + Math.round(s.fotoLimit / 1048576) + ' MB</small></div></div></div>' +
+      '<div id="pendenzen"></div>' +
       '<h2>Anträge Kursleitung (' + antraege.length + ')</h2>' + (antraege.length ? antraege.map((k) => '<div class="card stack" style="margin-bottom:8px"><div><b>' + esc(k.name) + '</b> · ' + esc(k.org || '–') + '<br><span class="small">' + esc(k.email) + ' · ' + datum(k.createdAt) + '</span></div>' +
         (k.text ? '<p class="small" style="margin:0">' + esc(k.text) + '</p>' : '') + '<div class="row"><button class="btn primary sm" data-e="' + k.id + '" data-s="frei">Freischalten</button><button class="btn sm danger" data-e="' + k.id + '" data-s="abgelehnt">Ablehnen</button></div></div>').join('') : '<p class="muted small">Keine offenen Anträge.</p>') +
       '<h2>Freigeschaltet</h2><p class="small muted">Zusätzlich per Domain/Adresse in .env: ' + esc((u.domains || []).join(', ') || '–') + (u.adressen ? ' · ' + u.adressen + ' Adresse(n)' : '') + '</p>' +
@@ -32,8 +33,11 @@
       '<h2>Anonyme Beiträge</h2><p class="small muted">Für Auswertungen und Publikationen (ohne Namen, Betriebe, Parzellen).</p><button class="btn" id="csvExport">CSV herunterladen</button>' +
       '<h2>Probenpool (' + pool.eintraege.length + ')</h2><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Titel</th><th>Futter</th><th>Quelle</th><th>Datum</th><th></th></tr></thead><tbody>' + pool.eintraege.map((p) => '<tr><td>' + esc(p.daten.titel) + '</td><td>' + esc(p.daten.typ) + '</td><td>' + esc(p.daten.quelle) + '</td><td>' + datum(p.createdAt) + '</td><td><button class="btn sm danger" data-pool="' + p.id + '">Löschen</button></td></tr>').join('') + '</tbody></table></div>';
     $('#inhalt').hidden = false; $('#login').hidden = true;
+    if (global.AdminPendenzen) await global.AdminPendenzen.laden($('#pendenzen'), api).catch((e) => { $('#pendenzen').innerHTML = '<p class="alert">Pendenzen: ' + esc(e.message) + '</p>'; });
   }
+  const hdr = () => ({ 'X-Admin-Pass': pw });
   document.addEventListener('click', async (e) => {
+    if (global.AdminPendenzen && e.target.closest('#pendenzen') && await global.AdminPendenzen.klick(e, $('#pendenzen'), hdr)) return;
     if (e.target.id === 'csvExport') {
       const r = await fetch('api/admin/statistik.csv', { headers: { 'X-Admin-Pass': pw }, cache: 'no-store' });
       if (!r.ok) { alert('Fehler ' + r.status); return; }
@@ -49,8 +53,10 @@
       await laden();
     } catch (er) { alert('Fehler: ' + er.message); }
   });
+  document.addEventListener('change', (e) => { if (global.AdminPendenzen && e.target.closest('#pendenzen')) global.AdminPendenzen.aenderung(e, $('#pendenzen'), hdr); });
   document.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (global.AdminPendenzen && e.target.closest('#pendenzen') && await global.AdminPendenzen.senden(e, $('#pendenzen'))) return;
     const fd = new FormData(e.target);
     if (e.target.id === 'login') {
       pw = String(fd.get('pw'));
@@ -65,4 +71,4 @@
     }
   });
   if (pw) laden().catch(() => { pw = ''; });
-})();
+})(window);

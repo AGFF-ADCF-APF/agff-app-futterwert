@@ -314,5 +314,7 @@
     if (f) f.addEventListener('submit', (e) => { e.preventDefault(); const v = String(new FormData(f).get('plz') || '').trim(); if (/^\d{4}$/.test(v)) { merkePlz(v); fachstelle(ctx, v); } });
   }
 
-  global.Beratung = { bubble, frageSheet, fachstelle, eagLinks, FRAGEN: F, _t: { kanton, daten, relevantBeurteilung, relevantLabor, relevantAufnahme } };
+  /** Adresse der deutschen eAGFF-Artenseite zu einem Namen aus MB 8 (oder null) */
+  const eagUrl = (name) => (EAG && EAG.arten[name] ? EAG.basis + EAG.arten[name].de : null);
+  global.Beratung = { bubble, frageSheet, fachstelle, eagLinks, eagUrl, FRAGEN: F, _t: { kanton, daten, relevantBeurteilung, relevantLabor, relevantAufnahme } };
 })(window);

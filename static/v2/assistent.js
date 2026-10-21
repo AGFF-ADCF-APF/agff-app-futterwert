@@ -408,7 +408,7 @@
   }
 
   global.Assistent = {
-    update, TEXTE: T,
+    update, TEXTE: T, PRAXIS: P,
     get ruhe() { return Z.ruhe; },
     set ruhe(v) { Z.ruhe = !!v; merken(); if (el) el.classList.toggle('schlaeft', Z.ruhe); if (Z.ruhe) schliessen(); },
     get stufe() { return Z.stufe; },

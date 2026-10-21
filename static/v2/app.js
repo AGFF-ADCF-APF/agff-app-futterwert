@@ -284,6 +284,7 @@
     if (seg[0] === 'aufnahmen') return { name: 'aufnahmen', id: seg[1] || null };
     if (seg[0] === 'labor') return { name: 'labor', id: seg[1] || null, i: seg[2] != null && /^\d+$/.test(seg[2]) ? Number(seg[2]) : null };
     if (seg[0] === 'pflanzen') return { name: 'pflanzen' };
+    if (seg[0] === 'texte') return { name: 'texte', id: seg[1] || 'fr' };
     if (seg[0] === 'hilfe') return { name: 'hilfe' };
     if (seg[0] === 'pool') return { name: 'pool', id: seg[1] || null };
     return { name: 'home' };
@@ -326,7 +327,7 @@
     $('#main').innerHTML = r.name === 'probe' ? renderProbe(probeById(r.id), r.step)
       : r.name === 'anlass' ? (r.sammel ? window.Sammel.render(anlassId) : renderUebersicht(anlassId))
       : r.name === 'daten' ? renderDaten() : r.name === 'schweiz' ? window.Schweiz.render() : r.name === 'bilanz' ? window.Bilanz.render()
-      : r.name === 'wiese' ? window.Wiese.render() : r.name === 'fotopunkte' ? window.Wiese.renderFotopunkte(r.id) : r.name === 'aufnahmen' ? window.Aufnahme.render(r.id) : r.name === 'labor' ? window.Laborauswertung.render(r) : r.name === 'pflanzen' ? window.Pflanzen.render() : r.name === 'hilfe' ? renderHilfe() : r.name === 'pool' ? window.PoolOeffentlich.render(r.id) : renderWelcome();
+      : r.name === 'wiese' ? window.Wiese.render() : r.name === 'fotopunkte' ? window.Wiese.renderFotopunkte(r.id) : r.name === 'aufnahmen' ? window.Aufnahme.render(r.id) : r.name === 'labor' ? window.Laborauswertung.render(r) : r.name === 'texte' && window.Textpruefung ? window.Textpruefung.render(r) : r.name === 'pflanzen' ? window.Pflanzen.render() : r.name === 'hilfe' ? renderHilfe() : r.name === 'pool' ? window.PoolOeffentlich.render(r.id) : renderWelcome();
     afterRender();
   }
   let lastHash = null;
@@ -417,7 +418,7 @@
       appUmschalter('futter') +
       '<div class="pad stack">' +
       '<button class="btn primary block" data-act="new-probe" style="min-height:56px">' + I.plus + ' Neue Probe beurteilen</button>' +
-      '<a class="btn block" href="#/labor" style="min-height:48px">' + I.table + ' Laboranalyse auswerten</a>' +
+      '<a class="btn block" href="#/labor" style="min-height:48px">' + I.table + ' Laboranalyse auswerten <span class="la-beta">Beta</span></a>' +
       '<div class="row"><button class="btn sm grow" data-act="new-anlass">' + I.share + ' Futterprobe teilen</button><button class="btn sm grow" data-act="import">' + I.upload + ' Importieren</button></div>' +
       '</div>' +
       '<div class="section-title" style="margin-top:4px;padding:0 12px;display:flex;justify-content:space-between;align-items:center">Anlässe<button class="btn sm ghost" data-act="meine-kurse" style="min-height:30px;font-size:.78rem">Kurse per E-Mail wiederfinden</button></div><ul class="list" style="padding:0 8px">' +
