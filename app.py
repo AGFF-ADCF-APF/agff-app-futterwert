@@ -569,7 +569,7 @@ init_and_migrate_db()
 
 # v2 (Beta): eigenes Blueprint mit eigener SQLite-Datei (data/v2.db)
 from v2_api import v2 as v2_blueprint, init_v2_db
-import v2_mail, v2_admin, v2_kurs, v2_pool, v2_labor, v2_statistik, v2_konto, v2_pendenzen  # registrieren ihre Routen am selben Blueprint
+import v2_mail, v2_admin, v2_kurs, v2_pool, v2_labor, v2_statistik, v2_konto  # registrieren ihre Routen am selben Blueprint
 app.register_blueprint(v2_blueprint)
 init_v2_db()
 v2_mail.init_mail_db()
@@ -578,7 +578,6 @@ v2_admin.init_admin_db()
 v2_pool.init_pool_db()
 v2_statistik.init_statistik_db()
 v2_konto.init_konto_db()
-v2_pendenzen.init_pendenzen_db()
 
 def _parse_float_or_zero(value):
     if value is None:
