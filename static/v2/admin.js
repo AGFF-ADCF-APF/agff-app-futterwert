@@ -7,7 +7,7 @@
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const datum = (d) => (d ? new Date(typeof d === 'number' ? d * 1000 : d).toLocaleDateString('de-CH') : '');
   async function api(path, o) {
-    const r = await fetch('api/' + path, Object.assign({ cache: 'no-store', credentials: 'omit' }, o || {}, { headers: Object.assign({ 'Content-Type': 'application/json', 'X-Admin-Pass': pw }, (o || {}).headers || {}) }));
+    const r = await fetch('api/' + path, Object.assign({ cache: 'no-store', credentials: 'same-origin' }, o || {}, { headers: Object.assign({ 'Content-Type': 'application/json', 'X-Admin-Pass': pw }, (o || {}).headers || {}) }));
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { const e = new Error(j.error || 'HTTP ' + r.status); e.status = r.status; throw e; }
     return j;
@@ -35,7 +35,7 @@
   }
   document.addEventListener('click', async (e) => {
     if (e.target.id === 'csvExport') {
-      const r = await fetch('api/admin/statistik.csv', { headers: { 'X-Admin-Pass': pw }, cache: 'no-store' });
+      const r = await fetch('api/admin/statistik.csv', { headers: { 'X-Admin-Pass': pw }, cache: 'no-store', credentials: 'same-origin' });
       if (!r.ok) { alert('Fehler ' + r.status); return; }
       const url = URL.createObjectURL(await r.blob()); const l = document.createElement('a'); l.href = url; l.download = 'futter_beitraege_' + new Date().toISOString().slice(0, 10) + '.csv'; document.body.appendChild(l); l.click(); l.remove();
       return;
@@ -64,5 +64,24 @@
       } catch (er) { alert('Fehler: ' + er.message); }
     }
   });
-  if (pw) laden().catch(() => { pw = ''; });
+  // Zentrale Anmeldung (graswachstum.ch): mit gültiger Sitzung direkt anzeigen, sonst Knopf und Passwort
+  (async () => {
+    let ich = null;
+    try { ich = await api('admin/ich'); } catch (er) { /* alte App ohne Endpunkt */ }
+    if (ich && ich.zentral) $('#zentral').hidden = false;
+    if (ich && ich.angemeldet) {
+      const a = $('#angemeldet'); a.hidden = false;
+      a.innerHTML = 'Angemeldet als <b>' + esc(ich.name) + '</b> über graswachstum.ch · <a href="#" id="abmelden">Abmelden</a>';
+      $('#zentral').hidden = true;
+      try { await laden(); return; } catch (er) { /* Sitzung ungültig: Anmeldung anbieten */ }
+    }
+    if (pw) laden().catch(() => { pw = ''; });
+  })();
+  document.addEventListener('click', async (e) => {
+    if (e.target.id !== 'abmelden') return;
+    e.preventDefault();
+    await fetch('abmelden', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
+    try { sessionStorage.removeItem('agffV2Admin'); } catch (er) { /* egal */ }
+    location.reload();
+  });
 })(window);

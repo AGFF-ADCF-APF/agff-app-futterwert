@@ -150,6 +150,10 @@ def kl_antrag():
 
 # --- Administration (Admin-Passwort wie im Dashboard) ---------------------------------
 def _admin_ok():
+    # Zentrale Anmeldung über graswachstum.ch (Cookie), sonst Admin-Passwort
+    import v2_zentral
+    if v2_zentral.sitzung():
+        return True
     pw = os.environ.get('ADMIN_PASSWORD') or ''
     ok = bool(pw) and hmac.compare_digest(request.headers.get('X-Admin-Pass', ''), pw)
     if not ok:
