@@ -160,6 +160,11 @@
       einfach: 'L’insilato di mais deve essere molto acido – idealmente sotto 4,1. Misura: coprire l’insilato con altrettanta acqua distillata, attendere 10 minuti, poi misurare il liquido.',
       fachlich: 'Grazie a molti zuccheri fermentescibili l’insilato di mais raggiunge di regola un pH di 3,7–4,0. Oltre 4,2: fermentazione disturbata o inizio di riscaldamento (degradazione dell’acido lattico da parte dei lieviti). Punti secondo K3c: < 4,1 = 0; 4,1–4,2 = 2; 4,2–4,5 = 4; > 4,5 = 5.',
     },
+    konserv: {
+      titel: 'Il popolamento si conserva bene?',
+      einfach: 'Scelga prima il tipo di conservazione: silo, balle, fieno ventilato o fieno essiccato a terra. Poi passi in rassegna i punti – con onestà: sì, no o incerto. In caso di «no» compare subito la misura utile. La cosa più importante: lavorare puliti, senza terra né liquame nel foraggio.',
+      fachlich: 'La lista verifica le premesse, non il foraggio finito: popolamento e stadio (facile da insilare? in tempo?), campo (cumuli, liquame, umidità del suolo), macchine (altezza di taglio 8–10 cm, denti a circa 10 cm, condizionatore), meteo e stoccaggio. Basi: AGFF-Merkblatt K4b (in tedesco), schede ADCF/AGRIDEA 2.7.9 e 12.4 (in francese). La terra porta spore di clostridi nel silo – ogni «no» per cumuli, liquame, suolo, altezza di taglio o denti è quindi un rischio di contaminazione.',
+    },
     wiese: {
       titel: 'Valutare il prato',
       einfach: 'Qui trova tutto per il prato: il <b>rilievo del prato</b> per una valutazione completa, la <b>griglia di punti</b> per stimare in fretta graminacee, trifoglio e altre erbe, il <b>confronto degli stadi</b> per il momento di taglio giusto e <b>altezza &amp; resa</b>. I punti fotografici mostrano come cambia un luogo negli anni.',

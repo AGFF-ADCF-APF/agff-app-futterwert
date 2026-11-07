@@ -69,6 +69,11 @@
       fachlich: 'Gehalte nach AGFF-Infoblatt K1 (Agroscope-Analysen 2012–13): Triticale 5,3 MJ NEL, 64 g RP; Hafer 4,5 MJ, 52 g RP; Gemenge Triticale/Hafer/Erbsen 5,3 MJ (Streuung 4,9–6,4), 80 g RP. GPS ist proteinarm (RP/NEL meist unter dem Zielwert 20 für Milchkühe) und ergänzt Mais- oder Grassilage vor allem durch wirksame Fasern. Zu frühe Ernte: Mindererertrag, Buttersäurerisiko; zu späte: Körnerverlust, schlechte Verdichtung, Nacherwärmung. Anteil in Milchkuhrationen unter einem Drittel halten.',
       bilder: [B('gps-harvey.webp', 'Visuelle Merkmale nach TS (Harvey 1992, AGFF-Infoblatt K1)')],
     },
+    konserv: {
+      titel: 'Lässt sich der Bestand gut konservieren?',
+      einfach: 'Wähle zuerst, wie du konservieren willst: Silo, Ballen, Belüftungsheu oder Bodenheu. Dann gehst du die Punkte durch – ehrlich mit ja, nein oder unklar. Bei «nein» steht gleich, was helfen würde. Am meisten bringt saubere Arbeit: keine Erde, keine Gülle im Futter.',
+      fachlich: 'Die Liste prüft die Voraussetzungen, nicht das fertige Futter: Bestand und Stadium (silierbar? rechtzeitig?), Feld (Haufen, Gülle, Bodenfeuchte), Maschinen (Schnitthöhe 8–10 cm, Zinken auf etwa 10 cm, Aufbereiter) sowie Wetter und Lager. Grundlagen: AGFF K4b, ADCF/AGRIDEA 2.7.9 und 12.4. Erde bringt Clostridien-Sporen ins Silo – deshalb gilt jedes «nein» bei Haufen, Gülle, Boden, Schnitthöhe oder Zinken als Verschmutzungsrisiko.',
+    },
     // --- Wiese ---
     wiese: {
       titel: 'Wiese beurteilen',

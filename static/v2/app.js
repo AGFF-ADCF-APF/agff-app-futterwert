@@ -355,7 +355,7 @@
   const WIESE_URL = '/wiese/';
   const LOKAL = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
   const NUR_WIESE = ['wiese', 'fotopunkte', 'aufnahmen'];
-  function appVon(r) { if (!MODUS_WIESE && !LOKAL) return 'futter'; return WIESE_ROUTEN.includes(r.name) ? 'wiese' : NEUTRAL_ROUTEN.includes(r.name) ? (MODUS_WIESE ? 'wiese' : (appStand.aktiv || 'futter')) : 'futter'; }
+  function appVon(r) { if (!MODUS_WIESE && !LOKAL) return 'futter'; if (MODUS_WIESE && r.name === 'probe') return 'wiese'; return WIESE_ROUTEN.includes(r.name) ? 'wiese' : NEUTRAL_ROUTEN.includes(r.name) ? (MODUS_WIESE ? 'wiese' : (appStand.aktiv || 'futter')) : 'futter'; }
   const APP_ICON = {
     futter: '<svg viewBox="0 0 32 32" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="9" width="24" height="16" rx="3"/><path d="M4 14h24M4 20h24" stroke-width="1.4" opacity=".7"/><path d="M11 9v16M21 9v16" stroke-width="2.4"/><path d="M7 9l2-3M14 9l1-3M24 9l2-3" stroke-width="1.4"/></svg>',
     wiese: '<svg viewBox="0 0 32 32" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 27h26"/><path d="M7 27c0-6-2-10-4-12M11 27c0-7 1-12 3-15M16 27c0-6 3-9 6-10M21 27c0-4-1-8-4-10M26 27c0-5 1-8 3-9"/><circle cx="24" cy="8" r="2.4" fill="currentColor"/><path d="M24 10.4V17"/></svg>',
@@ -568,7 +568,7 @@
     if (p.typ === 'heu') s.push({ id: 'bestand', t: 'Bestand' }, { id: 'stadium', t: 'Stadium' }, { id: 'rad', t: 'Sensorik-Rad' });
     if (p.typ === 'gras') s.push({ id: 'bestand', t: 'Bestand' }, { id: 'stadium', t: 'Stadium' }, { id: 'ts', t: 'Sauberkeit & TS' }, { id: 'rad', t: 'Gärqualität-Rad' });
     if (p.typ === 'mais') s.push({ id: 'haecksel', t: 'Häcksel & Körner' }, { id: 'ts', t: 'TS & Parzelle' }, { id: 'rad', t: 'Gärqualität-Rad' });
-    if (p.typ === 'gruen') s.push({ id: 'bestand', t: 'Bestand' }, { id: 'stadium', t: 'Stadium' }, { id: 'sauber', t: 'Sauberkeit' });
+    if (p.typ === 'gruen') s.push({ id: 'bestand', t: 'Bestand' }, { id: 'stadium', t: 'Stadium' }, { id: 'sauber', t: 'Sauberkeit' }, { id: 'konserv', t: 'Konservierbarkeit' });
     if (p.typ === 'gps') s.push({ id: 'kultur', t: 'Kultur & Stadium' }, { id: 'ts', t: 'Sauberkeit & TS' }, { id: 'rad', t: 'Gärqualität-Rad' });
     s.push({ id: 'ergebnis', t: 'Ergebnis' });
     return s;
@@ -580,6 +580,7 @@
     if (id === 'stadium') return !!(a.aufwuchs && a.stadium);
     if (id === 'ts') return p.typ === 'gras' || p.typ === 'gps' ? !!(a.sauberkeit && a.ts) : !!(a.ts && a.kolben);
     if (id === 'sauber') return !!a.sauberkeit;
+    if (id === 'konserv') return !!(window.Konservierbarkeit && window.Konservierbarkeit.erledigt(p));
     if (id === 'kultur') return !!(a.kultur && a.gpsStadium);
     if (id === 'haecksel') return !!(a.laenge && a.schnitt && a.koerner);
     if (id === 'rad') { const sel = K3.radAuswahl(p); return K3.TYPEN[p.typ].rad.every((f) => f.ph || sel[f.id]); }
@@ -592,13 +593,14 @@
     const step = steps.find((s) => s.id === stepId) || steps[0];
     const idx = steps.indexOf(step);
     const typ = K3.TYPEN[p.typ];
-    const back = p.anlassId ? '#/a/' + p.anlassId : '#/e';
+    const back = p.anlassId ? '#/a/' + p.anlassId : MODUS_WIESE ? '#/wiese' : '#/e';
     let body = '';
     if (step.id === 'probe') body = stepProbe(p);
     if (step.id === 'bestand') body = stepBestand(p);
     if (step.id === 'stadium') body = stepStadium(p);
     if (step.id === 'ts') body = p.typ === 'gras' || p.typ === 'gps' ? stepTsGras(p) : stepTsMais(p);
     if (step.id === 'sauber') body = stepSauber(p);
+    if (step.id === 'konserv') body = window.Konservierbarkeit ? window.Konservierbarkeit.step(p, readOnly(p)) : '';
     if (step.id === 'kultur') body = stepKultur(p);
     if (step.id === 'haecksel') body = stepHaecksel(p);
     if (step.id === 'rad') body = stepRad(p);
@@ -966,6 +968,7 @@
         L.tabelle.map((r) => '<tr><td>' + (r.key ? '<strong>' + esc(r.label) + '</strong>' : esc(r.label)) + '</td><td class="muted">' + esc(r.unit) + '</td><td class="muted">' + r.basis + '</td><td class="' + (String(r.korr).startsWith('-') || String(r.korr).startsWith('−') ? 'd neg' : r.korr !== '–' ? 'd pos' : 'muted') + '">' + r.korr + '</td><td><strong>' + r.wert + '</strong></td></tr>').join('') + '</tbody></table></div>' +
         '<p class="hint">Nährwerte: Agroscope; ' + (K3.TYPEN[p.typ].quelle || 'Schlüssel AGFF ' + K3.TYPEN[p.typ].merkblatt) + '. Sensorische Schätzung – ersetzt keine Laboranalyse.</p>';
     }
+    if (p.typ === 'gruen' && window.Konservierbarkeit) h += window.Konservierbarkeit.ergebnisKarte(p) || (readOnly(p) ? '' : '<div class="section-title">Konservierbarkeit</div><div class="card"><div class="row"><span class="grow small">Lässt sich dieser Bestand gut silieren oder trocknen? Checkliste zu Feld, Maschinen und Planung.</span><a class="btn sm" href="#/p/' + p.id + '/konserv">Checkliste öffnen</a></div></div>');
     if ((p.fotos || []).length || !readOnly(p)) h += '<div class="section-title">Fotos</div>' + fotosHtml(p);
     // Laborbericht: Import erst nach vollständiger eigener Beurteilung (keine Beeinflussung)
     h += '<div class="section-title">Laborbericht</div>';

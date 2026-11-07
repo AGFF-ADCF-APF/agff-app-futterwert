@@ -161,6 +161,11 @@
       einfach: 'L’ensilage de maïs doit être très acide – idéalement sous 4,1. Mesure : couvrir l’ensilage d’autant d’eau distillée, attendre 10 minutes, puis mesurer le liquide.',
       fachlich: 'Grâce à beaucoup de sucre fermentescible, l’ensilage de maïs atteint en général un pH de 3,7–4,0. Au-dessus de 4,2 : fermentation perturbée ou début d’échauffement (dégradation de l’acide lactique par les levures). Points selon la fiche 2.7.5 (K3c) : < 4,1 = 0 ; 4,1–4,2 = 2 ; 4,2–4,5 = 4 ; > 4,5 = 5.',
     },
+    konserv: {
+      titel: 'Le peuplement se conserve-t-il bien ?',
+      einfach: 'Choisissez d’abord le mode de conservation : silo, balles, foin ventilé ou foin séché au sol. Parcourez ensuite les points – honnêtement, avec oui, non ou incertain. En cas de « non », la mesure utile s’affiche. Le plus important : un travail propre, sans terre ni lisier dans le fourrage.',
+      fachlich: 'La liste vérifie les conditions, pas le fourrage fini : peuplement et stade (facile à ensiler ? à temps ?), champ (taupinières, lisier, humidité du sol), machines (hauteur de coupe 8–10 cm, dents à env. 10 cm, conditionneur), météo et stockage. Bases : AGFF-Merkblatt K4b (en allemand), fiches ADCF/AGRIDEA 2.7.9 et 12.4. La terre apporte des spores de clostridies dans le silo – chaque « non » pour taupinières, lisier, sol, hauteur de coupe ou dents est donc un risque de souillure.',
+    },
     wiese: {
       titel: 'Apprécier la prairie',
       einfach: 'Vous trouvez ici tout pour la prairie : le <b>relevé de prairie</b> pour une appréciation complète, la <b>grille de points</b> pour estimer vite graminées, trèfle et autres plantes, la <b>comparaison des stades</b> pour le bon moment de coupe et <b>hauteur &amp; rendement</b>. Les points photo montrent comment un endroit évolue au fil des ans.',

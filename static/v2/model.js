@@ -43,6 +43,14 @@
     for (const k of ['rg', 'gr', 'kl', 'kf', 'kg', 'lu', 'k']) { const v = num(r[k], 0, 10000); if (v === undefined || v !== Math.floor(v)) return undefined; o[k] = v; }
     return o;
   }
+  /** Checkliste Konservierbarkeit (Grünfutter): Verfahren und Antworten je Punkt */
+  function cleanKonserv(k) {
+    if (!isObj(k)) return undefined;
+    const items = {};
+    if (isObj(k.items)) Object.keys(k.items).slice(0, 30).forEach((id) => { if (/^[a-z]{2,20}$/.test(id) && ['ja', 'nein', 'offen'].includes(k.items[id])) items[id] = k.items[id]; });
+    const v = oneOf(k.verfahren, ['silo', 'ballen', 'belueftung', 'bodenheu']);
+    return v || Object.keys(items).length ? compact({ verfahren: v, items: Object.keys(items).length ? items : undefined }) : undefined;
+  }
   function cleanAntworten(a, typ) {
     if (!isObj(a)) return {};
     const o = {
@@ -61,6 +69,7 @@
       kultur: oneOf(a.kultur, K3.GPS_KULTUREN.map((x) => x.id)), gpsStadium: oneOf(a.gpsStadium, K3.GPS_STADIEN.map((x) => x.id)), leguminosen: oneOf(a.leguminosen, K3.GPS_LEGUM.map((x) => x.id)),
       raster: cleanRaster(a.raster),
       wuchshoehe: num(a.wuchshoehe, 1, 300), hoeheN: num(a.hoeheN, 1, 100),
+      konserv: cleanKonserv(a.konserv),
     };
     void typ;
     return compact(o);

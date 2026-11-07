@@ -759,7 +759,7 @@ html.kb-hinweise [data-kb]::after { content: attr(data-kb); position: absolute; 
 .linkbtn { background: none; border: 0; padding: 0; color: var(--schlecht); text-decoration: underline; cursor: pointer; font: inherit; }
 
 
-/* ---- UX-Quick-Wins (b1-79) ---- */
+/* ---- UX-Quick-Wins (b1-80) ---- */
 /* Mindestschrift für Nebentexte, Hinweise in voller Grösse */
 .item .s, .bar .sub { font-size: .875rem; }
 .tbl thead th { font-size: .8rem; color: var(--ink-2); }
@@ -863,3 +863,25 @@ html[data-modus="wiese"] #main .bar { padding-right: 12px; }
 :root[data-theme="dark"] .la-beta-band { background: #3a3014; color: #fbe8b0; border-color: #6b5520; }
 .au-eag { font-size: .72rem; font-weight: 600; color: var(--brand-ink); white-space: nowrap; margin-left: 4px; }
 .app-zu-futter.app-unten { margin: 4px 12px 24px; }
+/* Checkliste Konservierbarkeit */
+.kb-verfahren { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip-btn { min-height: 40px; padding: 6px 14px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+.chip-btn[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: var(--on-brand); font-weight: 600; }
+.kb-h { margin: 4px 0 6px; font-size: .95rem; }
+.kb-liste { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.kb-item, .kb-abl { display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); flex-wrap: wrap; }
+.kb-abl { justify-content: flex-start; }
+.kb-text { flex: 1 1 260px; min-width: 0; }
+.kb-m { margin-top: 4px; color: var(--ink-2); }
+.kb-q { display: block; margin-top: 3px; font-size: .75rem; color: var(--ink-3); }
+.kb-wahl { display: flex; gap: 4px; flex-shrink: 0; }
+.kb-btn { min-height: 40px; min-width: 56px; padding: 4px 10px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; font-size: .9rem; cursor: pointer; }
+.kb-btn.ja[aria-pressed="true"] { background: var(--gut); border-color: var(--gut); color: #fff; }
+.kb-btn.nein[aria-pressed="true"] { background: var(--kritisch); border-color: var(--kritisch); color: #fff; }
+.kb-btn.offen[aria-pressed="true"] { background: var(--surface-2); border-color: var(--ink-3); font-weight: 600; }
+.kb-punkt { width: 12px; height: 12px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; background: var(--line-strong); }
+.kb-punkt.gut { background: var(--gut); } .kb-punkt.mittel { background: var(--mittel); } .kb-punkt.schlecht { background: var(--kritisch); }
+.kb-ergebnis { border-left: 5px solid var(--line-strong); } .kb-ergebnis.gut { border-left-color: var(--gut); } .kb-ergebnis.mittel { border-left-color: var(--mittel); } .kb-ergebnis.schlecht { border-left-color: var(--kritisch); }
+.kb-offen { margin: 6px 0 0; padding-left: 18px; }
+.badge-betatest { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: #f6c35b; color: #3a2a00; font-size: .66rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; vertical-align: 2px; }
+.wi-werkzeuge { margin: 22px 0 4px; font-size: 1.05rem; }
