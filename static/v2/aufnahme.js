@@ -253,7 +253,7 @@
       fpVorschlag(a, fp) +
       (frueher.length ? '<section class="q"><h3>Frühere Aufnahmen dieser Parzelle</h3><table class="wi-tab au-vergleich"><tr><th>Datum</th><th>Gräser</th><th>Klee</th><th>Kräuter</th><th>Futtergr.</th><th>Lücken</th><th>Typ</th></tr>' +
         frueher.concat([a]).map((x) => { const v = auswerten(x); const f = (n) => (n == null ? '–' : n + ' %'); return '<tr' + (x.id === a.id ? ' class="au-jetzt"' : '') + '><td>' + (x.id === a.id ? 'jetzt' : '<a href="#/aufnahmen/' + x.id + '">' + esc(datum(x.kopf.datum) || '?') + '</a>') + '</td><td>' + f(v.g) + '</td><td>' + f(v.kl) + '</td><td>' + f(v.kr) + '</td><td>' + f(v.fg) + '</td><td>' + f(x.luecken) + '</td><td>' + esc(v.typ ? v.typText.split(' ')[0] : '–') + '</td></tr>'; }).join('') + '</table></section>' : '') +
-      teil1(a, e) + teil2(a) + teil3(a, e) + teil4(a, e) +
+      teil1(a, e) + fqVorschlag() + teil2(a) + teil3(a, e) + teil4(a, e) +
       '<div class="row" style="margin-top:14px"><button class="btn grow" data-au="pdf" data-id="' + a.id + '">' + app().I.pdf + ' Arbeitsblatt als PDF</button><button class="btn grow" data-au="kopie" data-id="' + a.id + '">Folgeaufnahme (Kopie)</button><button class="btn danger" data-au="loeschen" data-id="' + a.id + '">Löschen</button></div>' +
       '<p class="hint">Nach AGFF-Merkblatt 8 «Beurteilung von Wiesenbeständen» (2012) mit Arbeitsblatt; Botanischer Typ nach Merkblatt 3. Gespeichert nur auf diesem Gerät (Sicherung unter «Daten»).</p></div>';
   }
@@ -272,6 +272,12 @@
     return kopf + '<p>Dieselbe Stelle immer wieder fotografieren zeigt, wie sich der Bestand entwickelt – z. B. vor und nach einer Übersaat. Am besten gleich zu Beginn der Aufnahme.</p>' +
       '<div class="row" style="flex-wrap:wrap"><button type="button" class="btn primary grow" data-au="fp-neu">📍 Fotopunkt für diese Wiese anlegen</button><button type="button" class="btn grow ghost" data-au="fp-aus">Ohne Fotopunkt weiter</button></div>' +
       (fp.length ? '<label class="field" style="margin-top:8px"><span class="small">Oder einen bestehenden Fotopunkt verknüpfen</span><select class="input" data-auf="kopf.fotopunkt"><option value="">–</option>' + fp.map((x) => '<option value="' + x.id + '">' + esc(x.name) + '</option>').join('') + '</select></label>' : '') + '</section>';
+  }
+  /** Optionaler Vorschlag nach dem Bestand: Futterqualität der stehenden Wiese (Probe vom Typ «gruen»). */
+  function fqVorschlag() {
+    return '<section class="q au-fp"><h3>🌱 Futterqualität <span class="au-opt">optional</span></h3>' +
+      '<p>Aus Bestand, Stadium und Sauberkeit Energie und Protein der stehenden Wiese abschätzen – mit Checkliste, ob sie sich gut silieren oder trocknen lässt.</p>' +
+      '<div class="row" style="flex-wrap:wrap"><button type="button" class="btn grow" data-au="fq-neu">🌱 Futterqualität dieser Wiese beurteilen</button></div></section>';
   }
   /** Von wiese.js aufgerufen, wenn ein neuer Fotopunkt aus dieser Aufnahme heraus angelegt wurde. */
   function fotopunktSetzen(id, fpId) {
@@ -522,6 +528,7 @@
       case 'bestimmen': if (a && global.Pflanzen) { const id = a.id; global.Pflanzen.sheet((k, n) => { const b = byId(id); if (b && n) artDazu(b, n, AUS_RASTER[k] || 'fk'); }, 'In die Wiesenaufnahme übernehmen'); } break;
       case 'raster': if (a && global.Wiese) global.Wiese.rasterFuer({ id: a.id, kreis: Number(t.dataset.kreis) }); break;
       case 'vorschlag': if (a) { const v = vorschlaege(a, auswerten(a))[t.dataset.teil]; const alt = a.massnahmen[t.dataset.teil]; const neuT = v.filter((x) => !alt.includes(x)); a.massnahmen[t.dataset.teil] = (alt ? alt.replace(/\s+$/, '') + '\n' : '') + neuT.map((x) => '– ' + x).join('\n'); sichern(a); neuZeichnen(); } break;
+      case 'fq-neu': if (a) { const pr = A.neueProbe('gruen', null, {}); pr.kopf.herkunft = (a.kopf.parzelle || a.kopf.ort || '').slice(0, 120); A.touchProbe(pr); A.go('#/p/' + pr.id + '/probe'); } break;
       case 'fp-neu': if (a && global.Wiese) global.Wiese.fotopunktNeu({ id: a.id, name: a.kopf.parzelle || a.kopf.ort || '' }); break;
       case 'fp-foto': if (a && a.kopf.fotopunkt && global.Wiese) global.Wiese.fotopunktFoto(a.kopf.fotopunkt, '#/aufnahmen/' + a.id); break;
       case 'fp-aus': if (a) { a.kopf.fpAus = true; sichern(a); neuZeichnen(); } break;
