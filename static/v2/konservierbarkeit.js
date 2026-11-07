@@ -98,7 +98,7 @@
           '<div class="kb-wahl" role="group" aria-label="' + esc(x.t) + '">' + STATUS.map(([val, t]) => '<button type="button" class="kb-btn ' + val + '" data-kb="item" data-id="' + x.id + '" data-val="' + val + '" data-p="' + pid + '" aria-pressed="' + (s === val) + '"' + (nurLesen ? ' disabled' : '') + '>' + t + '</button>').join('') + '</div></li>';
       }).join('') + '</ul></section>';
     });
-    return h + '<p class="hint">Grundlagen: AGFF-Informationsblatt K4b (Silierprozess), ADCF/AGRIDEA-Fiches 2.7.9 (Trocknung) und 12.4 (Heubelüftung), Schlüssel K3a/K3b. Die Zusammenhänge lassen sich im Lernspiel <a href="/drysim/" target="_blank" rel="noopener">drysim</a> ausprobieren.</p>';
+    return h + '<p class="hint">Grundlagen: AGFF-Informationsblatt K4b (Silierprozess), ADCF/AGRIDEA-Fiches 2.7.9 (Trocknung) und 12.4 (Heubelüftung), Schlüssel K3a/K3b. Die Zusammenhänge lassen sich im Lernspiel <a href="/heureka/" target="_blank" rel="noopener">Heureka</a> ausprobieren.</p>';
   }
 
   /** Kurzfassung für das Ergebnis */
