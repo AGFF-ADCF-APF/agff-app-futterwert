@@ -147,7 +147,7 @@
     return {
       id: a.id, createdAt: str(a.createdAt, 40) || new Date().toISOString(), updatedAt: str(a.updatedAt, 40) || new Date().toISOString(),
       kopf: { ort: str(k.ort, 120) || '', parzelle: str(k.parzelle, 120) || '', hoehe: zahl(k.hoehe, 0, 4000), datum: str(k.datum, 10) || '', stadium: str(k.stadium, 80) || '', aufwuchs: zahl(k.aufwuchs, 1, 8),
-        lat: zahl(k.lat, -90, 90), lon: zahl(k.lon, -180, 180), fotopunkt: typeof k.fotopunkt === 'string' && ID_RE.test(k.fotopunkt) ? k.fotopunkt : undefined },
+        lat: zahl(k.lat, -90, 90), lon: zahl(k.lon, -180, 180), fotopunkt: typeof k.fotopunkt === 'string' && ID_RE.test(k.fotopunkt) ? k.fotopunkt : undefined, fpAus: k.fpAus === true ? true : undefined },
       kreise: [kreis((a.kreise || [])[0]), kreis((a.kreise || [])[1])], luecken: pz(a.luecken),
       rasterKf: zahl(a.rasterKf, 0, 1), rasterKg: zahl(a.rasterKg, 0, 1),
       arten: (Array.isArray(a.arten) ? a.arten : []).slice(0, 80).map((x) => ({ n: str(obj(x).n, 80), kat: wahl(obj(x).kat, KAT.map((c) => c.id)), p: pz(obj(x).p) || 0 })).filter((x) => x.n && x.kat),
@@ -222,7 +222,7 @@
   function renderListe(r) {
     L = laden();
     const s = L.slice().sort((x, y) => ((y.kopf.datum || y.createdAt) > (x.kopf.datum || x.createdAt) ? 1 : -1));
-    return '<div class="bar"><h2>Wiesenaufnahmen<span class="sub">' + (L.length ? L.length + ' Aufnahmen' : 'noch keine') + '</span></h2><button class="icon-btn" data-au="neu" aria-label="Neue Wiesenaufnahme">' + app().I.plus + '</button></div>' +
+    return '<div class="bar"><h2>Wiesenaufnahmen<span class="sub">' + (L.length ? L.length + (L.length === 1 ? ' Aufnahme' : ' Aufnahmen') : 'noch keine') + '</span></h2><button class="icon-btn" data-au="neu" aria-label="Neue Wiesenaufnahme">' + app().I.plus + '</button></div>' +
       '<ul class="list" style="padding:8px">' + (s.length ? s.map((a) => { const e = auswerten(a); return '<li><a class="item" href="#/aufnahmen/' + a.id + '" aria-current="' + (r && r.id === a.id) + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + (e.typ ? esc(e.typ) : '🌾') + '</span><span style="min-width:0"><span class="t">' + esc(titelVon(a)) + '</span><span class="s">' + esc([datum(a.kopf.datum), a.kopf.ort && a.kopf.parzelle ? a.kopf.ort : '', e.g != null ? 'G ' + e.g + ' · K ' + e.kl + ' · Kr ' + e.kr + ' %' : ''].filter(Boolean).join(' · ')) + '</span></span></a></li>'; }).join('')
         : '<li class="empty small">Wiesenbestand nach AGFF-Merkblatt 8 aufnehmen, beurteilen und Massnahmen ableiten.</li>') + '</ul>';
   }
@@ -248,14 +248,35 @@
       '<label class="field"><span>Aufwuchs-Nr.</span>' + feld('kopf.aufwuchs', k.aufwuchs, ' inputmode="numeric" data-zahl="1" data-min="1" data-max="8" autocomplete="off"') + '</label></div>' +
       '<div class="row" style="margin-top:8px;flex-wrap:wrap"><button type="button" class="btn sm" data-au="gps">' + (k.lat != null ? '📍 Standort ' + k.lat.toFixed(4) + ', ' + k.lon.toFixed(4) + ' (neu setzen)' : '📍 Standort (GPS) speichern') + '</button>' +
       '<button type="button" class="btn sm" data-wi="stadium">Stadium mit Kamera</button>' +
-      (fp.length ? '<label class="field" style="min-width:180px;flex:1"><span class="small">Fotopunkt verknüpfen</span><select class="input" data-auf="kopf.fotopunkt"><option value="">–</option>' + fp.map((p) => '<option value="' + p.id + '"' + (k.fotopunkt === p.id ? ' selected' : '') + '>' + esc(p.name) + '</option>').join('') + '</select></label>' : '<a class="btn sm ghost" href="#/fotopunkte">Fotopunkt anlegen</a>') +
-      (k.fotopunkt && fp.some((p) => p.id === k.fotopunkt) ? '<a class="btn sm ghost" href="#/fotopunkte/' + k.fotopunkt + '">Zum Fotopunkt</a>' : '') + '</div>' +
+      '</div>' +
       '<p class="hint">Fläche von ca. einer Are wählen, die dem Grossteil der Parzelle entspricht (gleich bewirtschaftet, gleichmässige Eigenschaften).</p></section>' +
+      fpVorschlag(a, fp) +
       (frueher.length ? '<section class="q"><h3>Frühere Aufnahmen dieser Parzelle</h3><table class="wi-tab au-vergleich"><tr><th>Datum</th><th>Gräser</th><th>Klee</th><th>Kräuter</th><th>Futtergr.</th><th>Lücken</th><th>Typ</th></tr>' +
         frueher.concat([a]).map((x) => { const v = auswerten(x); const f = (n) => (n == null ? '–' : n + ' %'); return '<tr' + (x.id === a.id ? ' class="au-jetzt"' : '') + '><td>' + (x.id === a.id ? 'jetzt' : '<a href="#/aufnahmen/' + x.id + '">' + esc(datum(x.kopf.datum) || '?') + '</a>') + '</td><td>' + f(v.g) + '</td><td>' + f(v.kl) + '</td><td>' + f(v.kr) + '</td><td>' + f(v.fg) + '</td><td>' + f(x.luecken) + '</td><td>' + esc(v.typ ? v.typText.split(' ')[0] : '–') + '</td></tr>'; }).join('') + '</table></section>' : '') +
       teil1(a, e) + teil2(a) + teil3(a, e) + teil4(a, e) +
       '<div class="row" style="margin-top:14px"><button class="btn grow" data-au="pdf" data-id="' + a.id + '">' + app().I.pdf + ' Arbeitsblatt als PDF</button><button class="btn grow" data-au="kopie" data-id="' + a.id + '">Folgeaufnahme (Kopie)</button><button class="btn danger" data-au="loeschen" data-id="' + a.id + '">Löschen</button></div>' +
       '<p class="hint">Nach AGFF-Merkblatt 8 «Beurteilung von Wiesenbeständen» (2012) mit Arbeitsblatt; Botanischer Typ nach Merkblatt 3. Gespeichert nur auf diesem Gerät (Sicherung unter «Daten»).</p></div>';
+  }
+
+  /** Optionaler Vorschlag in jeder Wiesenaufnahme: Fotopunkt anlegen oder verknüpfen, ablehnbar. */
+  function fpVorschlag(a, fp) {
+    const k = a.kopf; const p = k.fotopunkt && fp.find((x) => x.id === k.fotopunkt);
+    const kopf = '<section class="q au-fp"><h3>📍 Fotopunkt <span class="au-opt">optional</span></h3>';
+    if (p) {
+      const l = p.fotos[p.fotos.length - 1];
+      return kopf + '<p><b>' + esc(p.name) + '</b> · ' + p.fotos.length + (p.fotos.length === 1 ? ' Foto' : ' Fotos') + (l ? ' · zuletzt ' + datum(l.at) : '') + '</p>' +
+        '<p class="hint">Heute von derselben Stelle fotografieren – die App blendet das letzte Bild als Hilfe ein.</p>' +
+        '<div class="row" style="flex-wrap:wrap"><button type="button" class="btn primary grow" data-au="fp-foto">Neues Foto an diesem Punkt</button><a class="btn grow" href="#/fotopunkte/' + p.id + '">Zum Fotopunkt</a><button type="button" class="btn sm ghost" data-au="fp-los">Verknüpfung lösen</button></div></section>';
+    }
+    if (k.fpAus) return kopf + '<p class="small muted">Für diese Aufnahme ohne Fotopunkt. <button type="button" class="btn sm ghost" data-au="fp-doch">Doch einen Fotopunkt verwenden</button></p></section>';
+    return kopf + '<p>Dieselbe Stelle immer wieder fotografieren zeigt, wie sich der Bestand entwickelt – z. B. vor und nach einer Übersaat. Am besten gleich zu Beginn der Aufnahme.</p>' +
+      '<div class="row" style="flex-wrap:wrap"><button type="button" class="btn primary grow" data-au="fp-neu">📍 Fotopunkt für diese Wiese anlegen</button><button type="button" class="btn grow ghost" data-au="fp-aus">Ohne Fotopunkt weiter</button></div>' +
+      (fp.length ? '<label class="field" style="margin-top:8px"><span class="small">Oder einen bestehenden Fotopunkt verknüpfen</span><select class="input" data-auf="kopf.fotopunkt"><option value="">–</option>' + fp.map((x) => '<option value="' + x.id + '">' + esc(x.name) + '</option>').join('') + '</select></label>' : '') + '</section>';
+  }
+  /** Von wiese.js aufgerufen, wenn ein neuer Fotopunkt aus dieser Aufnahme heraus angelegt wurde. */
+  function fotopunktSetzen(id, fpId) {
+    const a = byId(id); if (!a) return;
+    a.kopf.fotopunkt = fpId; delete a.kopf.fpAus; sichern(a); neuZeichnen();
   }
 
   function uebersicht() {
@@ -501,6 +522,11 @@
       case 'bestimmen': if (a && global.Pflanzen) { const id = a.id; global.Pflanzen.sheet((k, n) => { const b = byId(id); if (b && n) artDazu(b, n, AUS_RASTER[k] || 'fk'); }, 'In die Wiesenaufnahme übernehmen'); } break;
       case 'raster': if (a && global.Wiese) global.Wiese.rasterFuer({ id: a.id, kreis: Number(t.dataset.kreis) }); break;
       case 'vorschlag': if (a) { const v = vorschlaege(a, auswerten(a))[t.dataset.teil]; const alt = a.massnahmen[t.dataset.teil]; const neuT = v.filter((x) => !alt.includes(x)); a.massnahmen[t.dataset.teil] = (alt ? alt.replace(/\s+$/, '') + '\n' : '') + neuT.map((x) => '– ' + x).join('\n'); sichern(a); neuZeichnen(); } break;
+      case 'fp-neu': if (a && global.Wiese) global.Wiese.fotopunktNeu({ id: a.id, name: a.kopf.parzelle || a.kopf.ort || '' }); break;
+      case 'fp-foto': if (a && a.kopf.fotopunkt && global.Wiese) global.Wiese.fotopunktFoto(a.kopf.fotopunkt, '#/aufnahmen/' + a.id); break;
+      case 'fp-aus': if (a) { a.kopf.fpAus = true; sichern(a); neuZeichnen(); } break;
+      case 'fp-doch': if (a) { delete a.kopf.fpAus; sichern(a); neuZeichnen(); } break;
+      case 'fp-los': if (a) { delete a.kopf.fotopunkt; sichern(a); neuZeichnen(); } break;
       case 'gps': if (a) {
         if (!navigator.geolocation) { A.toast('Dieses Gerät liefert keinen Standort.'); break; }
         A.toast('Standort wird bestimmt …'); const id = a.id;
@@ -537,5 +563,5 @@
   function allesLoeschen() { try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ } L = []; }
   const anzahl = () => laden().length;
 
-  global.Aufnahme = { render, renderListe, handle, liste: () => laden(), get: (id) => laden().find((a) => a.id === id) || null, neuAnlegen: () => neu(), rasterUebernehmen, sicherung, wiederherstellen, allesLoeschen, anzahl, _t: { auswerten, clean, raigrasHinweis, T1, T3, T4 } };
+  global.Aufnahme = { render, renderListe, handle, fotopunktSetzen, liste: () => laden(), get: (id) => laden().find((a) => a.id === id) || null, neuAnlegen: () => neu(), rasterUebernehmen, sicherung, wiederherstellen, allesLoeschen, anzahl, _t: { auswerten, clean, raigrasHinweis, T1, T3, T4 } };
 })(window);

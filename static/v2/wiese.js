@@ -944,6 +944,8 @@
     }));
   }
   let FP = fpLaden();
+  let FP_AUFNAHME = null; // Fotopunkt wird aus einer Wiesenaufnahme heraus angelegt: { id, name }
+  let FP_ZURUECK = null; // danach zu dieser Adresse zurück (statt zur Fotopunkt-Seite)
   const fpSpeichern = () => schreiben(KEY_FP, FP);
   const fpById = (id) => FP.find((p) => p.id === id);
   const datum = (iso) => (iso ? new Date(iso).toLocaleDateString('de-CH') : '');
@@ -1031,6 +1033,7 @@
   }
 
   async function fpFoto(id) {
+    const zur = FP_ZURUECK; FP_ZURUECK = null;
     const pt = fpById(id); if (!pt) return;
     const letzte = pt.fotos[pt.fotos.length - 1];
     const ghost = letzte ? await F().bildUrl(letzte.id) : null;
@@ -1064,12 +1067,14 @@
     if (pt.lat == null && pos) Object.assign(pt, pos);
     if (pt.richtung == null && richtungJetzt != null) pt.richtung = richtungJetzt;
     fpSpeichern(); toast('Foto gespeichert (' + pt.fotos.length + ' am Fotopunkt).');
-    app().go('#/fotopunkte/' + pt.id); app().render();
+    app().go(zur || '#/fotopunkte/' + pt.id); app().render();
   }
 
-  function fpNeuSheet() {
-    app().sheet('<h2>Neuer Fotopunkt</h2><p class="small muted" style="margin-top:0">Dieselbe Stelle immer wieder fotografieren – z. B. vor und nach einer Übersaat oder über mehrere Jahre. Alles bleibt auf diesem Gerät.</p>' +
-      '<div class="stack"><label class="field"><span>Name</span><input class="input" id="fpName" placeholder="z. B. Parzelle Moos, Ecke Bach" maxlength="80"></label>' +
+  /** fuer: { id, name } = aus einer Wiesenaufnahme heraus – der Punkt wird mit ihr verknüpft. */
+  function fpNeuSheet(fuer) {
+    FP_AUFNAHME = fuer && fuer.id ? fuer : null;
+    app().sheet('<h2>Neuer Fotopunkt</h2><p class="small muted" style="margin-top:0">Dieselbe Stelle immer wieder fotografieren – z. B. vor und nach einer Übersaat oder über mehrere Jahre. Alles bleibt auf diesem Gerät.' + (FP_AUFNAHME ? ' Der Punkt wird mit der Wiesenaufnahme verknüpft.' : '') + '</p>' +
+      '<div class="stack"><label class="field"><span>Name</span><input class="input" id="fpName" value="' + esc((fuer && fuer.name) || '') + '" maxlength="80" placeholder="z. B. Parzelle Moos, Ecke Bach" maxlength="80"></label>' +
       '<label class="field"><span>Notiz</span><input class="input" id="fpNotiz" placeholder="optional, z. B. Übersaat 12.4." maxlength="500"></label>' +
       '<label class="toggle"><input type="checkbox" id="fpGeo" checked> Standort speichern (nur auf diesem Gerät, für die Rückkehr zum Punkt)</label>' +
       '<button class="btn primary block" data-wi="fp-anlegen">Erstes Foto aufnehmen</button><button class="btn ghost block" data-close>Abbrechen</button></div>');
@@ -1079,6 +1084,8 @@
     const pt = { id: app().uid(), name: name.slice(0, 80), notiz: (document.getElementById('fpNotiz').value || '').trim().slice(0, 500), lat: null, lon: null, acc: null, richtung: null, createdAt: new Date().toISOString(), fotos: [] };
     const geo = document.getElementById('fpGeo').checked;
     FP.push(pt); fpSpeichern(); app().closeSheet(); richtungErlauben();
+    if (FP_AUFNAHME && global.Aufnahme && global.Aufnahme.fotopunktSetzen) { global.Aufnahme.fotopunktSetzen(FP_AUFNAHME.id, pt.id); FP_ZURUECK = '#/aufnahmen/' + FP_AUFNAHME.id; }
+    FP_AUFNAHME = null;
     if (geo && navigator.geolocation) navigator.geolocation.getCurrentPosition((p) => { pt.lat = p.coords.latitude; pt.lon = p.coords.longitude; pt.acc = p.coords.accuracy; fpSpeichern(); }, () => toast('Standort nicht verfügbar – Fotopunkt ohne Standort.'), { enableHighAccuracy: true, timeout: 15000 });
     fpFoto(pt.id);
   }
@@ -1162,14 +1169,20 @@
     const weiter = MODUS_WIESE ? 'Ergebnisse (Bestand, Stadium) lassen sich in der <a href="' + '/futter/v2/' + '">Futterbeurteilung</a> als Probe weiterverwenden.'
       : 'Aus einer Probe in der App «Futter» heraus («Bestand» bzw. «Stadium») werden die Ergebnisse direkt übernommen. Hier ohne Probe: Ergebnis ansehen und bei Bedarf eine neue Probe anlegen.';
     const BT = '<span class="badge-betatest" title="Neu entworfen, wird noch getestet">Betatest</span>';
-    return '<div class="bar"><h2>Wiese beurteilen<span class="sub">Futterqualität, Bestand und Entwicklung – im Feld, mit dem Handy</span></h2></div><div class="pad wiese">' +
-      '<p class="wi-lead">Was möchten Sie tun?</p>' +
+    const n = global.Aufnahme && global.Aufnahme.anzahl ? global.Aufnahme.anzahl() : 0;
+    return '<div class="bar"><h2>Wiese beurteilen<span class="sub">Bestand, Standort, Ziel und Massnahmen – im Feld, mit dem Handy</span></h2></div><div class="pad wiese">' +
+      '<section class="wi-hero"><h3>📋 Hier starten: Wiesenaufnahme</h3>' +
+      '<p>Der geführte Hauptweg nach AGFF-Merkblatt 8 in einem Formular.</p>' +
+      '<ol class="wi-schritte"><li><b>Bestand</b><span>Gräser, Klee, Kräuter, Arten und Lücken</span></li><li><b>Standort</b><span>Wasser, Boden, Nährstoffe, bisherige Bewirtschaftung</span></li><li><b>Ziel</b><span>Zielbestand und angestrebte Bewirtschaftung</span></li><li><b>Massnahmen</b><span>Kurz- und langfristig, mit Vorschlägen</span></li></ol>' +
+      '<p class="small muted">Unterwegs schlägt die App Hilfsmittel vor – alles freiwillig: 📍 Fotopunkt für den Vergleich über die Zeit, Punktraster für die Deckung, «Pflanzen bestimmen» für die Arten, Höhe &amp; Ertrag.</p>' +
+      '<button class="btn primary block" data-wi="aufnahmen-neu" style="min-height:56px">' + app().I.plus + ' Wiese beurteilen</button>' +
+      (n ? '<a class="btn block ghost" href="#/aufnahmen">Meine Wiesenaufnahmen (' + n + ')</a>' : '') + '</section>' +
+      '<h3 class="wi-werkzeuge">Einzeln nutzen</h3><p class="small muted" style="margin-top:0">Teile der Beurteilung. Sie lassen sich auch ohne Wiesenaufnahme verwenden.</p>' +
       '<div class="wi-aufgaben">' +
-      aufgabe('fq-neu', '🌱 Futterqualität der Wiese', 'Stehendes Futter beurteilen: Bestand, Stadium und Sauberkeit ergeben Energie und Protein (Agroscope-Tabelle). Dazu eine Checkliste, ob sich der Bestand gut silieren oder trocknen lässt.', kn('fq-neu', 'Futterqualität beurteilen', true)) +
-      aufgabe('aufnahmen', '📋 Wiese aufnehmen', 'Der ganze Ablauf nach AGFF-Merkblatt 8 in einem Formular: Bestand, Standort, Zielbestand und Massnahmen.', kn('aufnahmen', 'Wiesenaufnahme starten', true)) +
-      aufgabe('fotopunkte', '📍 Fotopunkte', 'Dieselbe Stelle über Monate und Jahre fotografieren – z. B. vor und nach einer Übersaat.', kn('fp-neu', 'Fotopunkt anlegen') + kn('fotopunkte', 'Fotopunkte ansehen')) +
+      aufgabe('fq-neu', '🌱 Futterqualität der Wiese', 'Stehendes Futter beurteilen: Bestand, Stadium und Sauberkeit ergeben Energie und Protein (Agroscope-Tabelle). Dazu eine Checkliste, ob sich der Bestand gut silieren oder trocknen lässt.', kn('fq-neu', 'Futterqualität beurteilen')) +
+      aufgabe('fotopunkte', '📍 Fotopunkte', 'Dieselbe Stelle über Monate und Jahre fotografieren – z. B. vor und nach einer Übersaat. In der Wiesenaufnahme wird dieser Schritt vorgeschlagen.', kn('fp-neu', 'Fotopunkt anlegen') + kn('fotopunkte', 'Fotopunkte ansehen')) +
       '</div>' +
-      '<h3 class="wi-werkzeuge">Werkzeuge ' + BT + '</h3><p class="small muted" style="margin-top:0">Neu entworfene Werkzeuge mit der Messkarte. Sie werden noch getestet – Ergebnisse bitte mit dem eigenen Blick abgleichen.</p>' +
+      '<p class="small muted" style="margin:16px 0 0">Werkzeuge mit der Messkarte ' + BT + ' – neu entworfen, werden noch getestet. Ergebnisse bitte mit dem eigenen Blick abgleichen.</p>' +
       (kannKamera() ? '' : '<div class="alert info">Live-Kamera in diesem Browser nicht verfügbar – die Werkzeuge arbeiten dann mit einem Foto aus der Kamera-App.</div>') +
       '<div class="wi-karten wi-klein">' +
       karte('raster', 'Bestand schnell schätzen ' + BT, 'Punktraster: Gräser, Klee, Kräuter und Lücken') +
@@ -1191,20 +1204,25 @@
     const A = app(); const I = A.I;
     const li = (href, ico, t, sub, aktiv) => '<li><a class="item" href="' + href + '" aria-current="' + !!aktiv + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + ico + '</span><span><span class="t">' + t + '</span><span class="s">' + sub + '</span></span></a></li>';
     const lb = (wi, ico, t, sub) => '<li><button type="button" class="item" data-wi="' + wi + '" style="width:100%;text-align:left;background:none;border:0;cursor:pointer;color:inherit"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + ico + '</span><span><span class="t">' + t + '</span><span class="s">' + sub + '</span></span></button></li>';
+    const BT = '<span class="badge-betatest" title="Neu entworfen, wird noch getestet">Betatest</span>';
+    const nA = global.Aufnahme && global.Aufnahme.anzahl ? global.Aufnahme.anzahl() : 0;
+    const cam = I.camera.replace('<svg', '<svg width="22" height="22"');
     return '<div class="bar"><div class="brand"><img src="assets/icon-wiese.svg" alt=""><div><b>' + (MODUS_WIESE ? 'Wiese' : 'Wiesenbeurteilung') + '</b><span class="sub">Futterqualität · Bestand · Pflanzen <span class="badge-beta">' + (MODUS_WIESE ? 'Wiese Beta' : 'v2 Beta 1') + '</span></span></div></div>' +
       A.modusKnopf() + '</div>' + umschalter +
-      '<div class="pad stack"><button class="btn primary block" data-wi="fq-neu" style="min-height:56px">' + I.plus + ' Futterqualität beurteilen</button>' +
-      '<div class="row"><a class="btn sm grow" href="#/aufnahmen" data-wi="aufnahmen-neu">📋 Wiesenaufnahme</a><button class="btn sm grow" data-wi="fp-neu">📍 Fotopunkt</button></div></div>' +
-      '<ul class="list" style="padding:0 8px">' +
-      li('#/aufnahmen', '📋', 'Wiesenaufnahmen', 'Bestand, Standort, Ziel, Massnahmen (AGFF-Merkblatt 8)', r.name === 'aufnahmen') +
-      li('#/fotopunkte', '📍', 'Fotopunkte', FP.length ? FP.length + ' Punkte · Vorher/Nachher' : 'Dieselbe Stelle über die Zeit', r.name === 'fotopunkte') +
-      li('#/wiese', I.camera.replace('<svg', '<svg width="22" height="22"'), 'Übersicht', 'Alle Aufgaben und Werkzeuge', r.name === 'wiese') + '</ul>' +
-      '<div class="section-title" style="padding:0 12px">Werkzeuge <span class="badge-betatest">Betatest</span></div><ul class="list" style="padding:0 8px">' +
-      lb('raster', I.camera.replace('<svg', '<svg width="22" height="22"'), 'Bestand schätzen', 'Punktraster mit der Messkarte') +
-      lb('stadium', '🌾', 'Stadium vergleichen', 'Mit den AGFF-Bildern') +
-      lb('hoehe', '📏', 'Höhe &amp; Ertrag', 'Ertrag aus der Wuchshöhe') +
-      lb('karte-pdf', '🖨', 'Messkarte drucken', 'Raster 50 × 50 cm, Höhe, Farbe') +
-      li('#/pflanzen', '🌿', 'Pflanzen bestimmen', 'AGFF-Schlüssel, Suche, Porträts', r.name === 'pflanzen') + '</ul>' +
+      '<div class="pad stack"><button class="btn primary block" data-wi="aufnahmen-neu" style="min-height:56px">' + I.plus + ' Wiese beurteilen</button>' +
+      '<p class="hint nav-weg">Geführt nach AGFF-Merkblatt 8. Fotopunkt und Hilfsmittel werden unterwegs vorgeschlagen – alles freiwillig.</p></div>' +
+      '<div class="section-title" style="padding:0 12px">Meine Wiesen</div><ul class="list" style="padding:0 8px">' +
+      li('#/wiese', '🏠', 'Übersicht', 'Ablauf und Teilaufgaben', r.name === 'wiese') +
+      li('#/aufnahmen', '📋', 'Wiesenaufnahmen', nA ? nA + (nA === 1 ? ' Aufnahme' : ' Aufnahmen') + ' · AGFF-Merkblatt 8' : 'Noch keine · AGFF-Merkblatt 8', r.name === 'aufnahmen') +
+      li('#/fotopunkte', '📍', 'Fotopunkte', FP.length ? FP.length + ' Punkte · Vorher/Nachher' : 'Dieselbe Stelle über die Zeit', r.name === 'fotopunkte') + '</ul>' +
+      '<div class="section-title" style="padding:0 12px">Einzeln nutzen</div><ul class="list" style="padding:0 8px">' +
+      lb('raster', cam, 'Bestand schätzen ' + BT, 'Punktraster mit der Messkarte') +
+      li('#/pflanzen', '🌿', 'Pflanzen bestimmen', 'AGFF-Schlüssel, Suche, Porträts', r.name === 'pflanzen') +
+      lb('stadium', '🌾', 'Stadium vergleichen ' + BT, 'Mit den AGFF-Bildern') +
+      lb('hoehe', '📏', 'Höhe &amp; Ertrag ' + BT, 'Ertrag aus der Wuchshöhe') +
+      lb('fp-neu', '📍', 'Fotopunkt anlegen', 'Dieselbe Stelle über die Zeit') +
+      lb('fq-neu', '🌱', 'Futterqualität beurteilen', 'Energie und Protein der Wiese') +
+      lb('karte-pdf', '🖨', 'Messkarte drucken ' + BT, 'Raster 50 × 50 cm, Höhe, Farbe') + '</ul>' +
       '<div class="section-title" style="padding:0 12px">Daten & Hilfe</div><ul class="list" style="padding:0 8px 24px">' +
       li('#/hilfe', '?', 'Hilfe & Merkblätter', 'Unterlagen, Pflanzentabelle, Quellen', r.name === 'hilfe') +
       li('#/daten', I.lock.replace('<svg', '<svg width="22" height="22"'), 'Speicherort, Sicherung', 'Daten liegen nur in diesem Browser', r.name === 'daten') + '</ul>' + (linkUnten || '');
@@ -1227,10 +1245,10 @@
     });
     const gl = [...gruppen.values()].map((g) => { g.items.sort((x, y) => (y.d > x.d ? 1 : -1)); g.neu = g.items[0].d || ''; return g; }).sort((x, y) => (y.neu > x.neu ? 1 : -1));
     return '<div class="bar"><h2>Meine Wiesen<span class="sub">' + (gl.length ? gl.length + (gl.length === 1 ? ' Parzelle' : ' Parzellen') : 'noch keine') + '</span></h2></div>' +
-      '<div class="pad" style="padding-bottom:0"><div class="row" style="flex-wrap:wrap"><button class="btn primary grow" data-wi="fq-neu">' + A.I.plus + ' Futterqualität</button><a class="btn grow" href="#/aufnahmen" data-wi="aufnahmen-neu">' + A.I.plus + ' Wiesenaufnahme</a><button class="btn grow" data-wi="fp-neu">' + A.I.plus + ' Fotopunkt</button></div></div>' +
+      '<div class="pad" style="padding-bottom:0"><div class="row" style="flex-wrap:wrap"><button class="btn primary grow" data-wi="aufnahmen-neu">' + A.I.plus + ' Wiese beurteilen</button><button class="btn sm grow" data-wi="fp-neu">' + A.I.plus + ' Fotopunkt</button><button class="btn sm grow" data-wi="fq-neu">' + A.I.plus + ' Futterqualität</button></div></div>' +
       (gl.length ? gl.map((g) => '<div class="section-title" style="padding:10px 12px 0">' + esc(g.label) + ' <span class="muted small">(' + g.items.length + ')</span></div><ul class="list" style="padding:4px 8px">' +
         g.items.map((i) => '<li><a class="item" href="' + i.href + '" aria-current="' + !!i.aktiv + '"><span class="avatar" style="background:var(--surface-2)">' + i.ico + '</span><span style="min-width:0"><span class="t">' + esc(i.t) + '</span><span class="s">' + esc(i.s) + '</span></span></a></li>').join('') + '</ul>').join('')
-        : '<ul class="list" style="padding:8px"><li class="empty small">Hier erscheinen Ihre Futterqualitäts-Beurteilungen, Wiesenaufnahmen und Fotopunkte, nach Parzelle geordnet.</li></ul>');
+        : '<ul class="list" style="padding:8px"><li class="empty small">Hier erscheinen Ihre Wiesenaufnahmen, Fotopunkte und Futterqualitäts-Beurteilungen, nach Parzelle geordnet.</li></ul>');
   }
   function fpListe(r) {
     return '<div class="bar"><h2>Fotopunkte<span class="sub">' + (FP.length ? FP.length + ' Punkte' : 'noch keine') + '</span></h2><button class="icon-btn" data-wi="fp-neu" aria-label="Neuer Fotopunkt">' + app().I.plus + '</button></div>' +
@@ -1334,7 +1352,7 @@
   function allesLoeschen() { try { localStorage.removeItem(KEY_FP); localStorage.removeItem(KEY_REF); } catch (e) { /* ignore */ } FP = []; RS = null; HS = null; if (global.Aufnahme) global.Aufnahme.allesLoeschen(); }
 
   global.Wiese = {
-    render, renderFotopunkte, renderNav, renderListe, handle, rasterFuer, fotopunkte: () => fpLaden(), neuLaden: () => { FP = fpLaden(); }, plausi, nachRender: bilderEinsetzen, bestandKnopf, stadiumKnopf, farbabgleich, fotoIds, sicherung, wiederherstellen, allesLoeschen, kamera, zu,
+    render, renderFotopunkte, renderNav, renderListe, handle, rasterFuer, fotopunkte: () => fpLaden(), fotopunktNeu: (fuer) => fpNeuSheet(fuer), fotopunktFoto: (id, zurueck) => { FP_ZURUECK = zurueck || null; richtungErlauben(); fpFoto(id); }, neuLaden: () => { FP = fpLaden(); }, plausi, nachRender: bilderEinsetzen, bestandKnopf, stadiumKnopf, farbabgleich, fotoIds, sicherung, wiederherstellen, allesLoeschen, kamera, zu,
     // für Tests
     _t: { vorschlag, homographie, invers, proj, karteFinden, KARTE, exg, unsicher },
   };
