@@ -4,6 +4,10 @@ FROM python:3.11-slim
 # Arbeitsverzeichnis setzen
 WORKDIR /app
 
+# Texterkennung für Laborberichte (v2): Tesseract (Deutsch/Französisch) und PDF-Werkzeuge
+RUN apt-get update && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-deu tesseract-ocr-fra poppler-utils \
+    && rm -rf /var/lib/apt/lists/*
+
 # Abhängigkeiten installieren
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
