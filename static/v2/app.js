@@ -279,6 +279,7 @@
     if (seg[0] === 'daten') return { name: 'daten' };
     if (seg[0] === 'schweiz') return { name: 'schweiz' };
     if (seg[0] === 'bilanz') return { name: 'bilanz' };
+    if (seg[0] === 'knappheit') return { name: 'knappheit' };
     if (seg[0] === 'wiese') return { name: 'wiese' };
     if (seg[0] === 'fotopunkte') return { name: 'fotopunkte', id: seg[1] || null };
     if (seg[0] === 'aufnahmen') return { name: 'aufnahmen', id: seg[1] || null };
@@ -317,7 +318,7 @@
       if (!p) { ui.route = { name: 'home' }; return render(); }
       depth = 2; anlassId = p.anlassId || null;
     }
-    const SEITEN = ['home', 'daten', 'schweiz', 'bilanz', 'wiese', 'fotopunkte', 'aufnahmen', 'pflanzen', 'hilfe', 'pool', 'labor'];
+    const SEITEN = ['home', 'daten', 'schweiz', 'bilanz', 'knappheit', 'wiese', 'fotopunkte', 'aufnahmen', 'pflanzen', 'hilfe', 'pool', 'labor'];
     if (SEITEN.includes(r.name) && r.name !== 'home') depth = r.name === 'wiese' ? 0 : 2;
     const appName = appVon(r); if (!MODUS_WIESE && !NEUTRAL_ROUTEN.includes(r.name)) { appStand.aktiv = appName; appStand[appName] = location.hash || '#/'; appStandMerken(); }
     document.documentElement.dataset.app = appName;
@@ -327,7 +328,7 @@
     $('#r-list').innerHTML = appVon(r) === 'wiese' ? (r.name === 'aufnahmen' ? window.Aufnahme.renderListe(r) : window.Wiese.renderListe(r)) : renderList(SEITEN.includes(r.name) ? ui.ctxAnlass : anlassId, r);
     $('#main').innerHTML = r.name === 'probe' ? renderProbe(probeById(r.id), r.step)
       : r.name === 'anlass' ? (r.sammel ? window.Sammel.render(anlassId) : renderUebersicht(anlassId))
-      : r.name === 'daten' ? renderDaten() : r.name === 'schweiz' ? window.Schweiz.render() : r.name === 'bilanz' ? window.Bilanz.render()
+      : r.name === 'daten' ? renderDaten() : r.name === 'schweiz' ? window.Schweiz.render() : r.name === 'bilanz' ? window.Bilanz.render() : r.name === 'knappheit' ? window.Knappheit.render()
       : r.name === 'wiese' ? window.Wiese.render() : r.name === 'fotopunkte' ? window.Wiese.renderFotopunkte(r.id) : r.name === 'aufnahmen' ? window.Aufnahme.render(r.id) : r.name === 'labor' ? window.Laborauswertung.render(r) : r.name === 'texte' && window.Textpruefung ? window.Textpruefung.render(r) : r.name === 'pflanzen' ? window.Pflanzen.render() : r.name === 'hilfe' ? renderHilfe() : r.name === 'pool' ? window.PoolOeffentlich.render(r.id) : renderWelcome();
     afterRender();
   }
@@ -443,6 +444,7 @@
       '<div class="section-title" style="padding:0 12px">Daten & Datenschutz</div><ul class="list" style="padding:0 8px 24px">' +
       '<li><a class="item" href="#/daten" aria-current="' + (r.name === 'daten') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.lock.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Speicherort, Sicherung, v1-Daten</span><span class="s">' + (storageOk ? 'Daten liegen nur in diesem Browser' : 'Browserspeicher nicht verfügbar!') + '</span></span></a></li>' +
       '<li><a class="item" href="#/bilanz" aria-current="' + (r.name === 'bilanz') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.table.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Rationscheck</span><span class="s">Energie & Protein der Ration</span></span></a></li>' +
+      '<li><a class="item" href="#/knappheit" aria-current="' + (r.name === 'knappheit') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.table.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Futterknappheit <span class="badge-beta">Beta</span></span><span class="s">Lohnt sich der Futterzukauf?</span></span></a></li>' +
       '<li><a class="item" href="#/schweiz" aria-current="' + (r.name === 'schweiz') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">CH</span><span><span class="t">Auswertung Schweiz</span><span class="s">Karte nach PLZ und Höhenstufe</span></span></a></li>' +
       '<li><a class="item" href="#/pool" aria-current="' + (r.name === 'pool') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.table.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Musterproben</span><span class="s">Öffentlicher Probenpool mit Laborwerten</span></span></a></li>' +
       '<li><a class="item" href="#/hilfe" aria-current="' + (r.name === 'hilfe') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">?</span><span><span class="t">Hilfe & Merkblätter</span><span class="s">Unterlagen, Pflanzentabelle, Quellen</span></span></a></li>' +
@@ -1703,6 +1705,7 @@
   document.addEventListener('click', async (e) => {
     if (ui.route.name === 'schweiz' && e.target.closest('[data-sw],[data-sw-region]') && window.Schweiz.handle(e.target)) return;
     if (e.target.closest('[data-bl]') && window.Bilanz.handle(e)) return;
+    if (e.target.closest('[data-kn]') && window.Knappheit && window.Knappheit.handle(e)) return;
     if (e.target.closest('[data-wi]') && window.Wiese.handle(e)) return;
     if (e.target.closest('[data-pf]') && window.Pflanzen.handle(e)) return;
     if (e.target.closest('[data-au]') && window.Aufnahme.handle(e)) return;
@@ -1894,6 +1897,7 @@
   document.addEventListener('input', (e) => {
     const el = e.target;
     if (window.Bilanz && el.closest('.bilanz')) { window.Bilanz.eingabe(e); return; }
+    if (window.Knappheit && el.closest('.knappheit')) { window.Knappheit.eingabe(e); return; }
     if (el.dataset.pref) {
       const pr = el.dataset.pref;
       if (pr === 'kuhGewicht') db.prefs[pr] = Number(el.value) || 630;

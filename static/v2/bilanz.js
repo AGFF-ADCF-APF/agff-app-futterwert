@@ -313,5 +313,5 @@
     }, el.type === 'checkbox' ? 0 : 700);
   }
 
-  global.Bilanz = { render, handle, eingabe, rechnen, verzehrKuh, hinzufuegen: (probeIds) => { probeIds.forEach((id) => { const p = app().probeById(id); if (p && !B.teile.some((t) => t.probeId === id)) B.teile.push({ id: uid(), quelle: 'probe', probeId: id, name: (p.kopf && p.kopf.bez) || 'Probe', kg: null, labor: true }); }); merken(); } };
+  global.Bilanz = { render, handle, eingabe, rechnen, verzehrKuh, tabellenFutter, maisTabelle, probenWerte, einzelfutter, hinzufuegen: (probeIds) => { probeIds.forEach((id) => { const p = app().probeById(id); if (p && !B.teile.some((t) => t.probeId === id)) B.teile.push({ id: uid(), quelle: 'probe', probeId: id, name: (p.kopf && p.kopf.bez) || 'Probe', kg: null, labor: true }); }); merken(); } };
 })(window);
