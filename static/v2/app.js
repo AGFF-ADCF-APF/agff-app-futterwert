@@ -287,6 +287,7 @@
     if (seg[0] === 'pflanzen') return { name: 'pflanzen' };
     if (seg[0] === 'texte') return { name: 'texte', id: seg[1] || 'fr' };
     if (seg[0] === 'hilfe') return { name: 'hilfe' };
+    if (seg[0] === 'mediathek') return { name: 'mediathek' };
     if (seg[0] === 'pool') return { name: 'pool', id: seg[1] || null };
     return { name: 'home' };
   }
@@ -318,7 +319,7 @@
       if (!p) { ui.route = { name: 'home' }; return render(); }
       depth = 2; anlassId = p.anlassId || null;
     }
-    const SEITEN = ['home', 'daten', 'schweiz', 'bilanz', 'knappheit', 'wiese', 'fotopunkte', 'aufnahmen', 'pflanzen', 'hilfe', 'pool', 'labor'];
+    const SEITEN = ['home', 'daten', 'schweiz', 'bilanz', 'knappheit', 'wiese', 'fotopunkte', 'aufnahmen', 'pflanzen', 'hilfe', 'mediathek', 'pool', 'labor'];
     if (SEITEN.includes(r.name) && r.name !== 'home') depth = r.name === 'wiese' ? 0 : 2;
     const appName = appVon(r); if (!MODUS_WIESE && !NEUTRAL_ROUTEN.includes(r.name)) { appStand.aktiv = appName; appStand[appName] = location.hash || '#/'; appStandMerken(); }
     document.documentElement.dataset.app = appName;
@@ -329,7 +330,7 @@
     $('#main').innerHTML = r.name === 'probe' ? renderProbe(probeById(r.id), r.step)
       : r.name === 'anlass' ? (r.sammel ? window.Sammel.render(anlassId) : renderUebersicht(anlassId))
       : r.name === 'daten' ? renderDaten() : r.name === 'schweiz' ? window.Schweiz.render() : r.name === 'bilanz' ? window.Bilanz.render() : r.name === 'knappheit' ? window.Knappheit.render()
-      : r.name === 'wiese' ? window.Wiese.render() : r.name === 'fotopunkte' ? window.Wiese.renderFotopunkte(r.id) : r.name === 'aufnahmen' ? window.Aufnahme.render(r.id) : r.name === 'labor' ? window.Laborauswertung.render(r) : r.name === 'texte' && window.Textpruefung ? window.Textpruefung.render(r) : r.name === 'pflanzen' ? window.Pflanzen.render() : r.name === 'hilfe' ? renderHilfe() : r.name === 'pool' ? window.PoolOeffentlich.render(r.id) : renderWelcome();
+      : r.name === 'wiese' ? window.Wiese.render() : r.name === 'fotopunkte' ? window.Wiese.renderFotopunkte(r.id) : r.name === 'aufnahmen' ? window.Aufnahme.render(r.id) : r.name === 'labor' ? window.Laborauswertung.render(r) : r.name === 'texte' && window.Textpruefung ? window.Textpruefung.render(r) : r.name === 'pflanzen' ? window.Pflanzen.render() : r.name === 'hilfe' ? renderHilfe() : r.name === 'mediathek' ? renderMediathek() : r.name === 'pool' ? window.PoolOeffentlich.render(r.id) : renderWelcome();
     afterRender();
   }
   let lastHash = null;
@@ -345,7 +346,7 @@
 
   // ---------- Apps: Futterbeurteilung | Wiesenbeurteilung (gleiche Daten, getrennte Navigation) ----------
   const WIESE_ROUTEN = ['wiese', 'fotopunkte', 'aufnahmen', 'pflanzen'];
-  const NEUTRAL_ROUTEN = ['hilfe', 'daten'];
+  const NEUTRAL_ROUTEN = ['hilfe', 'mediathek', 'daten'];
   const APP_KEY = 'agffV2Apps';
   const appStand = (() => { try { const z = JSON.parse(localStorage.getItem(APP_KEY) || '{}'); return z && typeof z === 'object' ? z : {}; } catch (e) { return {}; } })();
   const appStandMerken = () => { try { localStorage.setItem(APP_KEY, JSON.stringify(appStand)); } catch (e) { /* privat */ } };
@@ -448,6 +449,7 @@
       '<li><a class="item" href="#/schweiz" aria-current="' + (r.name === 'schweiz') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">CH</span><span><span class="t">Auswertung Schweiz</span><span class="s">Karte nach PLZ und Höhenstufe</span></span></a></li>' +
       '<li><a class="item" href="#/pool" aria-current="' + (r.name === 'pool') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">' + I.table.replace('<svg', '<svg width="22" height="22"') + '</span><span><span class="t">Musterproben</span><span class="s">Öffentlicher Probenpool mit Laborwerten</span></span></a></li>' +
       '<li><a class="item" href="#/hilfe" aria-current="' + (r.name === 'hilfe') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">?</span><span><span class="t">Hilfe & Merkblätter</span><span class="s">Unterlagen, Pflanzentabelle, Quellen</span></span></a></li>' +
+      '<li><a class="item" href="#/mediathek" aria-current="' + (r.name === 'mediathek') + '"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">▶</span><span><span class="t">Mediathek</span><span class="s">Videos zu Anwelken, Heu und Silage</span></span></a></li>' +
       '<li><a class="item" href="../"><span class="avatar" style="background:var(--surface-2);color:var(--ink-2)">v1</span><span><span class="t">Zur bisherigen Version</span><span class="s">Futterwert-Rechner v1</span></span></a></li>' +
       '</ul>' + appLinkUnten();
   }
@@ -536,6 +538,12 @@
     const gruppen = [['Wiese beurteilen', holen(WIESE_DOKS.slice(0, 3))], ['Entwicklungsstadien der Gräser', holen(WIESE_DOKS.slice(3, 5))], ['Pflanzen bestimmen', holen(WIESE_DOKS.slice(5))]];
     const rest = alle.filter((d) => !WIESE_DOKS.includes(d[0]));
     return gruppen.map(([g, l]) => q(g, '', liste(l))).join('') + '<details class="q hilfe-mehr"><summary>Weitere Merkblätter anzeigen (Futter, Silage, Mais, GPS)</summary>' + liste(rest) + '</details>';
+  }
+  /** Mediathek: gemeinsame Videoliste aller AGFF-Apps (mediathek.json, gefüllt von mediathek.js in afterRender). */
+  function renderMediathek() {
+    return '<div class="bar"><h2>Mediathek<span class="sub">Videos zu Futterbau und Futterkonservierung</span></h2></div><div class="pad">' +
+      '<div data-agff-mediathek data-app="' + (MODUS_WIESE ? 'wiese' : 'futter') + '" data-filter data-leer="Zurzeit sind keine Videos verfügbar (oder die Liste konnte nicht geladen werden)."></div>' +
+      '<p class="hint">Dieselbe Liste erscheint auch in Heureka und in der Heutrocknung (drywatch).</p></div>';
   }
   function renderHilfe() {
     const ext = (u, t, s) => '<li><a href="' + u + '" target="_blank" rel="noopener noreferrer"><b>' + t + '</b> ↗</a><div class="small muted">' + s + '</div></li>';
@@ -1073,6 +1081,7 @@
     if (location.hash !== lastHash) { lastHash = location.hash; window.scrollTo(0, 0); $('#main').scrollTop = 0; }
     fotosEinsetzen();
     if (['wiese', 'fotopunkte', 'aufnahmen', 'pflanzen', 'hilfe', 'daten'].includes(ui.route.name)) window.Wiese.nachRender();
+    if (window.AGFFMediathek) window.AGFFMediathek.einblenden($('#main'));
     appMini(); listeGriff();
     if (window.Assistent) window.Assistent.update();
     if (ui.route.sammel && window.Sammel) window.Sammel.verdrahten();

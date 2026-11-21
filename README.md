@@ -54,6 +54,15 @@ Entscheidungshilfe nach dem INFORAMA-Merkblatt von A. Häberli («Futterknapphei
 
 Daten: nur im Browser (`localStorage`, Schlüssel `agffV2Knappheit`). Offen: Richtwerte prüfen; Rationsvarianten im Rationscheck.
 
+### Mediathek (`#/mediathek`, gemeinsam mit Heureka und drywatch)
+
+Eine Videoliste für alle AGFF-Apps. Gepflegt wird nur `static/v2/mediathek.json`. Heureka (`lernen.html#videos`) und drywatch (Dialog «Info & Wissen») laden `mediathek.js`, `mediathek.css` und die Liste über `/futter/v2/assets/` vom selben Host, ohne eigene Kopie.
+
+- Videos werden **nicht eingebettet**: Jede Karte ist ein Link, der das Video beim Anbieter in einem neuen Tab öffnet. Es kommen keine Drittinhalte in die Apps, und die CSP bleibt unverändert.
+- Neuer Eintrag: `id`, `titel`, `url` (nur https), `quelle`, `anbieter`, `sprache`, `dauer`, `datum`, `verfuegbarBis` (danach ausgeblendet, wichtig bei ARD/SRF), `beschreibung` (eigene Worte), `themen` (Schlüssel aus `themenNamen`), optional `apps`.
+- Einbinden in einer weiteren Seite: `<div data-agff-mediathek data-app="…" data-themen="heu,anwelken" data-filter></div>` plus Skript und CSS (siehe Kopf von `mediathek.js`).
+- Eine Änderung nur an der Liste braucht keinen Neubau. Nach dem Speichern gilt sie sofort in allen drei Apps (in Heureka wegen des Offline-Caches spätestens beim zweiten Aufruf).
+
 ## Betrieb
 
 Docker-Stack hinter Traefik (`docker-compose.yml`). Die App läuft mit gunicorn auf Port 5000; Traefik entfernt `/futter` und bildet `/wiese/…` auf `/v2/…` ab (Kopfzeile `X-AGFF-Modus: wiese`).

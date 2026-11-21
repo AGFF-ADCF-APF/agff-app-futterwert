@@ -1,0 +1,27 @@
+{
+  "_hinweis": "Gemeinsame Videoliste der AGFF-Apps (futter, Heureka/drysim, drywatch). Gepflegt nur hier; die anderen Apps laden sie über /futter/v2/assets/mediathek.json. Felder: id (eindeutig), titel, url (nur https), quelle (Sendung/Herausgeber), anbieter (Plattform), sprache (de/fr/it/en), dauer (Minuten), datum (JJJJ-MM-TT, Erstausstrahlung), verfuegbarBis (JJJJ-MM-TT, danach ausgeblendet; leer = unbefristet), beschreibung (eigene Worte, keine Kopie), themen (siehe themenNamen), apps (optional: nur in diesen Apps zeigen: futter, wiese, heureka, drywatch).",
+  "themenNamen": {
+    "anwelken": "Anwelken",
+    "trocknung": "Trocknung auf dem Feld",
+    "heu": "Heu",
+    "belueftung": "Heubelüftung",
+    "silage": "Silage",
+    "ernte": "Ernte und Technik",
+    "wiese": "Wiese und Bestand"
+  },
+  "videos": [
+    {
+      "id": "br-unser-land-heu-trocknungsanlage",
+      "titel": "Heu aus der Trocknungsanlage",
+      "url": "https://www.ardmediathek.de/video/unser-land/heu-aus-der-trocknungsanlage/br/Y3JpZDovL2JyLmRlL2Jyb2FkY2FzdC9GMjAyNFdPMDEyOTg5QTAvc2VjdGlvbi9lZWY4M2M3ZC03MzdiLTQxM2MtYTUzYy1hNWUyMDNmNzc2MDQ",
+      "quelle": "Unser Land (BR)",
+      "anbieter": "ARD Mediathek",
+      "sprache": "de",
+      "dauer": null,
+      "datum": "",
+      "verfuegbarBis": "",
+      "beschreibung": "Ein Milchviehbetrieb in Bayern trocknet sein Heu nicht nur mit der Sonne auf der Wiese, sondern in einer eigenen Anlage fertig. Der Beitrag zeigt, warum sich das für die Futterqualität lohnen kann und worauf es dabei ankommt.",
+      "themen": ["heu", "belueftung", "trocknung"]
+    }
+  ]
+}

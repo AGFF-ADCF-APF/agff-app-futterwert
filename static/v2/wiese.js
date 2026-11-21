@@ -1225,6 +1225,7 @@
       lb('karte-pdf', '🖨', 'Messkarte drucken ' + BT, 'Raster 50 × 50 cm, Höhe, Farbe') + '</ul>' +
       '<div class="section-title" style="padding:0 12px">Daten & Hilfe</div><ul class="list" style="padding:0 8px 24px">' +
       li('#/hilfe', '?', 'Hilfe & Merkblätter', 'Unterlagen, Pflanzentabelle, Quellen', r.name === 'hilfe') +
+      li('#/mediathek', '▶', 'Mediathek', 'Videos zu Futterbau und Konservierung', r.name === 'mediathek') +
       li('#/daten', I.lock.replace('<svg', '<svg width="22" height="22"'), 'Speicherort, Sicherung', 'Daten liegen nur in diesem Browser', r.name === 'daten') + '</ul>' + (linkUnten || '');
   }
   /** Mittlere Spalte: «Meine Wiesen» – Aufnahmen und Fotopunkte nach Parzelle gruppiert, jüngste zuerst. Auf der Seite Fotopunkte: die Fotopunkt-Liste. */

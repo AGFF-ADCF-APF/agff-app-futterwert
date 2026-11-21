@@ -1,0 +1,38 @@
+/* AGFF-Mediathek (siehe mediathek.js). Farben aus der jeweiligen App, sonst neutral:
+   futter: --brand/--line/--surface-2/--ink-2, Heureka: --gruen/--linie/--karte/--leise. Überschreiben mit --agm-*. */
+.agm {
+  --agm-a: var(--agm-akzent, var(--brand, var(--gruen, #2e7d32)));
+  --agm-l: var(--agm-linie, var(--line, var(--linie, rgba(127, 127, 127, .35))));
+  --agm-f: var(--agm-flaeche, var(--surface, var(--karte, transparent)));
+  --agm-s: var(--agm-leise, var(--ink-2, var(--leise, inherit)));
+  margin: 8px 0 16px;
+}
+.agm[hidden] { display: none; }
+.agm .agm-liste { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.agm .agm-karte { margin: 0; padding: 0; }
+.agm .agm-karte[hidden] { display: none; }
+/* Spezifität bewusst hoch: Apps haben allgemeine Regeln für Links in Listen (z. B. Heureka .seite li > a:only-child). */
+.agm .agm-karte a.agm-link {
+  display: flex; gap: 12px; align-items: flex-start; padding: 12px; min-height: 48px;
+  border: 1px solid var(--agm-l); border-radius: 12px; background: var(--agm-f);
+  color: inherit; text-decoration: none; text-align: left;
+}
+.agm .agm-karte a.agm-link:hover { border-color: var(--agm-a); }
+.agm .agm-karte a.agm-link:focus-visible { outline: 3px solid var(--agm-a); outline-offset: 2px; }
+.agm-play {
+  flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--agm-a); color: #fff;
+}
+.agm-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.agm-titel { font-weight: 600; line-height: 1.3; }
+.agm-extern { color: var(--agm-a); font-weight: 400; }
+.agm-meta, .agm-bis, .agm-hinweis, .agm-leer { font-size: .85em; color: var(--agm-s); }
+.agm-besch { font-size: .92em; line-height: 1.4; }
+.agm-bis { font-style: italic; }
+.agm-hinweis { margin: 8px 2px 0; }
+.agm-filter { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+.agm-chip {
+  font: inherit; font-size: .85em; padding: 6px 12px; min-height: 36px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--agm-l); background: var(--agm-f); color: inherit;
+}
+.agm-chip[aria-pressed="true"] { background: var(--agm-a); border-color: var(--agm-a); color: #fff; }
