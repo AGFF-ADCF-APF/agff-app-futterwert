@@ -87,6 +87,50 @@
     return r;
   }
   async function bildLaden(blob) { return createImageBitmap(blob, { imageOrientation: 'from-image' }); }
+  /**
+   * Geschwärzte Flächen vor der Texterkennung weiss machen. Grosse schwarze Rechtecke verfälschen die
+   * Hintergrund-Korrektur (Server und Gerät) – dann werden nur noch wenige Werte erkannt. Als «Fläche» gilt,
+   * was in einem Fenster von ca. 1,3 % der Bildbreite fast ganz dunkel ist; Schriftstriche sind dafür zu dünn.
+   * Nur für die Kopie, die gelesen wird – das gespeicherte Foto bleibt geschwärzt. Liefert PNG-Blob.
+   */
+  async function flaechenAufhellen(blob) {
+    if (!blob || !/^image\//.test(blob.type || '')) return blob;
+    const bild = await bildLaden(blob);
+    const max = 2600; const f = Math.min(1, max / Math.max(bild.width, bild.height));
+    const w = Math.round(bild.width * f), h = Math.round(bild.height * f);
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const ctx = c.getContext('2d', { willReadFrequently: true }); ctx.drawImage(bild, 0, 0, w, h);
+    const img = ctx.getImageData(0, 0, w, h); const d = img.data;
+    const W = w + 1; const dunkel = new Uint8Array(w * h); const S = new Int32Array(W * (h + 1));
+    for (let y = 0; y < h; y++) {
+      let zeile = 0;
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4; const v = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000 < 40 ? 1 : 0;
+        dunkel[y * w + x] = v; zeile += v; S[(y + 1) * W + x + 1] = S[y * W + x + 1] + zeile;
+      }
+    }
+    const r = Math.max(6, Math.round(w / 150));
+    const summe = (T, x0, y0, x1, y1) => T[y1 * W + x1] - T[y0 * W + x1] - T[y1 * W + x0] + T[y0 * W + x0];
+    const voll = new Int32Array(W * (h + 1)); let gefunden = false;
+    for (let y = 0; y < h; y++) {
+      const y0 = Math.max(0, y - r), y1 = Math.min(h, y + r + 1); let zeile = 0;
+      for (let x = 0; x < w; x++) {
+        const x0 = Math.max(0, x - r), x1 = Math.min(w, x + r + 1);
+        const v = summe(S, x0, y0, x1, y1) >= 0.97 * (x1 - x0) * (y1 - y0) ? 1 : 0;
+        if (v) gefunden = true; zeile += v; voll[(y + 1) * W + x + 1] = voll[y * W + x + 1] + zeile;
+      }
+    }
+    if (!gefunden) return blob;
+    for (let y = 0; y < h; y++) {
+      const y0 = Math.max(0, y - r), y1 = Math.min(h, y + r + 1);
+      for (let x = 0; x < w; x++) {
+        if (!dunkel[y * w + x]) continue;
+        if (summe(voll, Math.max(0, x - r), y0, Math.min(w, x + r + 1), y1) > 0) { const i = (y * w + x) * 4; d[i] = d[i + 1] = d[i + 2] = 255; }
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    return new Promise((res) => c.toBlob((b) => res(b || blob), 'image/png'));
+  }
   async function geraetLesen(blob, status) {
     if (blob.type === 'application/pdf' || /\.pdf$/i.test(blob.name || '')) {
       status('Lese PDF …');
@@ -157,6 +201,7 @@
           btn.disabled = true;
           try {
             let r;
+            blob = await flaechenAufhellen(blob);
             if (wo === 'server') { A.db.prefs.ocrConsent = OCR_CONSENT; A.save(); msg.textContent = 'Lese auf dem Server …'; r = await serverLesen(blob); }
             else r = await geraetLesen(blob, (t) => { msg.textContent = t; });
             if (!Object.keys(r.werte).length) { msg.textContent = 'Keine Werte erkannt. Tipp: Foto gerade und bei gleichmässigem Licht aufnehmen – oder die Werte von Hand eingeben.'; btn.disabled = false; return; }
@@ -405,5 +450,5 @@
     return /\d/.test(z) && (PARAM.some(([, rx]) => rx.test(z)) || NAEHRSTOFF.test(z));
   }
 
-  global.LaborOCR = { gbHtml, nelMitLabor, tabelleHtml, bestePassung, zeilen, istWertzeile, dialog, parse, vergleich, vergleichHtml, FELDER, OCR_CONSENT };
+  global.LaborOCR = { gbHtml, nelMitLabor, tabelleHtml, bestePassung, zeilen, istWertzeile, flaechenAufhellen, dialog, parse, vergleich, vergleichHtml, FELDER, OCR_CONSENT };
 })(window);

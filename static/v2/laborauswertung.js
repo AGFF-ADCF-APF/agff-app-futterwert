@@ -99,7 +99,7 @@
     A.sheet('<h2>Bericht wird gelesen …</h2><p class="small">Das dauert bei Fotos bis zu einer halben Minute.</p><div class="la-laden"></div>');
     let r;
     try {
-      const res = await fetch('api/labor/bericht', { method: 'POST', headers: { 'Content-Type': 'application/octet-stream', 'X-OCR-Consent': v }, body: file, credentials: 'omit', cache: 'no-store' });
+      const res = await fetch('api/labor/bericht', { method: 'POST', headers: { 'Content-Type': 'application/octet-stream', 'X-OCR-Consent': v }, body: (window.LaborOCR && window.LaborOCR.flaechenAufhellen ? await window.LaborOCR.flaechenAufhellen(file) : file), credentials: 'omit', cache: 'no-store' });
       r = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(r.error || 'HTTP ' + res.status);
     } catch (e) {
