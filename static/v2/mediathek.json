@@ -22,6 +22,19 @@
       "verfuegbarBis": "",
       "beschreibung": "Ein Milchviehbetrieb in Bayern trocknet sein Heu nicht nur mit der Sonne auf der Wiese, sondern in einer eigenen Anlage fertig. Der Beitrag zeigt, warum sich das für die Futterqualität lohnen kann und worauf es dabei ankommt.",
       "themen": ["heu", "belueftung", "trocknung"]
+    },
+    {
+      "id": "moeller-gras-maehen-aufbereiter",
+      "titel": "Gras mähen mit oder ohne Aufbereiter?",
+      "url": "https://www.youtube.com/watch?v=twlIbnX1VRI",
+      "quelle": "Möller Agrarmarketing",
+      "anbieter": "YouTube",
+      "sprache": "de",
+      "dauer": null,
+      "datum": "",
+      "verfuegbarBis": "",
+      "beschreibung": "Jan-Hendrik Puckhaber erklärt, wann sich ein Mähaufbereiter für Grassilage lohnt und was er beim Anwelken bewirkt.",
+      "themen": ["anwelken", "trocknung", "ernte", "silage"]
     }
   ]
 }
