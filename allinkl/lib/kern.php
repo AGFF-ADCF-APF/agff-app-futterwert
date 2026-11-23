@@ -351,10 +351,89 @@ function py_json($v, bool $ascii = true): string
     if (is_array($v)) {
         return '[' . implode(', ', array_map(fn ($x) => py_json($x, $ascii), $v)) . ']';
     }
-    if (is_float($v) && (is_nan($v) || is_infinite($v))) {
-        return is_nan($v) ? 'NaN' : ($v > 0 ? 'Infinity' : '-Infinity');
+    if (is_float($v)) {
+        return py_float($v);
     }
     return json_encode($v, JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION | ($ascii ? 0 : JSON_UNESCAPED_UNICODE));
+}
+
+/** json.dumps(v, ensure_ascii=False, separators=(',', ':')) wie Python. */
+function py_json_kompakt($v): string
+{
+    if ($v instanceof stdClass) {
+        $t = [];
+        foreach (get_object_vars($v) as $k => $x) {
+            $t[] = py_json((string) $k, false) . ':' . py_json_kompakt($x);
+        }
+        return '{' . implode(',', $t) . '}';
+    }
+    if (is_array($v)) {
+        return '[' . implode(',', array_map('py_json_kompakt', $v)) . ']';
+    }
+    return py_json($v, false);
+}
+
+/** repr(float) wie Python: kürzeste exakte Ziffernfolge; Festkomma für Exponent -4 … 15, sonst «1.5e-07». */
+function py_float(float $x): string
+{
+    if (is_nan($x)) {
+        return 'NaN';
+    }
+    if (is_infinite($x)) {
+        return $x > 0 ? 'Infinity' : '-Infinity';
+    }
+    if ($x == 0.0) {
+        return (1 / $x < 0) ? '-0.0' : '0.0';
+    }
+    for ($p = 0; $p < 17; $p++) {
+        $e = sprintf('%.' . $p . 'e', $x);
+        if ((float) $e === $x) {
+            break;
+        }
+    }
+    [$mant, $exp] = explode('e', $e);
+    $exp = (int) $exp;
+    $neg = $mant[0] === '-';
+    $ziffern = str_replace(['-', '.'], '', $mant);
+    $ziffern = rtrim($ziffern, '0') ?: '0';
+    if ($exp >= -4 && $exp < 16) {
+        if ($exp >= 0) {
+            $ganz = substr(str_pad($ziffern, $exp + 1, '0'), 0, $exp + 1);
+            $rest = substr($ziffern, $exp + 1);
+            $t = $ganz . '.' . ($rest === '' ? '0' : $rest);
+        } else {
+            $t = '0.' . str_repeat('0', -$exp - 1) . $ziffern;
+        }
+    } else {
+        $t = $ziffern[0] . (strlen($ziffern) > 1 ? '.' . substr($ziffern, 1) : '') . 'e' . ($exp < 0 ? '-' : '+') . sprintf('%02d', abs($exp));
+    }
+    return ($neg ? '-' : '') . $t;
+}
+
+/** int(v) wie Python für JSON-Werte; null bei TypeError/ValueError. */
+function py_int($v): ?int
+{
+    if (is_bool($v)) {
+        return $v ? 1 : 0;
+    }
+    if (is_int($v)) {
+        return $v;
+    }
+    if (is_float($v)) {
+        return is_finite($v) ? (int) $v : null;
+    }
+    if (is_string($v) && preg_match('/^\s*[+-]?\d+(_\d+)*\s*$/', $v)) {
+        return (int) str_replace('_', '', trim($v));
+    }
+    return null;
+}
+
+/** datetime.now(timezone.utc).isoformat(): Mikrosekunden nur, wenn nicht 0. */
+function jetzt_fein(): string
+{
+    $t = DateTime::createFromFormat('U.u', sprintf('%.6F', microtime(true)), new DateTimeZone('UTC'));
+    $us = (int) $t->format('u');
+    return $t->format('Y-m-d\TH:i:s') . ($us ? '.' . $t->format('u') : '') . '+00:00';
 }
 
 /** str(v) wie Python für JSON-Werte (True/False/None, 5.0, Text unverändert). */
@@ -367,7 +446,7 @@ function py_str($v): string
         return $v ? 'True' : 'False';
     }
     if (is_float($v)) {
-        return json_encode($v, JSON_PRESERVE_ZERO_FRACTION);
+        return py_float($v);
     }
     if (is_string($v)) {
         return $v;

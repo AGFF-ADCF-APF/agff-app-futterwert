@@ -97,6 +97,34 @@ function code_senden(string $zweck, string $email, string $wozu, ?string $link =
         . "Falls Sie keinen Code angefordert haben, können Sie diese E-Mail ignorieren.\n");
 }
 
+/** Anmelde-E-Mail: Code (15 Minuten) und Anmelde-Knopf (Link 24 Monate gültig, widerrufbar). */
+function login_senden(string $email, string $code, string $link, string $produkt = 'Futterbeurteilung'): void
+{
+    $text = "Ihr Anmeldecode für AGFF $produkt:\n\n    $code\n\nDer Code ist 15 Minuten gültig.\n\n"
+        . "Oder direkt anmelden (auf diesem Gerät antippen):\n$link\n\n"
+        . 'Der Anmelde-Link bleibt 24 Monate gültig, damit Sie sich später wieder anmelden können. '
+        . 'Behandeln Sie diese E-Mail wie einen Schlüssel: nicht weiterleiten. '
+        . "In der App unter «Daten › Konto» können Sie Links und Geräte jederzeit widerrufen.\n\n"
+        . "Falls Sie sich nicht anmelden wollten, können Sie diese E-Mail ignorieren.\n";
+    $h = fn ($x) => htmlspecialchars($x, ENT_QUOTES, 'UTF-8');
+    $l = $h($link);
+    $html = '<!doctype html><html><body style="margin:0;background:#f2f5f1;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1d2925">'
+        . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:24px 12px">'
+        . '<table role="presentation" width="100%" style="max-width:480px;background:#ffffff;border-radius:14px;padding:24px" cellpadding="0" cellspacing="0"><tr><td>'
+        . '<p style="margin:0 0 4px;font-size:13px;color:#5b6b66">AGFF ' . $h($produkt) . '</p>'
+        . '<h1 style="margin:0 0 18px;font-size:20px">Anmelden</h1>'
+        . '<p style="margin:0 0 8px;font-size:14px">Ihr Code (15 Minuten gültig):</p>'
+        . '<div style="font-size:34px;letter-spacing:10px;font-weight:700;font-family:Menlo,Consolas,monospace;background:#e3f1ea;color:#0f5a43;border-radius:10px;padding:14px 0;text-align:center;-webkit-user-select:all;user-select:all">' . $h($code) . '</div>'
+        . '<p style="margin:6px 0 22px;font-size:12px;color:#5b6b66;text-align:center">Code antippen bzw. doppelklicken und kopieren – die App fügt ihn mit «Einfügen» ein.</p>'
+        . '<p style="margin:0 0 10px;font-size:14px">Oder ohne Code direkt anmelden:</p>'
+        . '<p style="margin:0 0 18px;text-align:center"><a href="' . $l . '" style="display:inline-block;background:#1f8a4c;color:#ffffff;text-decoration:none;font-weight:600;font-size:16px;padding:14px 28px;border-radius:12px">In der App anmelden</a></p>'
+        . '<p style="margin:0 0 8px;font-size:12px;color:#5b6b66">Der Anmelde-Knopf bleibt <b>24 Monate</b> gültig – so können Sie sich später auf jedem Gerät wieder anmelden. '
+        . 'Behandeln Sie diese E-Mail wie einen Schlüssel und leiten Sie sie nicht weiter. Widerrufen: in der App unter «Daten › Konto».</p>'
+        . '<p style="margin:0;font-size:12px;color:#5b6b66">Falls Sie sich nicht anmelden wollten, ignorieren Sie diese E-Mail.</p>'
+        . '</td></tr></table></td></tr></table></body></html>';
+    mail_senden(email_norm($email), 'Anmeldecode: ' . $code, $text, $html);
+}
+
 function admin_adresse(): ?string
 {
     $a = (string) konfig('V2_ADMIN_MAIL', konfig('SMTP_FROM', ''));

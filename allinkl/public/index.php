@@ -70,6 +70,26 @@ $ROUTEN = [
     ['PUT', 'api/spaces/([^/]+)/fotos/([^/]+)', 'r_foto_hochladen'],
     ['GET', 'api/spaces/([^/]+)/fotos/([^/]+)', 'r_foto_lesen'],
     ['DELETE', 'api/spaces/([^/]+)/fotos/([^/]+)', 'r_foto_loeschen'],
+    // Konto und Cloud-Speicherung
+    ['POST', 'api/konto/code', 'r_konto_code'],
+    ['POST', 'api/konto/login', 'r_konto_login'],
+    ['GET', 'api/konto', 'r_konto_info'],
+    ['DELETE', 'api/konto', 'r_konto_loeschen'],
+    ['DELETE', 'api/konto/links/([^/]+)', 'r_konto_link_weg'],
+    ['DELETE', 'api/konto/links', 'r_konto_links_alle_weg'],
+    ['DELETE', 'api/konto/geraete/([^/]+)', 'r_konto_geraet_weg'],
+    ['POST', 'api/konto/logout', 'r_konto_logout'],
+    ['PUT', 'api/konto/cloud', 'r_konto_cloud'],
+    ['GET', 'api/konto/daten/([^/]+)', 'r_konto_daten_lesen'],
+    ['PUT', 'api/konto/daten/([^/]+)', 'r_konto_daten_schreiben'],
+    ['PUT', 'api/konto/fotos/([^/]+)', 'r_konto_foto_hochladen'],
+    ['GET', 'api/konto/fotos/([^/]+)', 'r_konto_foto_lesen'],
+    ['GET', 'api/konto/fotos', 'r_konto_foto_liste'],
+    ['DELETE', 'api/konto/fotos/([^/]+)', 'r_konto_foto_loeschen'],
+    ['POST', 'api/quota-antrag', 'r_quota_antrag'],
+    ['POST', 'api/quota-antrag/code', 'r_quota_antrag_code'],
+    ['GET', 'api/admin/quota', 'r_admin_quota_liste'],
+    ['POST', 'api/admin/quota/([^/]+)', 'r_admin_quota_entscheid'],
 ];
 
 function ausgeben(Antwort $a, bool $api): void

@@ -15,7 +15,7 @@ allinkl/
     rueckmeldung.php  Rückmeldung zur Beta
     sso.php         Admin-Anmeldung mit dem AGFF-Konto (Ed25519 über sodium), admin_ok()
     mail.php        Einmal-Codes, Versand über mail() (Testmodus: V2_MAIL_DRYRUN_FILE wie in Flask)
-    konto.php       Konto-Sitzung (X-Konto), Foto-Kontingent (Teil 3: Rest des Kontos)
+    konto.php       Konto: Anmeldung per Code/Link, Geräte, Cloud-Daten je App, Fotos, Antrag auf mehr Foto-Speicher
     spaces.php      Freigaben: Datensätze, Fotos, Links erneuern, Gruppen-Beitritt per Code
   public/         Dokumentenwurzel-Teil: index.php (Router), .htaccess; beim Bauen kommt assets/ (= static/v2) dazu
   schema.sql      MySQL/MariaDB-Schema (alle 23 Tabellen + rate_treffer)
@@ -45,7 +45,8 @@ vergleicht Status, Sicherheits-Header und JSON.
 | Rückmeldung | portiert, geprüft |
 | Admin-Anmeldung (SSO) | portiert, Fehlerwege geprüft; Anmeldung mit echtem Token noch offen |
 | E-Mail-Codes, Freigaben (Spaces) inkl. Fotos und Gruppen-Beitritt | portiert, geprüft |
-| Konto, Kurse, Pool, Administration | offen |
+| Konto und Cloud-Speicherung, Antrag Foto-Speicher | portiert, geprüft |
+| Kurse, Pool, Administration (Übersicht, Kursleitung, Einladungen) | offen |
 | Texterkennung | bleibt auf dem Home-Server bzw. im Browser (Plan Abschnitt 5) |
 | Deploy-Skript, Datenumzug, Umzugsseite | offen |
 

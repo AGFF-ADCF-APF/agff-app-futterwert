@@ -59,8 +59,12 @@ def norm(v, schluessel=''):
             return '<zeit>'
         if TAG.match(v) and schluessel in ('datum',):
             return '<tag>'
-        if schluessel in ('id',) and re.match(r'^[A-Za-z0-9_-]{8,}$', v):
+        if schluessel in ('id', 'sid') and re.match(r'^[A-Za-z0-9_-]{8,}$', v):
             return '<id>'
+        if schluessel in ('session',):
+            return '<token>'
+    if schluessel in ('expiresAt',) and isinstance(v, (int, float)):
+        return '<ablauf>'
     if isinstance(v, float) and v == int(v):
         return int(v)  # 88.0 (Python) vs 88 (PHP ohne Nachkommastellen) gilt als gleich
     return v
@@ -134,6 +138,13 @@ def mails(seite):
         text = subprocess.run(['docker', 'compose', '-p', 'futter-port-test', 'exec', '-T', 'php', 'sh', '-c', 'cat /daten/mail.jsonl 2>/dev/null || true'],
                               capture_output=True, text=True, cwd=os.path.dirname(os.path.abspath(__file__))).stdout
     return [json.loads(z) for z in text.splitlines() if z.strip()]
+
+
+def letzte_mail(seite, an):
+    for m in reversed(mails(seite)):
+        if m['to'] == an:
+            return m
+    return {}
 
 
 def letzter_code(seite, an):
@@ -381,7 +392,112 @@ def fall_freigaben(P):
     P.vergleich('nach löschen', 'GET', sp(), kopf=lambda c: {'X-Read-Token': c['neu']['rt']}, ctx=C, erwartet=404)
 
 
-FAELLE = {'grundlagen': fall_grundlagen, 'rueckmeldung': fall_rueckmeldung, 'statistik': fall_statistik, 'anmeldung': fall_anmeldung, 'freigaben': fall_freigaben}
+def fall_konto(P):
+    print('Konto')
+    C = {'flask': {'url': P.flask}, 'php': {'url': P.php}}
+    em = 'konto.test@example.org'
+    P.vergleich('code ungültig', 'POST', 'api/konto/code', body={'email': 'x'})
+    P.vergleich('code', 'POST', 'api/konto/code', body=lambda c: {'email': em, 'appUrl': c['url']}, ctx=C, erwartet=200)
+    time.sleep(0.3)
+    for seite in C:
+        m = letzte_mail(seite, em)
+        C[seite]['code'], C[seite]['link'] = m.get('code'), m.get('login')
+        if m.get('loginBase') != C[seite]['url']:
+            P.fehler.append((f'Anmelde-Link {seite}', [f"Basis {m.get('loginBase')} statt {C[seite]['url']}"]))
+    P.vergleich('login falscher code', 'POST', 'api/konto/login', body=lambda c: {'email': em, 'code': '000000' if c['code'] != '000000' else '111111'}, ctx=C)
+    P.vergleich('login ohne alles', 'POST', 'api/konto/login', body={})
+    P.vergleich('login schlechter link', 'POST', 'api/konto/login', body={'link': 'abcdefgh.' + 'x' * 43})
+    P.vergleich('login unlesbarer link', 'POST', 'api/konto/login', body={'link': 'kaputt'})
+    merk = []
+    P.vergleich('login code', 'POST', 'api/konto/login', body=lambda c: {'email': em.upper(), 'code': c['code']}, ctx=C, erwartet=200,
+                sortiere=lambda j: merk.append(j and j.get('session')))
+    C['flask']['s1'], C['php']['s1'] = merk
+    merk.clear()
+    P.vergleich('login link', 'POST', 'api/konto/login', body=lambda c: {'link': c['link']}, ctx=C, erwartet=200, sortiere=lambda j: merk.append(j and j.get('session')))
+    C['flask']['s2'], C['php']['s2'] = merk
+    K = lambda c: {'X-Konto': c['s1']}
+    K2 = lambda c: {'X-Konto': c['s2']}
+    P.vergleich('info ohne sitzung', 'GET', 'api/konto')
+    P.vergleich('info falsche sitzung', 'GET', 'api/konto', kopf={'X-Konto': tok()})
+    srt = lambda j: j and isinstance(j.get('geraete'), list) and j['geraete'].sort(key=lambda g: (g['via'], g['ich']))
+    P.vergleich('info', 'GET', 'api/konto', kopf=K, ctx=C, erwartet=200, sortiere=srt)
+    # Cloud
+    P.vergleich('cloud schlecht', 'PUT', 'api/konto/cloud', body={'app': 'x', 'an': True}, kopf=K, ctx=C)
+    P.vergleich('cloud an ohne consent', 'PUT', 'api/konto/cloud', body={'app': 'futter', 'an': True}, kopf=K, ctx=C)
+    P.vergleich('cloud an 1', 'PUT', 'api/konto/cloud', body={'app': 'futter', 'an': 1}, kopf=K, ctx=C)
+    P.vergleich('cloud an', 'PUT', 'api/konto/cloud', body={'app': 'futter', 'an': True, 'consent': {'accepted': True, 'version': '2026-10-konto1'}}, kopf=K, ctx=C, erwartet=200)
+    P.vergleich('daten wiese aus', 'GET', 'api/konto/daten/wiese', kopf=K, ctx=C)
+    P.vergleich('daten unbekannte app', 'GET', 'api/konto/daten/foo', kopf=K, ctx=C)
+    P.vergleich('daten leer', 'GET', 'api/konto/daten/futter', kopf=K, ctx=C)
+    D = 'api/konto/daten/futter'
+    P.vergleich('schreiben kein json', 'PUT', D, roh=b'{x', kopf=K, ctx=C)
+    P.vergleich('schreiben liste', 'PUT', D, roh=b'[1]', kopf=K, ctx=C)
+    P.vergleich('schreiben ohne records', 'PUT', D, body={'x': 1}, kopf=K, ctx=C)
+    P.vergleich('schreiben zu viele', 'PUT', D, body={'records': [{'id': f'r{i}', 'data': {}} for i in range(301)]}, kopf=K, ctx=C)
+    P.vergleich('schreiben wiese aus', 'PUT', 'api/konto/daten/wiese', body={'records': []}, kopf=K, ctx=C)
+    recs = [{'id': 'anlass:a1', 'data': {'titel': 'Ernte «Süd»', 'n': 3, 'x': 1.5, 'tief': {'a': [1, 2, {'b': None}]}, 'e': 1e-7}, 'updatedAt': '2026-11-01T10:00:00Z'},
+            {'id': 'probe:p1', 'data': [1, 'zwei', True], 'updatedAt': '2026-11-02T10:00:00Z'},
+            {'id': 'probe:p2', 'data': None, 'updatedAt': '2026-11-03T10:00:00Z'}]
+    stand = []
+    P.vergleich('schreiben ok', 'PUT', D, body={'records': recs}, kopf=K, ctx=C, erwartet=200, sortiere=lambda j: stand.append(j and j.get('stand')))
+    C['flask']['stand'], C['php']['stand'] = stand
+    alt = dict(recs[0], updatedAt='2026-01-01T00:00:00Z', data={'titel': 'alt'})
+    P.vergleich('schreiben veraltet', 'PUT', D, body={'records': [alt, dict(recs[1], updatedAt='2026-12-01T00:00:00Z', data={'neu': True})]}, kopf=K, ctx=C, erwartet=200)
+    P.vergleich('schreiben schlechte id mitten drin', 'PUT', D, body={'records': [{'id': 'probe:p3', 'data': {'a': 1}}, {'id': 'böse id', 'data': {}}]}, kopf=K, ctx=C)
+    P.vergleich('schreiben text statt objekt', 'PUT', D, body={'records': [{'id': 'probe:p4', 'data': 'text'}]}, kopf=K, ctx=C)
+    P.vergleich('schreiben zu tief', 'PUT', D, body={'records': [{'id': 'probe:p5', 'data': {'a': [[[[[[[[[[[1]]]]]]]]]]]}}]}, kopf=K, ctx=C)
+    P.vergleich('schreiben langer schlüssel', 'PUT', D, body={'records': [{'id': 'probe:p6', 'data': {'k' * 101: 1}}]}, kopf=K, ctx=C)
+    srt2 = lambda j: j and isinstance(j.get('records'), list) and j['records'].sort(key=lambda r: str(r['id']))
+    P.vergleich('daten lesen', 'GET', D, kopf=K, ctx=C, erwartet=200, sortiere=srt2)
+    P.vergleich('daten seit', 'GET', lambda c: D + '?seit=' + urllib.request.quote(c['stand']), kopf=K, ctx=C, erwartet=200, sortiere=srt2)
+    P.vergleich('info nach daten', 'GET', 'api/konto', kopf=K, ctx=C, sortiere=srt)
+    # Fotos
+    jpg = b'\xff\xd8\xff\xe0' + b'K' * 400
+    P.vergleich('foto falsche app', 'PUT', 'api/konto/fotos/kfoto00000000001?app=x', roh=jpg, kopf=K, ctx=C)
+    P.vergleich('foto wiese aus', 'PUT', 'api/konto/fotos/kfoto00000000001?app=wiese', roh=jpg, kopf=K, ctx=C)
+    P.vergleich('foto ok', 'PUT', 'api/konto/fotos/kfoto00000000001?app=futter', roh=jpg, kopf=K, ctx=C, erwartet=200)
+    P.vergleich('foto liste', 'GET', 'api/konto/fotos', kopf=K, ctx=C)
+    a = anfrage(P.flask, 'GET', 'api/konto/fotos/kfoto00000000001', kopf=K(C['flask']))
+    b = anfrage(P.php, 'GET', 'api/konto/fotos/kfoto00000000001', kopf=K(C['php']))
+    if (a.status, a.roh) != (b.status, b.roh) or b.roh != jpg:
+        P.fehler.append(('konto foto lesen', [f'{a.status}/{b.status} {len(a.roh)}/{len(b.roh)}'])); print('  ✗ konto foto lesen')
+    else:
+        P.ok += 1
+    P.vergleich('foto fremde sitzung', 'GET', 'api/konto/fotos/kfoto00000000001', kopf={'X-Konto': tok()})
+    # Antrag Foto-Speicher
+    P.vergleich('antrag schlecht', 'POST', 'api/quota-antrag', body={'wunschMb': 'viel'}, kopf=K, ctx=C)
+    P.vergleich('antrag', 'POST', 'api/quota-antrag', body={'wunschMb': '250', 'begruendung': '  Kurs mit vielen Fotos  ', 'bereich': 'kurs'}, kopf=K, ctx=C, erwartet=200)
+    em2 = 'antrag.ohne.konto@example.org'
+    P.vergleich('antrag code', 'POST', 'api/quota-antrag/code', body={'email': em2}, erwartet=200)
+    time.sleep(0.3)
+    for seite in C:
+        C[seite]['qcode'] = letzter_code(seite, em2)
+    P.vergleich('antrag ohne konto falscher code', 'POST', 'api/quota-antrag', body={'email': em2, 'code': '999999', 'wunschMb': 50.9})
+    P.vergleich('antrag ohne konto', 'POST', 'api/quota-antrag', body=lambda c: {'email': em2, 'code': c['qcode'], 'wunschMb': 50.9}, ctx=C, erwartet=200)
+    asrt = lambda j: j and isinstance(j.get('antraege'), list) and j['antraege'].sort(key=lambda a: a['email'])
+    liste = []
+    P.vergleich('admin quota', 'GET', 'api/admin/quota', kopf={'X-Admin-Pass': ADMIN}, erwartet=200, sortiere=lambda j: (liste.append(j), asrt(j)))
+    P.vergleich('admin quota ohne', 'GET', 'api/admin/quota')
+    if liste[0] and liste[1]:
+        C['flask']['aid'] = [a['id'] for a in liste[0]['antraege'] if a['email'] == em][0]
+        C['php']['aid'] = [a['id'] for a in liste[1]['antraege'] if a['email'] == em][0]
+        P.vergleich('admin entscheid schlecht', 'POST', lambda c: 'api/admin/quota/' + c['aid'], body={'status': 'vielleicht'}, kopf={'X-Admin-Pass': ADMIN}, ctx=C)
+        P.vergleich('admin entscheid ok', 'POST', lambda c: 'api/admin/quota/' + c['aid'], body={'status': 'ok', 'mb': '300'}, kopf={'X-Admin-Pass': ADMIN}, ctx=C, erwartet=200)
+        P.vergleich('admin entscheid unbekannt', 'POST', 'api/admin/quota/gibtsnicht', body={'status': 'ok'}, kopf={'X-Admin-Pass': ADMIN})
+    P.vergleich('info mit zusatz', 'GET', 'api/konto', kopf=K, ctx=C, sortiere=srt)
+    # Geräte, Links, Abmelden, Löschen
+    P.vergleich('foto löschen', 'DELETE', 'api/konto/fotos/kfoto00000000001', kopf=K, ctx=C)
+    P.vergleich('cloud aus löschen', 'PUT', 'api/konto/cloud', body={'app': 'futter', 'an': False, 'loeschen': True}, kopf=K, ctx=C)
+    P.vergleich('logout zweites gerät', 'POST', 'api/konto/logout', kopf=K2, ctx=C)
+    P.vergleich('zweites gerät weg', 'GET', 'api/konto', kopf=K2, ctx=C)
+    P.vergleich('links alle weg', 'DELETE', 'api/konto/links', kopf=K, ctx=C)
+    P.vergleich('link danach ungültig', 'POST', 'api/konto/login', body=lambda c: {'link': c['link']}, ctx=C)
+    P.vergleich('info am schluss', 'GET', 'api/konto', kopf=K, ctx=C, sortiere=srt)
+    P.vergleich('konto löschen', 'DELETE', 'api/konto', kopf=K, ctx=C, erwartet=200)
+    P.vergleich('nach löschen', 'GET', 'api/konto', kopf=K, ctx=C, erwartet=404)
+
+
+FAELLE = {'grundlagen': fall_grundlagen, 'rueckmeldung': fall_rueckmeldung, 'statistik': fall_statistik, 'anmeldung': fall_anmeldung, 'freigaben': fall_freigaben, 'konto': fall_konto}
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
