@@ -58,7 +58,8 @@ Daten: nur im Browser (`localStorage`, Schlüssel `agffV2Knappheit`). Offen: Ric
 
 Eine Videoliste für alle AGFF-Apps. Gepflegt wird nur `static/v2/mediathek.json`. Heureka (`lernen.html#videos`) und drywatch (Dialog «Info & Wissen») laden `mediathek.js`, `mediathek.css` und die Liste über `/futter/v2/assets/` vom selben Host, ohne eigene Kopie.
 
-- Videos werden **nicht eingebettet**: Jede Karte ist ein Link, der das Video beim Anbieter in einem neuen Tab öffnet. Es kommen keine Drittinhalte in die Apps, und die CSP bleibt unverändert.
+- Videos werden **nicht eingebettet**: Jede Karte ist ein Link, der das Video beim Anbieter in einem neuen Tab öffnet.
+- **Standbilder:** Bei YouTube-Links gibt es «Bilder ansehen». Erst dieser Klick lädt die drei Standbilder, die YouTube selbst bereitstellt (`i.ytimg.com/vi/<id>/hq1-3.jpg`, ohne Referrer). Dafür erlauben die CSP von futter (`v2_api.py`) und Heureka (`nginx.conf`) `img-src https://i.ytimg.com`. Die Datenschutzerklärung nennt die Ausnahme. Eigene Screenshots werden nicht abgelegt (Urheberrecht der Kanäle). Mit `"bilder": false` lässt sich das je Video abschalten.
 - Neuer Eintrag: `id`, `titel`, `url` (nur https), `quelle`, `anbieter`, `sprache`, `dauer`, `datum`, `verfuegbarBis` (danach ausgeblendet, wichtig bei ARD/SRF), `beschreibung` (eigene Worte), `themen` (Schlüssel aus `themenNamen`), optional `apps`.
 - Einbinden in einer weiteren Seite: `<div data-agff-mediathek data-app="…" data-themen="heu,anwelken" data-filter></div>` plus Skript und CSS (siehe Kopf von `mediathek.js`).
 - Eine Änderung nur an der Liste braucht keinen Neubau. Nach dem Speichern gilt sie sofort in allen drei Apps (in Heureka wegen des Offline-Caches spätestens beim zweiten Aufruf).
