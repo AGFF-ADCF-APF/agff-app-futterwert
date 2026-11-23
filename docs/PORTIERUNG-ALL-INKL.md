@@ -58,7 +58,12 @@ nachweislich gleich. Dazu die bestehenden Browser-Tests (Playwright) für die Ha
 4. E-Mail-Codes (`v2_mail`) und Konto/Cloud-Speicherung (`v2_konto`, inkl. Kontingente)
 5. Kursmodus (`v2_kurs`, grösstes Modul: Beitritt, Zustimmung, Beurteilungen, Fotos, Etiketten)
 6. Probenpool (öffentlich und für Kursleitende)
-7. Administration und zentrale Anmeldung über graswachstum.ch (JWT HS256, Nonce, Einmaligkeit; Admin-Passwort als Rückfall)
+7. Administration und Anmeldung über das AGFF-Konto (SSO agff-familie, Client «futter», Ed25519-Signatur): in PHP mit
+   `sodium_crypto_sign_verify_detached` wie in Lernherbar/Pratum; Vorlage in Python: Branch `feature/sso-agff`
+   (`docs/sso-futter-anbieter.md`, `tests/test_sso.py`). Admin-Passwort bleibt Rückfall.
+   Nach der Umschaltung der Sitzung «graswachstum.ch Umstrukturierung Teil B» melden: neue App-Adresse und neue
+   SSO-Rückkehradresse (heute `https://apps.graswachstum.ch/futter/v2/anmelden/zurueck` in `websites.php`),
+   damit das gelbe «v2»-Abzeichen auf graswachstum.ch/werkzeuge freigeschaltet wird.
 
 Jedes Modul ist erst fertig, wenn der Prüfstand aus Phase 1 dafür grün ist.
 
