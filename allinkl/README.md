@@ -16,7 +16,7 @@ allinkl/
     sso.php         Admin-Anmeldung mit dem AGFF-Konto (Ed25519 über sodium), admin_ok()
   public/         Dokumentenwurzel-Teil: index.php (Router), .htaccess; beim Bauen kommt assets/ (= static/v2) dazu
   schema.sql      MySQL/MariaDB-Schema (alle 23 Tabellen + rate_treffer)
-  werkzeuge/bauen.py   Paket bauen: lib, public+assets, vorgerenderte Seiten (Futter/Wiese), basis.json, build.txt
+  skripte/bauen.py   Paket bauen: lib, public+assets, vorgerenderte Seiten (Futter/Wiese), basis.json, build.txt
   test/           lokale Nachbildung von all-inkl (PHP 8.4 + MariaDB 10.11) und Prüfstand gegen Flask
 ```
 

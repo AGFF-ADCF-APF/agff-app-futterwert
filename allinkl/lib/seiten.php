@@ -2,7 +2,7 @@
 /**
  * Seiten, Service Worker, Manifest, Nährwert-Basis und Konfiguration.
  * Die HTML-Seiten und basis.json werden beim Bauen aus templates/v2 bzw. futterwerte.csv erzeugt
- * (allinkl/werkzeuge/bauen.py) und liegen im Ordner seiten/ neben lib/ (ausserhalb der Dokumentenwurzel).
+ * (allinkl/skripte/bauen.py) und liegen im Ordner seiten/ neben lib/ (ausserhalb der Dokumentenwurzel).
  */
 declare(strict_types=1);
 

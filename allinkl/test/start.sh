@@ -5,7 +5,7 @@ cd "$(dirname "$0")"
 REPO=$(cd ../.. && pwd)
 CSV=${FUTTERWERTE_CSV:-/opt/stacks/agff-apps/futter/data/futterwerte.csv}
 docker run --rm -u "$(id -u):$(id -g)" -v "$REPO:/src" -v "$CSV:/csv/futterwerte.csv:ro" -w /src futter-futterrechner \
-  python3 -I allinkl/werkzeuge/bauen.py /src allinkl/_bau /csv/futterwerte.csv
+  python3 -I allinkl/skripte/bauen.py /src allinkl/_bau /csv/futterwerte.csv
 docker compose -p futter-port-test down -v >/dev/null 2>&1 || true
 docker compose -p futter-port-test up -d --build --wait
 docker compose -p futter-port-test exec -T db sh -c 'mariadb -ufutter -pfutter-test futter' < ../schema.sql
