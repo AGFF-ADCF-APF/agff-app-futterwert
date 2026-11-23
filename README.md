@@ -56,13 +56,20 @@ Daten: nur im Browser (`localStorage`, Schlüssel `agffV2Knappheit`). Offen: Ric
 
 ### Mediathek (`#/mediathek`, gemeinsam mit Heureka und drywatch)
 
-Eine Videoliste für alle AGFF-Apps. Gepflegt wird nur `static/v2/mediathek.json`. Heureka (`lernen.html#videos`) und drywatch (Dialog «Info & Wissen») laden `mediathek.js`, `mediathek.css` und die Liste über `/futter/v2/assets/` vom selben Host, ohne eigene Kopie.
+Eine Videoliste für alle AGFF-Apps. Gepflegt wird nur `static/v2/mediathek.json` (dazu `mediathek.js` und `mediathek.css`). So kommen die anderen Apps daran (Stand November 2026):
+
+| App | Adresse | Mediathek |
+|---|---|---|
+| futter, Wiese | `apps.graswachstum.ch/futter`, `/wiese` (Home-Server) | Original in `static/v2/` |
+| drywatch | `apps.graswachstum.ch/drywatch` (Home-Server) | lädt `/futter/v2/assets/mediathek.*` vom selben Host, ohne Kopie |
+| Heureka | `app.graswachstum.ch/heureka` (all-inkl) | **Kopie** in `public/mediathek/`: `tools/seiten.mjs` im Repo agff-drysim kopiert die drei Dateien aus futter beim Erzeugen der Seiten |
 
 - Videos werden **nicht eingebettet**: Jede Karte ist ein Link, der das Video beim Anbieter in einem neuen Tab öffnet.
 - **Standbilder:** Bei YouTube-Links gibt es «Bilder ansehen». Erst dieser Klick lädt die drei Standbilder, die YouTube selbst bereitstellt (`i.ytimg.com/vi/<id>/hq1-3.jpg`, ohne Referrer). Dafür erlauben die CSP von futter (`v2_api.py`) und Heureka (`nginx.conf`) `img-src https://i.ytimg.com`. Die Datenschutzerklärung nennt die Ausnahme. Eigene Screenshots werden nicht abgelegt (Urheberrecht der Kanäle). Mit `"bilder": false` lässt sich das je Video abschalten.
 - Neuer Eintrag: `id`, `titel`, `url` (nur https), `quelle`, `anbieter`, `sprache`, `dauer`, `datum`, `verfuegbarBis` (danach ausgeblendet, wichtig bei ARD/SRF), `beschreibung` (eigene Worte), `themen` (Schlüssel aus `themenNamen`), optional `apps`.
 - Einbinden in einer weiteren Seite: `<div data-agff-mediathek data-app="…" data-themen="heu,anwelken" data-filter></div>` plus Skript und CSS (siehe Kopf von `mediathek.js`).
-- Eine Änderung nur an der Liste braucht keinen Neubau. Nach dem Speichern gilt sie sofort in allen drei Apps (in Heureka wegen des Offline-Caches spätestens beim zweiten Aufruf).
+- Eine Änderung nur an der Liste braucht keinen Neubau. Nach der Auslieferung gilt sie sofort in futter, Wiese und drywatch. **Heureka sieht sie erst**, wenn dort die Seiten neu erzeugt (`node tools/seiten.mjs`) und nach all-inkl ausgeliefert werden; danach wegen des Offline-Caches spätestens beim zweiten Aufruf.
+- Beim Umzug von futter nach all-inkl: siehe `docs/PORTIERUNG-ALL-INKL.md`, Abschnitt 6 (drywatch verliert sonst die Mediathek).
 
 ## Entwicklung und Auslieferung
 
