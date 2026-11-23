@@ -66,8 +66,8 @@ function kurs_foto_pfad(string $kurs_id, string $foto_id): string
 
 function kurs_entfernen(string $kurs_id): void
 {
-    q('DELETE FROM kurs_sessions WHERE kurs_id = ?', [$kurs_id]);
-    q('DELETE FROM kurse WHERE id = ?', [$kurs_id]);
+    q('DELETE FROM futter_kurs_sessions WHERE kurs_id = ?', [$kurs_id]);
+    q('DELETE FROM futter_kurse WHERE id = ?', [$kurs_id]);
     if (preg_match('/^[A-Za-z0-9_-]+$/D', $kurs_id)) {
         ordner_loeschen(kurs_foto_dir($kurs_id));
     }
@@ -76,17 +76,17 @@ function kurs_entfernen(string $kurs_id): void
 function kurs_purge(): void
 {
     $grenze = gmdate('Y-m-d\TH:i:s', time() - retention_days() * 86400);
-    foreach (q('SELECT id FROM kurse WHERE updated_at < ?', [$grenze])->fetchAll(PDO::FETCH_COLUMN) as $id) {
+    foreach (q('SELECT id FROM futter_kurse WHERE updated_at < ?', [$grenze])->fetchAll(PDO::FETCH_COLUMN) as $id) {
         kurs_entfernen($id);
     }
-    q('DELETE FROM kurs_sessions WHERE expires_at < ?', [microtime(true)]);
+    q('DELETE FROM futter_kurs_sessions WHERE expires_at < ?', [microtime(true)]);
     // In Flask beim Start (init_kurs_db): nicht aktivierte Kurse nach einem Tag entfernen
-    q("DELETE FROM kurse WHERE status = 'pending' AND created_at < ?", [gmdate('Y-m-d\TH:i:s', time() - 86400)]);
+    q("DELETE FROM futter_kurse WHERE status = 'pending' AND created_at < ?", [gmdate('Y-m-d\TH:i:s', time() - 86400)]);
 }
 
 function kurs_touch(string $kurs_id): void
 {
-    q('UPDATE kurse SET updated_at = ? WHERE id = ?', [jetzt_iso(), $kurs_id]);
+    q('UPDATE futter_kurse SET updated_at = ? WHERE id = ?', [jetzt_iso(), $kurs_id]);
 }
 
 /** Teilnehmer-Zeile der Sitzung (Kopfzeile X-Kurs-Session) oder null. */
@@ -96,13 +96,13 @@ function kurs_session(string $kurs_id): ?array
     if (!preg_match(TOKEN_RE, $tok) || !preg_match(ID_RE, $kurs_id)) {
         return null;
     }
-    $row = zeile('SELECT t.* FROM kurs_sessions s JOIN kurs_teilnehmende t ON t.id = s.teilnehmer_id '
+    $row = zeile('SELECT t.* FROM futter_kurs_sessions s JOIN futter_kurs_teilnehmende t ON t.id = s.teilnehmer_id '
         . 'WHERE s.token_hash = ? AND s.kurs_id = ? AND s.expires_at > ?', [sha($tok), $kurs_id, microtime(true)]);
     if (!$row) {
         rate_hit('auth_fail', 60, 600);
         return null;
     }
-    q('UPDATE kurs_sessions SET expires_at = ? WHERE token_hash = ?', [microtime(true) + KURS_SESSION_TTL, sha($tok)]);
+    q('UPDATE futter_kurs_sessions SET expires_at = ? WHERE token_hash = ?', [microtime(true) + KURS_SESSION_TTL, sha($tok)]);
     return $row;
 }
 
@@ -124,7 +124,7 @@ function kurs_leitung(string $kurs_id): ?array
 function kurs_neue_session(string $person_id, string $kurs_id): string
 {
     $token = zufall_id(32);
-    q('INSERT INTO kurs_sessions (token_hash, teilnehmer_id, kurs_id, expires_at) VALUES (?, ?, ?, ?)',
+    q('INSERT INTO futter_kurs_sessions (token_hash, teilnehmer_id, kurs_id, expires_at) VALUES (?, ?, ?, ?)',
         [sha($token), $person_id, $kurs_id, microtime(true) + KURS_SESSION_TTL]);
     return $token;
 }
@@ -137,7 +137,7 @@ function kurs_consent_ok(stdClass $body): bool
 
 function kurs_join_ok(string $kurs_id, $join_token): bool
 {
-    $k = zeile('SELECT join_hash, status FROM kurse WHERE id = ?', [$kurs_id]);
+    $k = zeile('SELECT join_hash, status FROM futter_kurse WHERE id = ?', [$kurs_id]);
     $ok = $k && $k['status'] === 'aktiv' && is_string($join_token) && preg_match(TOKEN_RE, $join_token) && hash_equals($k['join_hash'], sha($join_token));
     if (!$ok) {
         rate_hit('auth_fail', 60, 600);
@@ -157,11 +157,11 @@ function kurs_link_speichern(string $kurs_id, $secret): bool
     if (!is_string($secret) || !preg_match(TOKEN_RE, $secret)) {
         return false;
     }
-    $jh = wert('SELECT join_hash FROM kurse WHERE id = ?', [$kurs_id]);
+    $jh = wert('SELECT join_hash FROM futter_kurse WHERE id = ?', [$kurs_id]);
     if ($jh === null || !hash_equals((string) $jh, sha(kurs_join_token_aus($secret)))) {
         return false;
     }
-    q('UPDATE kurse SET link_enc = ? WHERE id = ?', [text_enc($secret, 'kurs-link'), $kurs_id]);
+    q('UPDATE futter_kurse SET link_enc = ? WHERE id = ?', [text_enc($secret, 'kurs-link'), $kurs_id]);
     return true;
 }
 
@@ -180,12 +180,12 @@ function hinweise_aus(?string $meta_analyse): array
 
 function kurs_hinweise(string $kurs_id): array
 {
-    return hinweise_aus(wert('SELECT meta_analyse FROM kurse WHERE id = ?', [$kurs_id]));
+    return hinweise_aus(wert('SELECT meta_analyse FROM futter_kurse WHERE id = ?', [$kurs_id]));
 }
 
 function kurs_foto_loeschen(string $kurs_id, string $foto_id): void
 {
-    q('DELETE FROM kurs_fotos WHERE kurs_id = ? AND id = ?', [$kurs_id, $foto_id]);
+    q('DELETE FROM futter_kurs_fotos WHERE kurs_id = ? AND id = ?', [$kurs_id, $foto_id]);
     if (preg_match('/^[A-Za-z0-9_-]+$/D', $kurs_id) && preg_match('/^[A-Za-z0-9_-]+$/D', $foto_id)) {
         @unlink(kurs_foto_pfad($kurs_id, $foto_id));
     }
@@ -223,7 +223,7 @@ function r_kurs_anlegen(): void
     $jetzt = jetzt_iso();
     kurs_purge();
     $einl = wahr($einladung) ? py_kurz(py_str($einladung), 40) : '';
-    q("INSERT INTO kurse (id, join_hash, status, pending_email_hmac, pending_einladung, consent_version, created_at, updated_at) VALUES (?, ?, 'pending', ?, ?, ?, ?, ?)",
+    q("INSERT INTO futter_kurse (id, join_hash, status, pending_email_hmac, pending_einladung, consent_version, created_at, updated_at) VALUES (?, ?, 'pending', ?, ?, ?, ?, ?)",
         [$kurs_id, $join_hash, email_hmac($email), $einl !== '' ? $einl : null, KURS_CONSENT_VERSION, $jetzt, $jetzt]);
     if (wahr(feld($body, 'secret'))) {
         kurs_link_speichern($kurs_id, feld($body, 'secret'));
@@ -239,7 +239,7 @@ function r_kurs_aktivieren(string $kurs_id): void
     if (!email_ok($email) || !preg_match(ID_RE, $kurs_id)) {
         fehler('BAD_REQUEST', 400);
     }
-    $k = zeile('SELECT * FROM kurse WHERE id = ?', [$kurs_id]);
+    $k = zeile('SELECT * FROM futter_kurse WHERE id = ?', [$kurs_id]);
     if (!$k || $k['status'] !== 'pending' || $k['pending_email_hmac'] !== email_hmac($email)) {
         fehler('NOT_FOUND', 404);
     }
@@ -250,8 +250,8 @@ function r_kurs_aktivieren(string $kurs_id): void
         fehler('NICHT_FREIGESCHALTET', 403);
     }
     $pid = zufall_id(9);
-    q("UPDATE kurse SET status = 'aktiv', pending_email_hmac = NULL, pending_einladung = NULL WHERE id = ?", [$kurs_id]);
-    q("INSERT INTO kurs_teilnehmende (id, kurs_id, email_hmac, email_enc, rolle, consent_version, consent_at, created_at) VALUES (?, ?, ?, ?, 'leitung', ?, ?, ?)",
+    q("UPDATE futter_kurse SET status = 'aktiv', pending_email_hmac = NULL, pending_einladung = NULL WHERE id = ?", [$kurs_id]);
+    q("INSERT INTO futter_kurs_teilnehmende (id, kurs_id, email_hmac, email_enc, rolle, consent_version, consent_at, created_at) VALUES (?, ?, ?, ?, 'leitung', ?, ?, ?)",
         [$pid, $kurs_id, email_hmac($email), email_enc($email), KURS_CONSENT_VERSION, jetzt_iso(), jetzt_iso()]);
     $token = kurs_neue_session($pid, $kurs_id);
     json_ende(['session' => $token, 'ich' => ['id' => $pid, 'rolle' => 'leitung']]);
@@ -268,11 +268,11 @@ function r_kurs_beitreten(string $kurs_id): void
     if (!kurs_join_ok($kurs_id, feld($body, 'joinToken'))) {
         fehler('NOT_FOUND', 404);
     }
-    if ((int) wert('SELECT COUNT(*) FROM kurs_teilnehmende WHERE kurs_id = ?', [$kurs_id]) >= MAX_TEILNEHMENDE) {
+    if ((int) wert('SELECT COUNT(*) FROM futter_kurs_teilnehmende WHERE kurs_id = ?', [$kurs_id]) >= MAX_TEILNEHMENDE) {
         fehler('KURS_VOLL', 409);
     }
     $pid = zufall_id(9);
-    q("INSERT INTO kurs_teilnehmende (id, kurs_id, rolle, consent_version, consent_at, created_at) VALUES (?, ?, 'teilnahme', ?, ?, ?)",
+    q("INSERT INTO futter_kurs_teilnehmende (id, kurs_id, rolle, consent_version, consent_at, created_at) VALUES (?, ?, 'teilnahme', ?, ?, ?)",
         [$pid, $kurs_id, KURS_CONSENT_VERSION, jetzt_iso(), jetzt_iso()]);
     $token = kurs_neue_session($pid, $kurs_id);
     kurs_touch($kurs_id);
@@ -312,12 +312,12 @@ function r_kurs_email_verify(string $kurs_id): void
         fehler('CODE_INVALID', 400);
     }
     $eh = email_hmac($email);
-    $andere = zeile('SELECT * FROM kurs_teilnehmende WHERE kurs_id = ? AND email_hmac = ?', [$kurs_id, $eh]);
+    $andere = zeile('SELECT * FROM futter_kurs_teilnehmende WHERE kurs_id = ? AND email_hmac = ?', [$kurs_id, $eh]);
     if ($ich) {
         if ($andere && $andere['id'] !== $ich['id']) {
             fehler('EMAIL_VERGEBEN', 409);
         }
-        q('UPDATE kurs_teilnehmende SET email_hmac = ?, email_enc = ? WHERE id = ?', [$eh, email_enc($email), $ich['id']]);
+        q('UPDATE futter_kurs_teilnehmende SET email_hmac = ?, email_enc = ? WHERE id = ?', [$eh, email_enc($email), $ich['id']]);
         json_ende(['status' => 'verknuepft', 'ich' => ['id' => $ich['id'], 'rolle' => $ich['rolle']]]);
     }
     if (!$andere) {
@@ -329,7 +329,7 @@ function r_kurs_email_verify(string $kurs_id): void
 
 function r_kurs_logout(string $kurs_id): void
 {
-    q('DELETE FROM kurs_sessions WHERE token_hash = ? AND kurs_id = ?', [sha(kopfzeile('X-Kurs-Session')), $kurs_id]);
+    q('DELETE FROM futter_kurs_sessions WHERE token_hash = ? AND kurs_id = ?', [sha(kopfzeile('X-Kurs-Session')), $kurs_id]);
     json_ende(['status' => 'ok']);
 }
 
@@ -337,22 +337,22 @@ function r_kurs_logout(string $kurs_id): void
 function r_kurs_lesen(string $kurs_id): void
 {
     $ich = kurs_session_oder_404($kurs_id);
-    $k = zeile('SELECT * FROM kurse WHERE id = ?', [$kurs_id]);
+    $k = zeile('SELECT * FROM futter_kurse WHERE id = ?', [$kurs_id]);
     $leitung = $ich['rolle'] === 'leitung';
-    $personen = q("SELECT id, rolle, name_privat, email_enc FROM kurs_teilnehmende WHERE kurs_id = ? ORDER BY rolle = 'leitung' DESC, created_at", [$kurs_id])->fetchAll();
-    $proben = q('SELECT * FROM kurs_proben WHERE kurs_id = ? ORDER BY nr', [$kurs_id])->fetchAll();
+    $personen = q("SELECT id, rolle, name_privat, email_enc FROM futter_kurs_teilnehmende WHERE kurs_id = ? ORDER BY rolle = 'leitung' DESC, created_at", [$kurs_id])->fetchAll();
+    $proben = q('SELECT * FROM futter_kurs_proben WHERE kurs_id = ? ORDER BY nr', [$kurs_id])->fetchAll();
     $abgaben = [];
-    foreach (q('SELECT probe_id, COUNT(*) AS n FROM kurs_beurteilungen WHERE kurs_id = ? GROUP BY probe_id', [$kurs_id]) as $r) {
+    foreach (q('SELECT probe_id, COUNT(*) AS n FROM futter_kurs_beurteilungen WHERE kurs_id = ? GROUP BY probe_id', [$kurs_id]) as $r) {
         $abgaben[$r['probe_id']] = (int) $r['n'];
     }
     $meine = [];
-    foreach (q('SELECT probe_id, abgegeben_at FROM kurs_beurteilungen WHERE kurs_id = ? AND teilnehmer_id = ?', [$kurs_id, $ich['id']]) as $r) {
+    foreach (q('SELECT probe_id, abgegeben_at FROM futter_kurs_beurteilungen WHERE kurs_id = ? AND teilnehmer_id = ?', [$kurs_id, $ich['id']]) as $r) {
         $meine[$r['probe_id']] = $r['abgegeben_at'];
     }
-    $foto_bytes = (int) wert('SELECT COALESCE(SUM(bytes), 0) FROM kurs_fotos WHERE kurs_id = ? AND teilnehmer_id = ?', [$kurs_id, $ich['id']]);
+    $foto_bytes = (int) wert('SELECT COALESCE(SUM(bytes), 0) FROM futter_kurs_fotos WHERE kurs_id = ? AND teilnehmer_id = ?', [$kurs_id, $ich['id']]);
     // Musterproben: aus dem Pool übernommen (pool_id) oder selbst Quelle eines Pool-Eintrags
     $pool_info = [];
-    foreach (q('SELECT id, sammlung, oeffentlich, quelle_kurs, quelle_probe FROM pool_proben') as $r) {
+    foreach (q('SELECT id, sammlung, oeffentlich, quelle_kurs, quelle_probe FROM futter_pool_proben') as $r) {
         $pool_info[$r['id']] = $r;
     }
     $quelle = [];
@@ -411,7 +411,7 @@ function kurs_muster(array $r, array $pool_info, array $quelle): ?array
 function r_kurs_probe_status(string $kurs_id, string $probe_id): void
 {
     $ich = kurs_session_oder_404($kurs_id);
-    $r = zeile('SELECT status, owner_id, nr FROM kurs_proben WHERE kurs_id = ? AND id = ?', [$kurs_id, $probe_id]);
+    $r = zeile('SELECT status, owner_id, nr FROM futter_kurs_proben WHERE kurs_id = ? AND id = ?', [$kurs_id, $probe_id]);
     if (!$r) {
         fehler('NOT_FOUND', 404);
     }
@@ -446,7 +446,7 @@ function r_kurs_meta(string $kurs_id): void
     if (!kurs_leitung($kurs_id)) {
         fehler('NOT_FOUND', 404);
     }
-    q('UPDATE kurse SET meta_analyse = ?, meta_privat = ?, updated_at = ? WHERE id = ?',
+    q('UPDATE futter_kurse SET meta_analyse = ?, meta_privat = ?, updated_at = ? WHERE id = ?',
         [py_json($an), wahr($pv) ? py_json($pv) : null, jetzt_iso(), $kurs_id]);
     json_ende(['status' => 'ok']);
 }
@@ -458,7 +458,7 @@ function r_kurs_zustimmung(string $kurs_id): void
         fehler('CONSENT_REQUIRED', 400);
     }
     $ich = kurs_session_oder_404($kurs_id);
-    q('UPDATE kurs_teilnehmende SET consent_version = ?, consent_at = ? WHERE id = ?', [KURS_CONSENT_VERSION, jetzt_iso(), $ich['id']]);
+    q('UPDATE futter_kurs_teilnehmende SET consent_version = ?, consent_at = ? WHERE id = ?', [KURS_CONSENT_VERSION, jetzt_iso(), $ich['id']]);
     json_ende(['status' => 'ok']);
 }
 
@@ -480,7 +480,7 @@ function r_meine_kurse_code(): void
     if (!email_ok($email)) {
         fehler('BAD_REQUEST', 400);
     }
-    if (wert('SELECT 1 FROM kurs_teilnehmende WHERE email_hmac = ? LIMIT 1', [email_hmac($email)])) {
+    if (wert('SELECT 1 FROM futter_kurs_teilnehmende WHERE email_hmac = ? LIMIT 1', [email_hmac($email)])) {
         code_senden('meine', $email, 'Meine Kurse'); // sonst still: keine Auskunft, ob eine Adresse bekannt ist
     }
     json_ende(['status' => 'sent']);
@@ -496,8 +496,8 @@ function r_meine_kurse(): void
     }
     $out = [];
     $ohne = 0;
-    $rows = q("SELECT t.id AS tid, t.rolle, k.id AS kid, k.link_enc, k.meta_privat, k.meta_analyse FROM kurs_teilnehmende t "
-        . "JOIN kurse k ON k.id = t.kurs_id WHERE t.email_hmac = ? AND k.status = 'aktiv'", [email_hmac($email)])->fetchAll();
+    $rows = q("SELECT t.id AS tid, t.rolle, k.id AS kid, k.link_enc, k.meta_privat, k.meta_analyse FROM futter_kurs_teilnehmende t "
+        . "JOIN futter_kurse k ON k.id = t.kurs_id WHERE t.email_hmac = ? AND k.status = 'aktiv'", [email_hmac($email)])->fetchAll();
     foreach ($rows as $r) {
         $secret = $r['link_enc'] ? text_dec($r['link_enc'], 'kurs-link') : null;
         if (!$secret) {
@@ -525,17 +525,17 @@ function r_kurs_etiketten(string $kurs_id): void
     if (!kurs_leitung($kurs_id)) {
         fehler('NOT_FOUND', 404);
     }
-    if ((int) wert('SELECT COUNT(*) FROM kurs_proben WHERE kurs_id = ?', [$kurs_id]) + $n > MAX_PROBEN) {
+    if ((int) wert('SELECT COUNT(*) FROM futter_kurs_proben WHERE kurs_id = ?', [$kurs_id]) + $n > MAX_PROBEN) {
         fehler('ZU_VIELE_PROBEN', 409);
     }
-    $start = (int) wert('SELECT naechste_nr FROM kurse WHERE id = ?', [$kurs_id]);
+    $start = (int) wert('SELECT naechste_nr FROM futter_kurse WHERE id = ?', [$kurs_id]);
     $out = [];
     for ($i = 0; $i < $n; $i++) {
         $pid = zufall_id(9);
-        q("INSERT INTO kurs_proben (kurs_id, id, nr, sort, status, updated_at) VALUES (?, ?, ?, ?, 'leer', ?)", [$kurs_id, $pid, $start + $i, $start + $i, jetzt_iso()]);
+        q("INSERT INTO futter_kurs_proben (kurs_id, id, nr, sort, status, updated_at) VALUES (?, ?, ?, ?, 'leer', ?)", [$kurs_id, $pid, $start + $i, $start + $i, jetzt_iso()]);
         $out[] = ['id' => $pid, 'nr' => $start + $i];
     }
-    q('UPDATE kurse SET naechste_nr = ? WHERE id = ?', [$start + $n, $kurs_id]);
+    q('UPDATE futter_kurse SET naechste_nr = ? WHERE id = ?', [$start + $n, $kurs_id]);
     kurs_touch($kurs_id);
     json_ende(['proben' => $out]);
 }
@@ -565,27 +565,27 @@ function r_kurs_probe_erfassen(string $kurs_id, string $probe_id): void
         $pool_id = py_str($pool_id);
     }
     $ich = kurs_session_oder_404($kurs_id);
-    $r = zeile('SELECT * FROM kurs_proben WHERE kurs_id = ? AND id = ?', [$kurs_id, $probe_id]);
+    $r = zeile('SELECT * FROM futter_kurs_proben WHERE kurs_id = ? AND id = ?', [$kurs_id, $probe_id]);
     if ($r === null) {
         if ($ich['rolle'] !== 'leitung') {
             fehler('NOT_FOUND', 404);
         }
-        if ((int) wert('SELECT COUNT(*) FROM kurs_proben WHERE kurs_id = ?', [$kurs_id]) >= MAX_PROBEN) {
+        if ((int) wert('SELECT COUNT(*) FROM futter_kurs_proben WHERE kurs_id = ?', [$kurs_id]) >= MAX_PROBEN) {
             fehler('ZU_VIELE_PROBEN', 409);
         }
-        $nr = (int) wert('SELECT naechste_nr FROM kurse WHERE id = ?', [$kurs_id]);
-        q("INSERT INTO kurs_proben (kurs_id, id, nr, sort, status, owner_id, analyse, privat, labor, pool_id, updated_at) VALUES (?, ?, ?, ?, 'erfasst', ?, ?, ?, ?, ?, ?)",
+        $nr = (int) wert('SELECT naechste_nr FROM futter_kurse WHERE id = ?', [$kurs_id]);
+        q("INSERT INTO futter_kurs_proben (kurs_id, id, nr, sort, status, owner_id, analyse, privat, labor, pool_id, updated_at) VALUES (?, ?, ?, ?, 'erfasst', ?, ?, ?, ?, ?, ?)",
             [$kurs_id, $probe_id, $nr, $nr, $ich['id'], py_json($an), wahr($pv) ? py_json($pv) : null, $lab_json, $pool_id, jetzt_iso()]);
-        q('UPDATE kurse SET naechste_nr = ? WHERE id = ?', [$nr + 1, $kurs_id]);
+        q('UPDATE futter_kurse SET naechste_nr = ? WHERE id = ?', [$nr + 1, $kurs_id]);
     } else {
         if ($r['status'] === 'erfasst' && $r['owner_id'] !== $ich['id'] && $ich['rolle'] !== 'leitung') {
             fehler('BEREITS_ERFASST', 409);
         }
         if ($r['status'] === 'erfasst' && analyse_typ($r['analyse']) !== $an->typ
-            && wert('SELECT 1 FROM kurs_beurteilungen WHERE kurs_id = ? AND probe_id = ?', [$kurs_id, $probe_id])) {
+            && wert('SELECT 1 FROM futter_kurs_beurteilungen WHERE kurs_id = ? AND probe_id = ?', [$kurs_id, $probe_id])) {
             fehler('TYP_FEST', 409); // Futterart nach ersten Abgaben nicht mehr änderbar
         }
-        q("UPDATE kurs_proben SET status = 'erfasst', owner_id = ?, analyse = ?, privat = ?, labor = ?, updated_at = ? WHERE kurs_id = ? AND id = ?",
+        q("UPDATE futter_kurs_proben SET status = 'erfasst', owner_id = ?, analyse = ?, privat = ?, labor = ?, updated_at = ? WHERE kurs_id = ? AND id = ?",
             [$r['owner_id'] ?: $ich['id'], py_json($an), wahr($pv) ? py_json($pv) : null, $lab_json, jetzt_iso(), $kurs_id, $probe_id]);
     }
     kurs_touch($kurs_id);
@@ -597,11 +597,11 @@ function r_kurs_probe_loeschen(string $kurs_id, string $probe_id): void
     if (!kurs_leitung($kurs_id)) {
         fehler('NOT_FOUND', 404);
     }
-    q('DELETE FROM kurs_beurteilungen WHERE kurs_id = ? AND probe_id = ?', [$kurs_id, $probe_id]);
-    foreach (q('SELECT id FROM kurs_fotos WHERE kurs_id = ? AND probe_id = ?', [$kurs_id, $probe_id])->fetchAll(PDO::FETCH_COLUMN) as $fid) {
+    q('DELETE FROM futter_kurs_beurteilungen WHERE kurs_id = ? AND probe_id = ?', [$kurs_id, $probe_id]);
+    foreach (q('SELECT id FROM futter_kurs_fotos WHERE kurs_id = ? AND probe_id = ?', [$kurs_id, $probe_id])->fetchAll(PDO::FETCH_COLUMN) as $fid) {
         kurs_foto_loeschen($kurs_id, $fid);
     }
-    q('DELETE FROM kurs_proben WHERE kurs_id = ? AND id = ?', [$kurs_id, $probe_id]);
+    q('DELETE FROM futter_kurs_proben WHERE kurs_id = ? AND id = ?', [$kurs_id, $probe_id]);
     kurs_touch($kurs_id);
     json_ende(['status' => 'deleted']);
 }
@@ -631,18 +631,18 @@ function r_kurs_abgeben(string $kurs_id, string $probe_id): void
         fehler('REJECTED_CONTENT', 422);
     }
     $ich = kurs_session_oder_404($kurs_id);
-    $kp = zeile('SELECT analyse, status FROM kurs_proben WHERE kurs_id = ? AND id = ?', [$kurs_id, $probe_id]);
+    $kp = zeile('SELECT analyse, status FROM futter_kurs_proben WHERE kurs_id = ? AND id = ?', [$kurs_id, $probe_id]);
     if (!$kp || $kp['status'] !== 'erfasst') {
         fehler('NOT_FOUND', 404);
     }
     if (analyse_typ($kp['analyse']) !== feld($an, 'typ')) {
         fehler('FALSCHER_TYP', 422);
     }
-    if (wert('SELECT 1 FROM kurs_beurteilungen WHERE kurs_id = ? AND probe_id = ? AND teilnehmer_id = ?', [$kurs_id, $probe_id, $ich['id']])) {
+    if (wert('SELECT 1 FROM futter_kurs_beurteilungen WHERE kurs_id = ? AND probe_id = ? AND teilnehmer_id = ?', [$kurs_id, $probe_id, $ich['id']])) {
         fehler('BEREITS_ABGEGEBEN', 409);
     }
     $pv = feld($data, 'privat');
-    q('INSERT INTO kurs_beurteilungen (kurs_id, probe_id, teilnehmer_id, analyse, privat, abgegeben_at) VALUES (?, ?, ?, ?, ?, ?)',
+    q('INSERT INTO futter_kurs_beurteilungen (kurs_id, probe_id, teilnehmer_id, analyse, privat, abgegeben_at) VALUES (?, ?, ?, ?, ?, ?)',
         [$kurs_id, $probe_id, $ich['id'], py_json($an), wahr($pv) ? py_json($pv) : null, jetzt_iso()]);
     kurs_touch($kurs_id);
     json_ende(['status' => 'abgegeben']);
@@ -651,12 +651,12 @@ function r_kurs_abgeben(string $kurs_id, string $probe_id): void
 function r_kurs_vergleich(string $kurs_id, string $probe_id): void
 {
     $ich = kurs_session_oder_404($kurs_id);
-    $eigene = wert('SELECT 1 FROM kurs_beurteilungen WHERE kurs_id = ? AND probe_id = ? AND teilnehmer_id = ?', [$kurs_id, $probe_id, $ich['id']]);
+    $eigene = wert('SELECT 1 FROM futter_kurs_beurteilungen WHERE kurs_id = ? AND probe_id = ? AND teilnehmer_id = ?', [$kurs_id, $probe_id, $ich['id']]);
     if ($ich['rolle'] !== 'leitung' && !$eigene) {
         fehler('ERST_EIGENE_ABGEBEN', 403);
     }
-    $rows = q('SELECT teilnehmer_id, analyse, privat, abgegeben_at FROM kurs_beurteilungen WHERE kurs_id = ? AND probe_id = ?', [$kurs_id, $probe_id])->fetchAll();
-    $pid = wert('SELECT pool_id FROM kurs_proben WHERE kurs_id = ? AND id = ?', [$kurs_id, $probe_id]);
+    $rows = q('SELECT teilnehmer_id, analyse, privat, abgegeben_at FROM futter_kurs_beurteilungen WHERE kurs_id = ? AND probe_id = ?', [$kurs_id, $probe_id])->fetchAll();
+    $pid = wert('SELECT pool_id FROM futter_kurs_proben WHERE kurs_id = ? AND id = ?', [$kurs_id, $probe_id]);
     $referenzen = [];
     if ($pid) {
         $d = pool_eintrag($pid);
@@ -683,7 +683,7 @@ function r_kurs_foto_hochladen(string $kurs_id, string $foto_id): void
         fehler('REJECTED_CONTENT', 422);
     }
     $ich = kurs_session_oder_404($kurs_id);
-    $kp = zeile('SELECT owner_id, status FROM kurs_proben WHERE kurs_id = ? AND id = ?', [$kurs_id, $probe_id]);
+    $kp = zeile('SELECT owner_id, status FROM futter_kurs_proben WHERE kurs_id = ? AND id = ?', [$kurs_id, $probe_id]);
     if (!$kp) {
         fehler('NOT_FOUND', 404);
     }
@@ -694,11 +694,11 @@ function r_kurs_foto_hochladen(string $kurs_id, string $foto_id): void
     if ($zweck === 'beurteilung' && $kp['status'] !== 'erfasst') {
         fehler('NOT_FOUND', 404);
     }
-    $alt = zeile('SELECT bytes, teilnehmer_id FROM kurs_fotos WHERE kurs_id = ? AND id = ?', [$kurs_id, $foto_id]);
+    $alt = zeile('SELECT bytes, teilnehmer_id FROM futter_kurs_fotos WHERE kurs_id = ? AND id = ?', [$kurs_id, $foto_id]);
     if ($alt && $alt['teilnehmer_id'] !== $ich['id']) {
         fehler('NOT_FOUND', 404);
     }
-    $belegt = (int) wert('SELECT COALESCE(SUM(bytes), 0) FROM kurs_fotos WHERE kurs_id = ? AND teilnehmer_id = ? AND id != ?', [$kurs_id, $ich['id'], $foto_id]);
+    $belegt = (int) wert('SELECT COALESCE(SUM(bytes), 0) FROM futter_kurs_fotos WHERE kurs_id = ? AND teilnehmer_id = ? AND id != ?', [$kurs_id, $ich['id'], $foto_id]);
     $limit = foto_limit($ich['email_hmac'], max_foto_total()); // Zusatz-Kontingent (Antrag) für die verknüpfte Adresse
     if ($belegt + strlen($daten) > $limit) {
         fehler('QUOTA', 409, ['bytes' => $belegt, 'limit' => $limit, 'bereich' => 'kurs']);
@@ -707,7 +707,7 @@ function r_kurs_foto_hochladen(string $kurs_id, string $foto_id): void
         fehler('SERVER_VOLL', 507);
     }
     datei_ablegen(kurs_foto_pfad($kurs_id, $foto_id), $daten);
-    q('INSERT INTO kurs_fotos (kurs_id, id, teilnehmer_id, probe_id, art, bytes, created_at, zweck) VALUES (?, ?, ?, ?, ?, ?, ?, ?) '
+    q('INSERT INTO futter_kurs_fotos (kurs_id, id, teilnehmer_id, probe_id, art, bytes, created_at, zweck) VALUES (?, ?, ?, ?, ?, ?, ?, ?) '
         . 'ON DUPLICATE KEY UPDATE bytes = VALUES(bytes)', [$kurs_id, $foto_id, $ich['id'], $probe_id, $art, strlen($daten), jetzt_iso(), $zweck]);
     kurs_touch($kurs_id);
     json_ende(['status' => 'ok']);
@@ -721,11 +721,11 @@ function r_kurs_foto_lesen(string $kurs_id, string $foto_id): void
         fehler('BAD_REQUEST', 400);
     }
     $ich = kurs_session_oder_404($kurs_id);
-    $f = zeile('SELECT * FROM kurs_fotos WHERE kurs_id = ? AND id = ?', [$kurs_id, $foto_id]);
+    $f = zeile('SELECT * FROM futter_kurs_fotos WHERE kurs_id = ? AND id = ?', [$kurs_id, $foto_id]);
     $pool_quelle = null;
     if (!$f) {
         // Foto einer aus dem Pool übernommenen Probe (keine Kopie)
-        foreach (q('SELECT id, pool_id FROM kurs_proben WHERE kurs_id = ? AND pool_id IS NOT NULL', [$kurs_id])->fetchAll() as $kp) {
+        foreach (q('SELECT id, pool_id FROM futter_kurs_proben WHERE kurs_id = ? AND pool_id IS NOT NULL', [$kurs_id])->fetchAll() as $kp) {
             $d = pool_eintrag($kp['pool_id']);
             foreach (($d instanceof stdClass && is_array(feld($d, 'fotos'))) ? $d->fotos : [] as $pf) {
                 if (feld($pf, 'id') === $foto_id) {
@@ -742,7 +742,7 @@ function r_kurs_foto_lesen(string $kurs_id, string $foto_id): void
     $h = kurs_hinweise($kurs_id);
     $frei = $f['teilnehmer_id'] === $ich['id'] || $ich['rolle'] === 'leitung'
         || ($f['zweck'] === 'probe' && (($f['art'] === 'futter' && wahr($h['foto'] ?? null)) || ($f['art'] === 'labor' && wahr($h['labor'] ?? null))))
-        || wert('SELECT 1 FROM kurs_beurteilungen WHERE kurs_id = ? AND probe_id = ? AND teilnehmer_id = ?', [$kurs_id, $f['probe_id'], $ich['id']]);
+        || wert('SELECT 1 FROM futter_kurs_beurteilungen WHERE kurs_id = ? AND probe_id = ? AND teilnehmer_id = ?', [$kurs_id, $f['probe_id'], $ich['id']]);
     if (!$frei) {
         fehler('ERST_EIGENE_ABGEBEN', 403);
     }
@@ -755,7 +755,7 @@ function r_kurs_foto_lesen(string $kurs_id, string $foto_id): void
 function r_kurs_foto_loeschen(string $kurs_id, string $foto_id): void
 {
     $ich = kurs_session($kurs_id);
-    $f = $ich ? zeile('SELECT teilnehmer_id FROM kurs_fotos WHERE kurs_id = ? AND id = ?', [$kurs_id, $foto_id]) : null;
+    $f = $ich ? zeile('SELECT teilnehmer_id FROM futter_kurs_fotos WHERE kurs_id = ? AND id = ?', [$kurs_id, $foto_id]) : null;
     if (!$f || ($f['teilnehmer_id'] !== $ich['id'] && $ich['rolle'] !== 'leitung')) {
         fehler('NOT_FOUND', 404);
     }
@@ -776,7 +776,7 @@ function r_kurs_name(string $kurs_id): void
         fehler('REJECTED_CONTENT', 422);
     }
     $ich = kurs_session_oder_404($kurs_id);
-    q('UPDATE kurs_teilnehmende SET name_privat = ? WHERE id = ?', [py_json($pv), $ich['id']]);
+    q('UPDATE futter_kurs_teilnehmende SET name_privat = ? WHERE id = ?', [py_json($pv), $ich['id']]);
     kurs_touch($kurs_id);
     json_ende(['status' => 'ok']);
 }
@@ -787,19 +787,19 @@ function r_kurs_person_loeschen(string $kurs_id, string $tid): void
     if (!$ich || ($ich['id'] !== $tid && $ich['rolle'] !== 'leitung')) {
         fehler('NOT_FOUND', 404);
     }
-    $ziel = zeile('SELECT rolle FROM kurs_teilnehmende WHERE id = ? AND kurs_id = ?', [$tid, $kurs_id]);
+    $ziel = zeile('SELECT rolle FROM futter_kurs_teilnehmende WHERE id = ? AND kurs_id = ?', [$tid, $kurs_id]);
     if (!$ziel) {
         fehler('NOT_FOUND', 404);
     }
     if ($ziel['rolle'] === 'leitung') {
         fehler('LEITUNG_LOESCHT_KURS', 409);
     }
-    foreach (q('SELECT id FROM kurs_fotos WHERE kurs_id = ? AND teilnehmer_id = ?', [$kurs_id, $tid])->fetchAll(PDO::FETCH_COLUMN) as $fid) {
+    foreach (q('SELECT id FROM futter_kurs_fotos WHERE kurs_id = ? AND teilnehmer_id = ?', [$kurs_id, $tid])->fetchAll(PDO::FETCH_COLUMN) as $fid) {
         kurs_foto_loeschen($kurs_id, $fid);
     }
     // Erfasste Proben bleiben dem Kurs erhalten (ohne Besitzer); Fotos und Abgaben der Person werden gelöscht (Fremdschlüssel)
-    q('UPDATE kurs_proben SET owner_id = NULL WHERE kurs_id = ? AND owner_id = ?', [$kurs_id, $tid]);
-    q('DELETE FROM kurs_teilnehmende WHERE id = ?', [$tid]);
+    q('UPDATE futter_kurs_proben SET owner_id = NULL WHERE kurs_id = ? AND owner_id = ?', [$kurs_id, $tid]);
+    q('DELETE FROM futter_kurs_teilnehmende WHERE id = ?', [$tid]);
     kurs_touch($kurs_id);
     json_ende(['status' => 'deleted']);
 }

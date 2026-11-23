@@ -91,11 +91,11 @@ function sso_token_pruefen(string $token, string $state, ?int $jetzt = null)
     if (strlen($jti) < 16) {
         return 'Anmeldung unvollständig. Bitte nochmals anmelden.';
     }
-    q('DELETE FROM zentral_ausweise WHERE expires_at < ?', [$jetzt - SSO_HOECHSTALTER]);
-    if (wert('SELECT 1 FROM zentral_ausweise WHERE jti = ?', [$jti])) {
+    q('DELETE FROM futter_zentral_ausweise WHERE expires_at < ?', [$jetzt - SSO_HOECHSTALTER]);
+    if (wert('SELECT 1 FROM futter_zentral_ausweise WHERE jti = ?', [$jti])) {
         return 'Anmeldung wurde schon verwendet. Bitte nochmals anmelden.';
     }
-    q('INSERT INTO zentral_ausweise (jti, expires_at) VALUES (?, ?)', [$jti, $exp]);
+    q('INSERT INTO futter_zentral_ausweise (jti, expires_at) VALUES (?, ?)', [$jti, $exp]);
     return $d;
 }
 
@@ -113,7 +113,7 @@ function sso_sitzung(): ?array
     if (strlen($t) < 20) {
         return null;
     }
-    $r = zeile('SELECT sub, name, methode, expires_at FROM zentral_sitzungen WHERE token_hash = ?', [sha($t)]);
+    $r = zeile('SELECT sub, name, methode, expires_at FROM futter_zentral_sitzungen WHERE token_hash = ?', [sha($t)]);
     if (!$r || (int) $r['expires_at'] < time()) {
         return null;
     }
@@ -180,8 +180,8 @@ function r_anmelden_zurueck(): void
     }
     $token = zufall_id(32);
     $jetzt = time();
-    q('DELETE FROM zentral_sitzungen WHERE expires_at < ?', [$jetzt]);
-    q('INSERT INTO zentral_sitzungen (token_hash, sub, name, methode, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
+    q('DELETE FROM futter_zentral_sitzungen WHERE expires_at < ?', [$jetzt]);
+    q('INSERT INTO futter_zentral_sitzungen (token_hash, sub, name, methode, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
         [sha($token), mb_substr((string) ($d['sub'] ?? ''), 0, 120), mb_substr((string) ($d['name'] ?? ''), 0, 120), sso_methode($d), $jetzt, $jetzt + SITZUNG_DAUER]);
     cookie_setzen(SITZUNG_COOKIE, $token, SITZUNG_DAUER);
     cookie_setzen(STATE_COOKIE, '', 0);
@@ -199,7 +199,7 @@ function r_abmelden(): void
 {
     $t = (string) ($_COOKIE[SITZUNG_COOKIE] ?? '');
     if ($t !== '') {
-        q('DELETE FROM zentral_sitzungen WHERE token_hash = ?', [sha($t)]);
+        q('DELETE FROM futter_zentral_sitzungen WHERE token_hash = ?', [sha($t)]);
     }
     cookie_setzen(SITZUNG_COOKIE, '', 0);
     json_ende(['ok' => true]);

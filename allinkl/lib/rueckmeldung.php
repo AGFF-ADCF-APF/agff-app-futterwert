@@ -8,7 +8,7 @@ const RM_AAD = 'agff-rueckmeldung';
 
 function rm_aufraeumen(): void
 {
-    q('DELETE FROM rueckmeldungen WHERE datum < ?', [gmdate('Y-m-d', time() - retention_days() * 86400)]);
+    q('DELETE FROM futter_rueckmeldungen WHERE datum < ?', [gmdate('Y-m-d', time() - retention_days() * 86400)]);
 }
 
 function r_rueckmeldung(): void
@@ -29,7 +29,7 @@ function r_rueckmeldung(): void
     }
     $text = trim($text);
     rm_aufraeumen();
-    q('INSERT INTO rueckmeldungen (id, datum, app, daumen, text_enc, build) VALUES (?, ?, ?, ?, ?, ?)',
+    q('INSERT INTO futter_rueckmeldungen (id, datum, app, daumen, text_enc, build) VALUES (?, ?, ?, ?, ?, ?)',
         [zufall_id(9), gmdate('Y-m-d'), $app, $daumen, $text !== '' ? text_enc($text, RM_AAD) : null, $build]);
     json_ende(['ok' => true]);
 }
@@ -41,7 +41,7 @@ function r_admin_rueckmeldungen(): void
     }
     rm_aufraeumen();
     $out = [];
-    foreach (q('SELECT * FROM rueckmeldungen ORDER BY datum DESC, nr DESC LIMIT 1000')->fetchAll() as $r) {
+    foreach (q('SELECT * FROM futter_rueckmeldungen ORDER BY datum DESC, nr DESC LIMIT 1000')->fetchAll() as $r) {
         $out[] = ['id' => $r['id'], 'datum' => $r['datum'], 'app' => $r['app'], 'daumen' => $r['daumen'], 'build' => $r['build'],
             'text' => $r['text_enc'] ? text_dec($r['text_enc'], RM_AAD) : null];
     }
@@ -53,6 +53,6 @@ function r_admin_rueckmeldung_loeschen(string $rid): void
     if (!admin_ok()) {
         fehler('NOT_FOUND', 404);
     }
-    q('DELETE FROM rueckmeldungen WHERE id = ?', [$rid]);
+    q('DELETE FROM futter_rueckmeldungen WHERE id = ?', [$rid]);
     json_ende(['ok' => true]);
 }

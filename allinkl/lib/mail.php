@@ -13,7 +13,7 @@ function code_erzeugen(string $zweck, string $email, ?int $ttl = null): string
 {
     rate_hit('code_mail:' . email_hmac($email), 5, 3600);
     $code = sprintf('%06d', random_int(0, 999999));
-    q('INSERT INTO email_codes (zweck, email_hmac, code_hash, expires_at, attempts) VALUES (?, ?, ?, ?, 0) '
+    q('INSERT INTO futter_email_codes (zweck, email_hmac, code_hash, expires_at, attempts) VALUES (?, ?, ?, ?, 0) '
         . 'ON DUPLICATE KEY UPDATE code_hash = VALUES(code_hash), expires_at = VALUES(expires_at), attempts = 0',
         [$zweck, email_hmac($email), sha($zweck . '|' . $code), microtime(true) + ($ttl ?: CODE_TTL)]);
     return $code;
@@ -27,19 +27,19 @@ function code_pruefen(string $zweck, string $email, $code): bool
         return false;
     }
     $eh = email_hmac($email);
-    $c = zeile('SELECT * FROM email_codes WHERE zweck = ? AND email_hmac = ?', [$zweck, $eh]);
+    $c = zeile('SELECT * FROM futter_email_codes WHERE zweck = ? AND email_hmac = ?', [$zweck, $eh]);
     if (!$c || (float) $c['expires_at'] < microtime(true)) {
         return false;
     }
     if (!hash_equals($c['code_hash'], sha($zweck . '|' . $code))) {
         if ((int) $c['attempts'] + 1 >= CODE_ATTEMPTS) {
-            q('DELETE FROM email_codes WHERE zweck = ? AND email_hmac = ?', [$zweck, $eh]);
+            q('DELETE FROM futter_email_codes WHERE zweck = ? AND email_hmac = ?', [$zweck, $eh]);
         } else {
-            q('UPDATE email_codes SET attempts = attempts + 1 WHERE zweck = ? AND email_hmac = ?', [$zweck, $eh]);
+            q('UPDATE futter_email_codes SET attempts = attempts + 1 WHERE zweck = ? AND email_hmac = ?', [$zweck, $eh]);
         }
         return false;
     }
-    q('DELETE FROM email_codes WHERE zweck = ? AND email_hmac = ?', [$zweck, $eh]);
+    q('DELETE FROM futter_email_codes WHERE zweck = ? AND email_hmac = ?', [$zweck, $eh]);
     return true;
 }
 

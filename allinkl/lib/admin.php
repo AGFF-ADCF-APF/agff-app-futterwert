@@ -45,7 +45,7 @@ function darf_kurs_anlegen(string $email): bool
     if (in_array(end($teile), kl_domains(), true) || in_array($email, kl_adressen(), true)) {
         return true;
     }
-    return wert('SELECT status FROM kursleitende WHERE email_hmac = ?', [email_hmac($email)]) === 'frei';
+    return wert('SELECT status FROM futter_kursleitende WHERE email_hmac = ?', [email_hmac($email)]) === 'frei';
 }
 
 /** ''.join(ch for ch in str(code or '').upper() if ch.isalnum()) */
@@ -57,7 +57,7 @@ function einladung_norm($code): string
 
 function einladung_zeile(string $c): ?array
 {
-    return zeile('SELECT * FROM einladungen WHERE code_hash = ?', [sha('einladung|' . $c)]);
+    return zeile('SELECT * FROM futter_einladungen WHERE code_hash = ?', [sha('einladung|' . $c)]);
 }
 
 function einladung_gueltig($code): bool
@@ -77,8 +77,8 @@ function einladung_einloesen(string $code, string $email): bool
     if (!$r || $r['revoked'] || (int) $r['uses'] >= (int) $r['max_uses'] || (float) $r['expires_at'] < microtime(true)) {
         return false;
     }
-    q('UPDATE einladungen SET uses = uses + 1 WHERE code_hash = ?', [$r['code_hash']]);
-    q("INSERT INTO kursleitende (email_hmac, email_enc, status, via, created_at, decided_at) VALUES (?, ?, 'frei', 'einladung', ?, ?) "
+    q('UPDATE futter_einladungen SET uses = uses + 1 WHERE code_hash = ?', [$r['code_hash']]);
+    q("INSERT INTO futter_kursleitende (email_hmac, email_enc, status, via, created_at, decided_at) VALUES (?, ?, 'frei', 'einladung', ?, ?) "
         . "ON DUPLICATE KEY UPDATE status = 'frei', via = 'einladung', decided_at = VALUES(decided_at)",
         [email_hmac($email), email_enc($email), jetzt_iso(), jetzt_iso()]);
     return true;
@@ -132,10 +132,10 @@ function r_kl_antrag(): void
     }
     $eh = email_hmac($email);
     $frei = darf_kurs_anlegen($email);
-    if (wert('SELECT status FROM kursleitende WHERE email_hmac = ?', [$eh]) === 'frei') {
+    if (wert('SELECT status FROM futter_kursleitende WHERE email_hmac = ?', [$eh]) === 'frei') {
         json_ende(['status' => 'frei']);
     }
-    q("INSERT INTO kursleitende (email_hmac, email_enc, name_enc, org_enc, text_enc, status, via, created_at) VALUES (?, ?, ?, ?, ?, ?, 'antrag', ?) "
+    q("INSERT INTO futter_kursleitende (email_hmac, email_enc, name_enc, org_enc, text_enc, status, via, created_at) VALUES (?, ?, ?, ?, ?, ?, 'antrag', ?) "
         . 'ON DUPLICATE KEY UPDATE name_enc = VALUES(name_enc), org_enc = VALUES(org_enc), text_enc = VALUES(text_enc), status = VALUES(status), created_at = VALUES(created_at)',
         [$eh, email_enc($email), text_enc($name, 'kl'), text_enc($org, 'kl'), text_enc($text, 'kl'), $frei ? 'frei' : 'antrag', jetzt_iso()]);
     if (!$frei && admin_adresse()) {
@@ -164,14 +164,14 @@ function admin_oder_404(): void
 function r_admin_uebersicht(): void
 {
     admin_oder_404();
-    $kl = q("SELECT * FROM kursleitende ORDER BY status = 'antrag' DESC, created_at DESC")->fetchAll();
-    $inv = q('SELECT hinweis, notiz, max_uses, uses, expires_at, revoked, created_at, code_hash FROM einladungen ORDER BY created_at DESC')->fetchAll();
+    $kl = q("SELECT * FROM futter_kursleitende ORDER BY status = 'antrag' DESC, created_at DESC")->fetchAll();
+    $inv = q('SELECT hinweis, notiz, max_uses, uses, expires_at, revoked, created_at, code_hash FROM futter_einladungen ORDER BY created_at DESC')->fetchAll();
     $stat = [
-        'freigaben' => (int) wert('SELECT COUNT(*) FROM e2e_spaces'),
-        'kurse' => (int) wert("SELECT COUNT(*) FROM kurse WHERE status = 'aktiv'"),
-        'teilnehmende' => (int) wert('SELECT COUNT(*) FROM kurs_teilnehmende'),
+        'freigaben' => (int) wert('SELECT COUNT(*) FROM futter_e2e_spaces'),
+        'kurse' => (int) wert("SELECT COUNT(*) FROM futter_kurse WHERE status = 'aktiv'"),
+        'teilnehmende' => (int) wert('SELECT COUNT(*) FROM futter_kurs_teilnehmende'),
         'fotoBytes' => foto_bytes_gesamt(),
-        'pool' => (int) wert('SELECT COUNT(*) FROM pool_proben'),
+        'pool' => (int) wert('SELECT COUNT(*) FROM futter_pool_proben'),
         'fotoLimit' => foto_gesamt_bytes(),
     ];
     $dec = fn ($v) => $v ? text_dec($v, 'kl') : null;
@@ -195,14 +195,14 @@ function r_admin_kl_entscheid(string $eh): void
     if (!in_array($status, ['frei', 'abgelehnt', 'loeschen'], true)) {
         fehler('BAD_REQUEST', 400);
     }
-    $enc = wert('SELECT email_enc FROM kursleitende WHERE email_hmac = ?', [$eh]);
+    $enc = wert('SELECT email_enc FROM futter_kursleitende WHERE email_hmac = ?', [$eh]);
     if ($enc === null) {
         fehler('NOT_FOUND', 404);
     }
     if ($status === 'loeschen') {
-        q('DELETE FROM kursleitende WHERE email_hmac = ?', [$eh]);
+        q('DELETE FROM futter_kursleitende WHERE email_hmac = ?', [$eh]);
     } else {
-        q('UPDATE kursleitende SET status = ?, decided_at = ? WHERE email_hmac = ?', [$status, jetzt_iso(), $eh]);
+        q('UPDATE futter_kursleitende SET status = ?, decided_at = ? WHERE email_hmac = ?', [$status, jetzt_iso(), $eh]);
     }
     $email = email_dec($enc);
     if ($email && $status === 'frei') {
@@ -238,7 +238,7 @@ function r_admin_einladung_neu(): void
         $code .= EINLADUNG_ZEICHEN[random_int(0, strlen(EINLADUNG_ZEICHEN) - 1)];
     }
     $notiz = feld($b, 'notiz');
-    q('INSERT INTO einladungen (code_hash, hinweis, notiz, max_uses, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    q('INSERT INTO futter_einladungen (code_hash, hinweis, notiz, max_uses, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?)',
         [sha('einladung|' . $code), substr($code, -3), py_kurz(wahr($notiz) ? py_str($notiz) : '', 200), $max, microtime(true) + $tage * 86400, jetzt_iso()]);
     json_ende(['code' => implode('-', str_split($code, 4)), 'max' => $max, 'tage' => $tage]);
 }
@@ -246,6 +246,6 @@ function r_admin_einladung_neu(): void
 function r_admin_einladung_sperren(string $cid): void
 {
     admin_oder_404();
-    q('UPDATE einladungen SET revoked = 1 WHERE SUBSTRING(code_hash, 1, 16) = ?', [$cid]);
+    q('UPDATE futter_einladungen SET revoked = 1 WHERE SUBSTRING(code_hash, 1, 16) = ?', [$cid]);
     json_ende(['status' => 'ok']);
 }

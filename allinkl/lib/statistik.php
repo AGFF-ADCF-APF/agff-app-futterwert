@@ -278,12 +278,12 @@ function r_beitrag_speichern(string $bid): void
     if ($d === null) {
         fehler('REJECTED_CONTENT', 422);
     }
-    $alt = zeile('SELECT token_hash FROM beitraege WHERE id = ?', [$bid]);
+    $alt = zeile('SELECT token_hash FROM futter_beitraege WHERE id = ?', [$bid]);
     if ($alt && !hash_equals($alt['token_hash'], sha($tok))) {
         fehler('NOT_FOUND', 404);
     }
     $jetzt = jetzt_iso();
-    q('INSERT INTO beitraege (id, token_hash, typ, plz, region, jahr, aufwuchs, daten, consent_version, created_at, updated_at) '
+    q('INSERT INTO futter_beitraege (id, token_hash, typ, plz, region, jahr, aufwuchs, daten, consent_version, created_at, updated_at) '
         . 'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE typ = VALUES(typ), plz = VALUES(plz), region = VALUES(region), '
         . 'jahr = VALUES(jahr), aufwuchs = VALUES(aufwuchs), daten = VALUES(daten), consent_version = VALUES(consent_version), updated_at = VALUES(updated_at)',
         [$bid, sha($tok), $d['typ'], $d['plz'], substr($d['plz'], 0, 2), $d['jahr'], $d['aufwuchs'] ?? null, json_text($d), BEITRAG_CONSENT_VERSION, $jetzt, $jetzt]);
@@ -293,9 +293,9 @@ function r_beitrag_speichern(string $bid): void
 function r_beitrag_loeschen(string $bid): void
 {
     $tok = kopfzeile('X-Beitrag-Token');
-    $alt = zeile('SELECT token_hash FROM beitraege WHERE id = ?', [$bid]);
+    $alt = zeile('SELECT token_hash FROM futter_beitraege WHERE id = ?', [$bid]);
     if ($alt && preg_match(TOKEN_RE, $tok) && hash_equals($alt['token_hash'], sha($tok))) {
-        q('DELETE FROM beitraege WHERE id = ?', [$bid]);
+        q('DELETE FROM futter_beitraege WHERE id = ?', [$bid]);
     }
     json_ende(['status' => 'deleted']);
 }
@@ -314,7 +314,7 @@ function r_vergleich(): void
         throw new RuntimeException('seit ungültig'); // Python: int() → ValueError → 500
     }
     $jahr_min = (int) ($seit === '' ? '0' : $seit);
-    $sql = 'SELECT daten FROM beitraege WHERE typ = ? AND (jahr >= ? OR ? = 0)';
+    $sql = 'SELECT daten FROM futter_beitraege WHERE typ = ? AND (jahr >= ? OR ? = 0)';
     $par = [$typ, $jahr_min, $jahr_min];
     if (in_array($aufwuchs, ['1', 'f'], true)) {
         $sql .= ' AND aufwuchs = ?';
@@ -338,7 +338,7 @@ function r_schweiz(): void
         fehler('BAD_REQUEST', 400);
     }
     $seit = (int) $seit;
-    $sql = 'SELECT region, daten FROM beitraege WHERE (jahr >= ? OR ? = 0)';
+    $sql = 'SELECT region, daten FROM futter_beitraege WHERE (jahr >= ? OR ? = 0)';
     $par = [$seit, $seit];
     if ($typ !== 'alle') {
         $sql .= ' AND typ = ?';
@@ -402,7 +402,7 @@ function r_admin_statistik_csv(): void
         array_map(fn ($k) => 'schaetzung_' . $k, WERTE), array_map(fn ($k) => 'labor_' . $k, LABOR), ['antworten', 'rad']);
     $fh = fopen('php://temp', 'w+');
     fputcsv($fh, $spalten, ';', '"', '');
-    foreach (q('SELECT daten FROM beitraege ORDER BY created_at')->fetchAll(PDO::FETCH_COLUMN) as $j) {
+    foreach (q('SELECT daten FROM futter_beitraege ORDER BY created_at')->fetchAll(PDO::FETCH_COLUMN) as $j) {
         $d = json_decode($j, false);
         $z = [];
         foreach (array_slice($spalten, 0, 12) as $k) {

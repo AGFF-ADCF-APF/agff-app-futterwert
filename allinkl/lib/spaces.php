@@ -141,10 +141,10 @@ function check_record(string $record_id, $data): bool
 function purge_expired(): void
 {
     $grenze = gmdate('Y-m-d\TH:i:s', time() - retention_days() * 86400);
-    foreach (q('SELECT id FROM e2e_spaces WHERE updated_at < ?', [$grenze])->fetchAll(PDO::FETCH_COLUMN) as $id) {
+    foreach (q('SELECT id FROM futter_e2e_spaces WHERE updated_at < ?', [$grenze])->fetchAll(PDO::FETCH_COLUMN) as $id) {
         fotos_entfernen($id);
     }
-    q('DELETE FROM e2e_spaces WHERE updated_at < ?', [$grenze]);
+    q('DELETE FROM futter_e2e_spaces WHERE updated_at < ?', [$grenze]);
 }
 
 function ordner_loeschen(string $pfad): void
@@ -178,7 +178,7 @@ function space_auth(string $space_id, bool $schreiben = false): ?array
     if (!preg_match(ID_RE, $space_id)) {
         return null;
     }
-    $row = zeile('SELECT * FROM e2e_spaces WHERE id = ?', [$space_id]);
+    $row = zeile('SELECT * FROM futter_e2e_spaces WHERE id = ?', [$space_id]);
     if (!$row) {
         return null;
     }
@@ -193,14 +193,14 @@ function space_auth(string $space_id, bool $schreiben = false): ?array
 
 function space_touch(string $space_id): void
 {
-    q('UPDATE e2e_spaces SET updated_at = ? WHERE id = ?', [jetzt_iso(), $space_id]);
+    q('UPDATE futter_e2e_spaces SET updated_at = ? WHERE id = ?', [jetzt_iso(), $space_id]);
 }
 
 function record_speichern(string $space_id, string $record_id, stdClass $data, string $client_updated): void
 {
     $an = feld($data, 'analyse');
     $pv = feld($data, 'privat');
-    q('INSERT INTO e2e_records (space_id, id, analyse, privat, client_updated_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) '
+    q('INSERT INTO futter_e2e_records (space_id, id, analyse, privat, client_updated_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) '
         . 'ON DUPLICATE KEY UPDATE analyse = VALUES(analyse), privat = VALUES(privat), client_updated_at = VALUES(client_updated_at), updated_at = VALUES(updated_at)',
         [$space_id, $record_id, py_json(wahr($an) ? $an : new stdClass(), false), wahr($pv) ? py_json($pv) : null, $client_updated, jetzt_iso()]);
 }
@@ -256,7 +256,7 @@ function r_space_anlegen(): void
     $id = zufall_id(9);
     $jetzt = jetzt_iso();
     purge_expired();
-    q('INSERT INTO e2e_spaces (id, read_hash, write_hash, consent_version, consent_at, owner_email_hmac, owner_email_enc, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    q('INSERT INTO futter_e2e_spaces (id, read_hash, write_hash, consent_version, consent_at, owner_email_hmac, owner_email_enc, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [$id, $rh, $wh, CONSENT_VERSION, $jetzt, email_hmac($email), email_enc($email), $jetzt, $jetzt]);
     json_ende(['id' => $id, 'consentAt' => $jetzt, 'retentionDays' => retention_days()], 201);
 }
@@ -268,7 +268,7 @@ function r_space_lesen(string $space_id): void
         fehler('NOT_FOUND', 404);
     }
     $records = [];
-    foreach (q('SELECT id, analyse, privat, client_updated_at, updated_at FROM e2e_records WHERE space_id = ?', [$space_id])->fetchAll() as $r) {
+    foreach (q('SELECT id, analyse, privat, client_updated_at, updated_at FROM futter_e2e_records WHERE space_id = ?', [$space_id])->fetchAll() as $r) {
         $records[] = ['id' => $r['id'], 'data' => ['analyse' => json_decode($r['analyse'], false), 'privat' => $r['privat'] ? json_decode($r['privat'], false) : null],
             'clientUpdatedAt' => $r['client_updated_at'], 'updatedAt' => $r['updated_at']];
     }
@@ -281,7 +281,7 @@ function r_space_loeschen(string $space_id): void
     if (!space_auth($space_id, true)) {
         fehler('NOT_FOUND', 404);
     }
-    q('DELETE FROM e2e_spaces WHERE id = ?', [$space_id]);
+    q('DELETE FROM futter_e2e_spaces WHERE id = ?', [$space_id]);
     fotos_entfernen($space_id);
     json_ende(['status' => 'deleted']);
 }
@@ -312,9 +312,9 @@ function r_record_speichern(string $space_id, string $record_id): void
         fehler('NOT_FOUND', 404);
     }
     db()->beginTransaction();
-    $alt = zeile('SELECT client_updated_at FROM e2e_records WHERE space_id = ? AND id = ? FOR UPDATE', [$space_id, $record_id]);
+    $alt = zeile('SELECT client_updated_at FROM futter_e2e_records WHERE space_id = ? AND id = ? FOR UPDATE', [$space_id, $record_id]);
     if ($alt === null) {
-        if ((int) wert('SELECT COUNT(*) FROM e2e_records WHERE space_id = ?', [$space_id]) >= MAX_RECORDS_PER_SPACE) {
+        if ((int) wert('SELECT COUNT(*) FROM futter_e2e_records WHERE space_id = ?', [$space_id]) >= MAX_RECORDS_PER_SPACE) {
             db()->rollBack();
             fehler('SPACE_FULL', 409);
         }
@@ -333,7 +333,7 @@ function r_record_loeschen(string $space_id, string $record_id): void
     if (!space_auth($space_id, true)) {
         fehler('NOT_FOUND', 404);
     }
-    q('DELETE FROM e2e_records WHERE space_id = ? AND id = ?', [$space_id, $record_id]);
+    q('DELETE FROM futter_e2e_records WHERE space_id = ? AND id = ?', [$space_id, $record_id]);
     space_touch($space_id);
     json_ende(['status' => 'deleted']);
 }
@@ -360,11 +360,11 @@ function r_space_rotate(string $space_id): void
         fehler('NOT_FOUND', 404);
     }
     db()->beginTransaction();
-    q('DELETE FROM e2e_records WHERE space_id = ?', [$space_id]);
+    q('DELETE FROM futter_e2e_records WHERE space_id = ?', [$space_id]);
     foreach ($recs as $r) {
         record_speichern($space_id, (string) $r->id, $r->data, client_zeit(feld($r, 'updatedAt')));
     }
-    q('UPDATE e2e_spaces SET read_hash = ?, write_hash = ?, epoch = epoch + 1, beitritt_hmac = NULL, beitritt_enc = NULL, updated_at = ? WHERE id = ?',
+    q('UPDATE futter_e2e_spaces SET read_hash = ?, write_hash = ?, epoch = epoch + 1, beitritt_hmac = NULL, beitritt_enc = NULL, updated_at = ? WHERE id = ?',
         [$rh, $wh, jetzt_iso(), $space_id]);
     db()->commit();
     json_ende(['status' => 'rotated', 'epoch' => (int) $space['epoch'] + 1]);
@@ -410,7 +410,7 @@ function r_beitritt(string $space_id): void
         json_ende(['code' => $b['code'] ?? null]);
     }
     if ($m === 'DELETE') {
-        q('UPDATE e2e_spaces SET beitritt_hmac = NULL, beitritt_enc = NULL WHERE id = ?', [$space_id]);
+        q('UPDATE futter_e2e_spaces SET beitritt_hmac = NULL, beitritt_enc = NULL WHERE id = ?', [$space_id]);
         json_ende(['code' => null]);
     }
     rate_hit('beitritt_neu', 20, 3600);
@@ -429,11 +429,11 @@ function r_beitritt(string $space_id): void
         for ($j = 0; $j < 8; $j++) {
             $code .= CODE_ZEICHEN[random_int(0, strlen(CODE_ZEICHEN) - 1)];
         }
-        if (!wert('SELECT 1 FROM e2e_spaces WHERE beitritt_hmac = ?', [beitritt_hmac($code)])) {
+        if (!wert('SELECT 1 FROM futter_e2e_spaces WHERE beitritt_hmac = ?', [beitritt_hmac($code)])) {
             break;
         }
     }
-    q('UPDATE e2e_spaces SET beitritt_hmac = ?, beitritt_enc = ? WHERE id = ?',
+    q('UPDATE futter_e2e_spaces SET beitritt_hmac = ?, beitritt_enc = ? WHERE id = ?',
         [beitritt_hmac($code), text_enc(py_json((object) ['code' => $code, 'secret' => $secret]), 'gruppe-beitritt'), $space_id]);
     json_ende(['code' => $code]);
 }
@@ -448,7 +448,7 @@ function r_gruppe_beitreten(): void
         fehler('NOT_FOUND', 404);
     }
     purge_expired();
-    $space = zeile('SELECT * FROM e2e_spaces WHERE beitritt_hmac = ?', [beitritt_hmac($code)]);
+    $space = zeile('SELECT * FROM futter_e2e_spaces WHERE beitritt_hmac = ?', [beitritt_hmac($code)]);
     $bt = $space ? beitritt_lesen($space) : null;
     if (!$bt || ($bt['code'] ?? null) !== $code) {
         rate_hit('beitritt_fehl', 300, 3600, '*'); // Fehlversuche zusätzlich über alle Geräte begrenzen
@@ -518,8 +518,8 @@ function r_foto_hochladen(string $space_id, string $foto_id): void
     if (!space_auth($space_id, true)) {
         fehler('NOT_FOUND', 404);
     }
-    $r = zeile('SELECT COUNT(*) AS n, COALESCE(SUM(bytes), 0) AS total FROM e2e_fotos WHERE space_id = ? AND id != ?', [$space_id, $foto_id]);
-    $eigner = wert('SELECT owner_email_hmac FROM e2e_spaces WHERE id = ?', [$space_id]);
+    $r = zeile('SELECT COUNT(*) AS n, COALESCE(SUM(bytes), 0) AS total FROM futter_e2e_fotos WHERE space_id = ? AND id != ?', [$space_id, $foto_id]);
+    $eigner = wert('SELECT owner_email_hmac FROM futter_e2e_spaces WHERE id = ?', [$space_id]);
     $limit = foto_limit($eigner ?: null, max_foto_total());
     if ((int) $r['n'] >= MAX_FOTOS_PER_SPACE || (int) $r['total'] + strlen($daten) > $limit) {
         fehler('QUOTA', 409, ['bytes' => (int) $r['total'], 'limit' => $limit, 'bereich' => 'gruppe']);
@@ -528,7 +528,7 @@ function r_foto_hochladen(string $space_id, string $foto_id): void
         fehler('SERVER_VOLL', 507);
     }
     datei_ablegen(foto_pfad($space_id, $foto_id), $daten);
-    q('INSERT INTO e2e_fotos (space_id, id, bytes, created_at) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE bytes = VALUES(bytes)',
+    q('INSERT INTO futter_e2e_fotos (space_id, id, bytes, created_at) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE bytes = VALUES(bytes)',
         [$space_id, $foto_id, strlen($daten), jetzt_iso()]);
     space_touch($space_id);
     json_ende(['status' => 'ok']);
@@ -542,7 +542,7 @@ function r_foto_lesen(string $space_id, string $foto_id): void
     if (!space_auth($space_id)) {
         fehler('NOT_FOUND', 404);
     }
-    if (!wert('SELECT 1 FROM e2e_fotos WHERE space_id = ? AND id = ?', [$space_id, $foto_id])) {
+    if (!wert('SELECT 1 FROM futter_e2e_fotos WHERE space_id = ? AND id = ?', [$space_id, $foto_id])) {
         fehler('NOT_FOUND', 404);
     }
     bild_senden(foto_pfad($space_id, $foto_id));
@@ -556,7 +556,7 @@ function r_foto_loeschen(string $space_id, string $foto_id): void
     if (!space_auth($space_id, true)) {
         fehler('NOT_FOUND', 404);
     }
-    q('DELETE FROM e2e_fotos WHERE space_id = ? AND id = ?', [$space_id, $foto_id]);
+    q('DELETE FROM futter_e2e_fotos WHERE space_id = ? AND id = ?', [$space_id, $foto_id]);
     space_touch($space_id);
     @unlink(foto_pfad($space_id, $foto_id));
     json_ende(['status' => 'deleted']);

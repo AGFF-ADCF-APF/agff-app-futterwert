@@ -27,7 +27,7 @@ function pool_leitung(): ?string
     if (!preg_match(ID_RE, $kurs_id) || !preg_match(TOKEN_RE, $tok)) {
         return null;
     }
-    $eh = wert("SELECT t.email_hmac FROM kurs_sessions s JOIN kurs_teilnehmende t ON t.id = s.teilnehmer_id "
+    $eh = wert("SELECT t.email_hmac FROM futter_kurs_sessions s JOIN futter_kurs_teilnehmende t ON t.id = s.teilnehmer_id "
         . "WHERE s.token_hash = ? AND s.kurs_id = ? AND s.expires_at > ? AND t.rolle = 'leitung'", [sha($tok), $kurs_id, microtime(true)]);
     if (!$eh) {
         rate_hit('auth_fail', 60, 600);
@@ -161,7 +161,7 @@ function pool_pruefen($d): ?stdClass
 /** Entschlüsselter Pool-Eintrag (stdClass) oder null. */
 function pool_eintrag(string $pool_id)
 {
-    $enc = wert('SELECT daten_enc FROM pool_proben WHERE id = ?', [$pool_id]);
+    $enc = wert('SELECT daten_enc FROM futter_pool_proben WHERE id = ?', [$pool_id]);
     if ($enc === null) {
         return null;
     }
@@ -171,7 +171,7 @@ function pool_eintrag(string $pool_id)
 
 function pool_speichern(string $pool_id, string $creator_hmac, stdClass $d, ?string $quelle_kurs = null, ?string $quelle_probe = null): void
 {
-    q('INSERT INTO pool_proben (id, creator_hmac, typ, daten_enc, created_at, sammlung, oeffentlich, quelle_kurs, quelle_probe) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) '
+    q('INSERT INTO futter_pool_proben (id, creator_hmac, typ, daten_enc, created_at, sammlung, oeffentlich, quelle_kurs, quelle_probe) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) '
         . 'ON DUPLICATE KEY UPDATE typ = VALUES(typ), daten_enc = VALUES(daten_enc), sammlung = VALUES(sammlung), oeffentlich = VALUES(oeffentlich), '
         . 'quelle_kurs = COALESCE(VALUES(quelle_kurs), quelle_kurs), quelle_probe = COALESCE(VALUES(quelle_probe), quelle_probe)',
         [$pool_id, $creator_hmac, $d->typ, text_enc(py_json($d, false), 'pool'), jetzt_iso(), feld($d, 'sammlung'), wahr(feld($d, 'oeffentlich')) ? 1 : 0, $quelle_kurs, $quelle_probe]);
@@ -179,7 +179,7 @@ function pool_speichern(string $pool_id, string $creator_hmac, stdClass $d, ?str
 
 function pool_loeschen_ganz(string $pool_id): void
 {
-    q('DELETE FROM pool_proben WHERE id = ?', [$pool_id]);
+    q('DELETE FROM futter_pool_proben WHERE id = ?', [$pool_id]);
     if (preg_match(ID_RE, $pool_id)) {
         ordner_loeschen(pool_dir($pool_id));
     }
@@ -210,13 +210,13 @@ function r_pool_liste(): void
         fehler('NOT_FOUND', 404);
     }
     $out = [];
-    foreach (q('SELECT id, creator_hmac, created_at FROM pool_proben ORDER BY created_at DESC')->fetchAll() as $r) {
+    foreach (q('SELECT id, creator_hmac, created_at FROM futter_pool_proben ORDER BY created_at DESC')->fetchAll() as $r) {
         $d = pool_eintrag($r['id']);
         if (wahr($d)) {
             $out[] = ['id' => $r['id'], 'eigen' => $r['creator_hmac'] === $ich, 'createdAt' => $r['created_at'], 'daten' => $d];
         }
     }
-    $sammlungen = q('SELECT DISTINCT sammlung FROM pool_proben WHERE sammlung IS NOT NULL ORDER BY sammlung')->fetchAll(PDO::FETCH_COLUMN);
+    $sammlungen = q('SELECT DISTINCT sammlung FROM futter_pool_proben WHERE sammlung IS NOT NULL ORDER BY sammlung')->fetchAll(PDO::FETCH_COLUMN);
     json_ende(['eintraege' => $out, 'sammlungen' => $sammlungen]);
 }
 
@@ -237,11 +237,11 @@ function r_pool_speichern(string $pool_id): void
     if (($qk !== null && !preg_match(ID_RE, py_str($qk))) || ($qp !== null && !preg_match(ID_RE, py_str($qp)))) {
         fehler('REJECTED_CONTENT', 422);
     }
-    $alt = wert('SELECT creator_hmac FROM pool_proben WHERE id = ?', [$pool_id]);
+    $alt = wert('SELECT creator_hmac FROM futter_pool_proben WHERE id = ?', [$pool_id]);
     if ($alt !== null && $alt !== $ich) {
         fehler('NOT_FOUND', 404);
     }
-    if ($alt === null && (int) wert('SELECT COUNT(*) FROM pool_proben') >= MAX_POOL_EINTRAEGE) {
+    if ($alt === null && (int) wert('SELECT COUNT(*) FROM futter_pool_proben') >= MAX_POOL_EINTRAEGE) {
         fehler('POOL_VOLL', 409);
     }
     pool_speichern($pool_id, $ich, $d, $qk === null ? null : py_str($qk), $qp === null ? null : py_str($qp));
@@ -251,7 +251,7 @@ function r_pool_speichern(string $pool_id): void
 function r_pool_loeschen(string $pool_id): void
 {
     $ich = pool_leitung();
-    $r = wert('SELECT creator_hmac FROM pool_proben WHERE id = ?', [$pool_id]);
+    $r = wert('SELECT creator_hmac FROM futter_pool_proben WHERE id = ?', [$pool_id]);
     if (!$ich || $r === null || $r !== $ich) {
         fehler('NOT_FOUND', 404);
     }
@@ -264,7 +264,7 @@ function r_pool_oeffentlich(): void
 {
     rate_hit('pool_pub', 300, 600);
     $out = [];
-    foreach (q('SELECT id, created_at FROM pool_proben WHERE oeffentlich = 1 ORDER BY sammlung, created_at')->fetchAll() as $r) {
+    foreach (q('SELECT id, created_at FROM futter_pool_proben WHERE oeffentlich = 1 ORDER BY sammlung, created_at')->fetchAll() as $r) {
         $d = pool_eintrag($r['id']);
         if (wahr($d) && ist_objekt($d)) {
             $x = pool_oeffentlich_daten($d);
@@ -293,7 +293,7 @@ function r_kursprobe_oeffentlich(string $kurs_id, string $probe_id): void
     if (!preg_match(ID_RE, $kurs_id) || !preg_match(ID_RE, $probe_id)) {
         fehler('NOT_FOUND', 404);
     }
-    $r = zeile('SELECT id, sammlung, oeffentlich FROM pool_proben WHERE quelle_kurs = ? AND quelle_probe = ? LIMIT 1', [$kurs_id, $probe_id]);
+    $r = zeile('SELECT id, sammlung, oeffentlich FROM futter_pool_proben WHERE quelle_kurs = ? AND quelle_probe = ? LIMIT 1', [$kurs_id, $probe_id]);
     json_ende(['pool' => $r ? ['id' => $r['id'], 'sammlung' => $r['sammlung'], 'oeffentlich' => (bool) $r['oeffentlich']] : null]);
 }
 
@@ -308,7 +308,7 @@ function r_pool_foto_hochladen(string $pool_id, string $foto_id): void
     if (strlen($daten) > MAX_FOTO_BYTES || strlen($daten) < 100 || !bild_typ(substr($daten, 0, 12))) {
         fehler('REJECTED_CONTENT', 422);
     }
-    $r = wert('SELECT creator_hmac FROM pool_proben WHERE id = ?', [$pool_id]);
+    $r = wert('SELECT creator_hmac FROM futter_pool_proben WHERE id = ?', [$pool_id]);
     $d = pool_eintrag($pool_id);
     $ids = [];
     foreach (($d instanceof stdClass && is_array(feld($d, 'fotos'))) ? $d->fotos : [] as $f) {
@@ -321,7 +321,7 @@ function r_pool_foto_hochladen(string $pool_id, string $foto_id): void
         fehler('SERVER_VOLL', 507);
     }
     datei_ablegen(pool_dir($pool_id) . '/' . $foto_id . '.bin', $daten);
-    q('INSERT INTO pool_fotos (pool_id, id, bytes) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE bytes = VALUES(bytes)', [$pool_id, $foto_id, strlen($daten)]);
+    q('INSERT INTO futter_pool_fotos (pool_id, id, bytes) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE bytes = VALUES(bytes)', [$pool_id, $foto_id, strlen($daten)]);
     json_ende(['status' => 'ok']);
 }
 
@@ -330,7 +330,7 @@ function r_pool_foto_lesen(string $pool_id, string $foto_id): void
     if (!pool_leitung() || !preg_match(ID_RE, $pool_id) || !preg_match(FOTO_ID_RE, $foto_id)) {
         fehler('NOT_FOUND', 404);
     }
-    if (!wert('SELECT 1 FROM pool_fotos WHERE pool_id = ? AND id = ?', [$pool_id, $foto_id])) {
+    if (!wert('SELECT 1 FROM futter_pool_fotos WHERE pool_id = ? AND id = ?', [$pool_id, $foto_id])) {
         fehler('NOT_FOUND', 404);
     }
     pool_foto_senden($pool_id, $foto_id);
@@ -341,7 +341,7 @@ function r_admin_pool(): void
 {
     admin_oder_404();
     $out = [];
-    foreach (q('SELECT id, created_at FROM pool_proben ORDER BY created_at DESC')->fetchAll() as $r) {
+    foreach (q('SELECT id, created_at FROM futter_pool_proben ORDER BY created_at DESC')->fetchAll() as $r) {
         $d = pool_eintrag($r['id']);
         $x = new stdClass();
         foreach ($d instanceof stdClass ? get_object_vars($d) : [] as $k => $v) {

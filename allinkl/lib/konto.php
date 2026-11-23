@@ -29,15 +29,15 @@ function konto_sitzung(): ?array
     if (!preg_match(TOKEN_RE, $tok)) {
         return null;
     }
-    $s = zeile('SELECT s.id AS sid, s.expires_at, k.* FROM konto_sessions s JOIN konten k ON k.id = s.konto_id WHERE s.token_hash = ?', [sha('konto|' . $tok)]);
+    $s = zeile('SELECT s.id AS sid, s.expires_at, k.* FROM futter_konto_sessions s JOIN futter_konten k ON k.id = s.konto_id WHERE s.token_hash = ?', [sha('konto|' . $tok)]);
     if (!$s || (float) $s['expires_at'] < microtime(true)) {
         rate_hit('konto_fail', 60, 600);
         return null;
     }
     $jetzt = jetzt_iso();
     if (substr((string) $s['last_seen'], 0, 10) !== substr($jetzt, 0, 10)) {
-        q('UPDATE konten SET last_seen = ? WHERE id = ?', [$jetzt, $s['id']]);
-        q('UPDATE konto_sessions SET last_used = ? WHERE id = ?', [$jetzt, $s['sid']]);
+        q('UPDATE futter_konten SET last_seen = ? WHERE id = ?', [$jetzt, $s['id']]);
+        q('UPDATE futter_konto_sessions SET last_used = ? WHERE id = ?', [$jetzt, $s['sid']]);
     }
     return $s;
 }
@@ -55,7 +55,7 @@ function foto_limit(?string $email_hmac, int $standard): int
     if (!$email_hmac) {
         return $standard;
     }
-    $mb = wert('SELECT mb FROM foto_quota WHERE email_hmac = ?', [$email_hmac]);
+    $mb = wert('SELECT mb FROM futter_foto_quota WHERE email_hmac = ?', [$email_hmac]);
     return $standard + ($mb !== null ? (int) $mb * 1024 * 1024 : 0);
 }
 
@@ -68,7 +68,7 @@ function foto_platz_frei(int $zusatz): bool
 function foto_bytes_gesamt(): int
 {
     $t = 0;
-    foreach (['e2e_fotos', 'kurs_fotos', 'pool_fotos'] as $tab) {
+    foreach (['futter_e2e_fotos', 'futter_kurs_fotos', 'futter_pool_fotos'] as $tab) {
         $t += (int) wert("SELECT COALESCE(SUM(bytes), 0) FROM $tab");
     }
     return $t;
@@ -78,12 +78,12 @@ function foto_bytes_gesamt(): int
 function konto_purge(): void
 {
     $grenze = gmdate('Y-m-d\TH:i:s', time() - retention_days() * 86400);
-    foreach (q('SELECT id FROM konten WHERE last_seen < ?', [$grenze])->fetchAll(PDO::FETCH_COLUMN) as $id) {
+    foreach (q('SELECT id FROM futter_konten WHERE last_seen < ?', [$grenze])->fetchAll(PDO::FETCH_COLUMN) as $id) {
         konto_fotos_weg($id);
     }
-    q('DELETE FROM konten WHERE last_seen < ?', [$grenze]);
-    q('DELETE FROM konto_links WHERE expires_at < ?', [microtime(true)]);
-    q('DELETE FROM konto_sessions WHERE expires_at < ?', [microtime(true)]);
+    q('DELETE FROM futter_konten WHERE last_seen < ?', [$grenze]);
+    q('DELETE FROM futter_konto_links WHERE expires_at < ?', [microtime(true)]);
+    q('DELETE FROM futter_konto_sessions WHERE expires_at < ?', [microtime(true)]);
 }
 
 function konto_foto_pfad(string $konto_id, string $foto_id): string
@@ -120,16 +120,16 @@ function geraet_name(): string
 function konto_anmelden(string $email, string $via): string
 {
     $eh = email_hmac($email);
-    $k = zeile('SELECT * FROM konten WHERE email_hmac = ?', [$eh]);
+    $k = zeile('SELECT * FROM futter_konten WHERE email_hmac = ?', [$eh]);
     if (!$k) {
         $kid = zufall_id(9);
-        q('INSERT INTO konten (id, email_hmac, email_enc, created_at, last_seen) VALUES (?, ?, ?, ?, ?)', [$kid, $eh, email_enc($email), jetzt_iso(), jetzt_iso()]);
+        q('INSERT INTO futter_konten (id, email_hmac, email_enc, created_at, last_seen) VALUES (?, ?, ?, ?, ?)', [$kid, $eh, email_enc($email), jetzt_iso(), jetzt_iso()]);
     } else {
         $kid = $k['id'];
-        q('UPDATE konten SET last_seen = ? WHERE id = ?', [jetzt_iso(), $kid]);
+        q('UPDATE futter_konten SET last_seen = ? WHERE id = ?', [jetzt_iso(), $kid]);
     }
     $tok = zufall_id(32);
-    q('INSERT INTO konto_sessions (id, konto_id, token_hash, via, geraet, created_at, last_used, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    q('INSERT INTO futter_konto_sessions (id, konto_id, token_hash, via, geraet, created_at, last_used, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
         [zufall_id(9), $kid, sha('konto|' . $tok), $via, geraet_name(), jetzt_iso(), jetzt_iso(), microtime(true) + SESSION_TAGE * 86400]);
     return $tok;
 }
@@ -176,11 +176,11 @@ function r_konto_code(): void
     $lid = zufall_id(9);
     $geheim = zufall_id(32);
     $eh = email_hmac($email);
-    q('INSERT INTO konto_links (id, email_hmac, email_enc, secret_hash, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
+    q('INSERT INTO futter_konto_links (id, email_hmac, email_enc, secret_hash, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
         [$lid, $eh, email_enc($email), sha('link|' . $geheim), jetzt_iso(), microtime(true) + LINK_TAGE * 86400]);
-    $alte = q('SELECT id FROM konto_links WHERE email_hmac = ? AND revoked = 0 ORDER BY created_at DESC LIMIT 18446744073709551615 OFFSET ' . MAX_LINKS, [$eh])->fetchAll(PDO::FETCH_COLUMN);
+    $alte = q('SELECT id FROM futter_konto_links WHERE email_hmac = ? AND revoked = 0 ORDER BY created_at DESC LIMIT 18446744073709551615 OFFSET ' . MAX_LINKS, [$eh])->fetchAll(PDO::FETCH_COLUMN);
     foreach ($alte as $id) {
-        q('UPDATE konto_links SET revoked = 1 WHERE id = ?', [$id]);
+        q('UPDATE futter_konto_links SET revoked = 1 WHERE id = ?', [$id]);
     }
     login_senden($email, $code, $basis . '#login=' . $lid . '.' . $geheim, modus() === 'wiese' ? 'Wiese' : 'Futterbeurteilung');
     json_ende(['status' => 'sent']);
@@ -195,7 +195,7 @@ function r_konto_login(): void
     konto_purge();
     if ($link !== '') {
         $m = preg_match('/^([A-Za-z0-9_-]{6,20})\.([A-Za-z0-9_-]{43})$/', $link, $t);
-        $r = $m ? zeile('SELECT * FROM konto_links WHERE id = ?', [$t[1]]) : null;
+        $r = $m ? zeile('SELECT * FROM futter_konto_links WHERE id = ?', [$t[1]]) : null;
         if (!$r || $r['revoked'] || (float) $r['expires_at'] < microtime(true) || !hash_equals($r['secret_hash'], sha('link|' . $t[2]))) {
             rate_hit('konto_link_fail', 10, 900);
             fehler('LINK_UNGUELTIG', 404);
@@ -204,7 +204,7 @@ function r_konto_login(): void
         if (!$email) {
             fehler('LINK_UNGUELTIG', 404);
         }
-        q('UPDATE konto_links SET used_at = ? WHERE id = ?', [jetzt_iso(), $r['id']]);
+        q('UPDATE futter_konto_links SET used_at = ? WHERE id = ?', [jetzt_iso(), $r['id']]);
         $tok = konto_anmelden($email, 'link');
     } else {
         $e = feld($body, 'email');
@@ -221,14 +221,14 @@ function r_konto_info(): void
 {
     $k = konto_oder_404();
     $jetzt = microtime(true);
-    $links = q('SELECT id, created_at, expires_at, used_at FROM konto_links WHERE email_hmac = ? AND revoked = 0 AND expires_at > ? ORDER BY created_at DESC', [$k['email_hmac'], $jetzt])->fetchAll();
-    $sess = q('SELECT id, via, geraet, created_at, last_used FROM konto_sessions WHERE konto_id = ? AND expires_at > ? ORDER BY last_used DESC', [$k['id'], $jetzt])->fetchAll();
+    $links = q('SELECT id, created_at, expires_at, used_at FROM futter_konto_links WHERE email_hmac = ? AND revoked = 0 AND expires_at > ? ORDER BY created_at DESC', [$k['email_hmac'], $jetzt])->fetchAll();
+    $sess = q('SELECT id, via, geraet, created_at, last_used FROM futter_konto_sessions WHERE konto_id = ? AND expires_at > ? ORDER BY last_used DESC', [$k['id'], $jetzt])->fetchAll();
     $n = [];
     foreach (APPS as $a) {
-        $n[$a] = (int) wert('SELECT COUNT(*) FROM konto_daten WHERE konto_id = ? AND app = ? AND data IS NOT NULL', [$k['id'], $a]);
+        $n[$a] = (int) wert('SELECT COUNT(*) FROM futter_konto_daten WHERE konto_id = ? AND app = ? AND data IS NOT NULL', [$k['id'], $a]);
     }
-    $fb = (int) wert('SELECT COALESCE(SUM(bytes), 0) FROM konto_fotos WHERE konto_id = ?', [$k['id']]);
-    $antrag = zeile("SELECT wunsch_mb, created_at FROM quota_antraege WHERE email_hmac = ? AND status = 'offen' ORDER BY created_at DESC LIMIT 1", [$k['email_hmac']]);
+    $fb = (int) wert('SELECT COALESCE(SUM(bytes), 0) FROM futter_konto_fotos WHERE konto_id = ?', [$k['id']]);
+    $antrag = zeile("SELECT wunsch_mb, created_at FROM futter_quota_antraege WHERE email_hmac = ? AND status = 'offen' ORDER BY created_at DESC LIMIT 1", [$k['email_hmac']]);
     json_ende([
         'email' => email_dec($k['email_enc']), 'createdAt' => $k['created_at'],
         'cloud' => ['futter' => (bool) $k['cloud_futter'], 'wiese' => (bool) $k['cloud_wiese']], 'anzahl' => $n,
@@ -242,21 +242,21 @@ function r_konto_info(): void
 function r_konto_link_weg(string $lid): void
 {
     $k = konto_oder_404();
-    q('UPDATE konto_links SET revoked = 1 WHERE id = ? AND email_hmac = ?', [$lid, $k['email_hmac']]);
+    q('UPDATE futter_konto_links SET revoked = 1 WHERE id = ? AND email_hmac = ?', [$lid, $k['email_hmac']]);
     json_ende(['status' => 'ok']);
 }
 
 function r_konto_links_alle_weg(): void
 {
     $k = konto_oder_404();
-    q('UPDATE konto_links SET revoked = 1 WHERE email_hmac = ?', [$k['email_hmac']]);
+    q('UPDATE futter_konto_links SET revoked = 1 WHERE email_hmac = ?', [$k['email_hmac']]);
     json_ende(['status' => 'ok']);
 }
 
 function r_konto_geraet_weg(string $sid): void
 {
     $k = konto_oder_404();
-    q('DELETE FROM konto_sessions WHERE id = ? AND konto_id = ?', [$sid, $k['id']]);
+    q('DELETE FROM futter_konto_sessions WHERE id = ? AND konto_id = ?', [$sid, $k['id']]);
     json_ende(['status' => 'ok']);
 }
 
@@ -264,7 +264,7 @@ function r_konto_logout(): void
 {
     $k = konto_sitzung();
     if ($k) {
-        q('DELETE FROM konto_sessions WHERE id = ?', [$k['sid']]);
+        q('DELETE FROM futter_konto_sessions WHERE id = ?', [$k['sid']]);
     }
     json_ende(['status' => 'ok']);
 }
@@ -286,9 +286,9 @@ function r_konto_cloud(): void
         if (feld($c, 'accepted') !== true || feld($c, 'version') !== CONSENT_VERSION_KONTO) {
             fehler('CONSENT_REQUIRED', 400, ['consentVersion' => CONSENT_VERSION_KONTO]);
         }
-        q("UPDATE konten SET cloud_$app = 1, consent_version = ?, consent_at = ? WHERE id = ?", [CONSENT_VERSION_KONTO, jetzt_iso(), $k['id']]);
+        q("UPDATE futter_konten SET cloud_$app = 1, consent_version = ?, consent_at = ? WHERE id = ?", [CONSENT_VERSION_KONTO, jetzt_iso(), $k['id']]);
     } else {
-        q("UPDATE konten SET cloud_$app = 0 WHERE id = ?", [$k['id']]);
+        q("UPDATE futter_konten SET cloud_$app = 0 WHERE id = ?", [$k['id']]);
         if (wahr(feld($body, 'loeschen'))) {
             konto_app_loeschen($k['id'], $app);
         }
@@ -298,18 +298,18 @@ function r_konto_cloud(): void
 
 function konto_app_loeschen(string $konto_id, string $app): void
 {
-    q('DELETE FROM konto_daten WHERE konto_id = ? AND app = ?', [$konto_id, $app]);
-    foreach (q('SELECT id FROM konto_fotos WHERE konto_id = ? AND app = ?', [$konto_id, $app])->fetchAll(PDO::FETCH_COLUMN) as $fid) {
+    q('DELETE FROM futter_konto_daten WHERE konto_id = ? AND app = ?', [$konto_id, $app]);
+    foreach (q('SELECT id FROM futter_konto_fotos WHERE konto_id = ? AND app = ?', [$konto_id, $app])->fetchAll(PDO::FETCH_COLUMN) as $fid) {
         @unlink(konto_foto_pfad($konto_id, $fid));
     }
-    q('DELETE FROM konto_fotos WHERE konto_id = ? AND app = ?', [$konto_id, $app]);
+    q('DELETE FROM futter_konto_fotos WHERE konto_id = ? AND app = ?', [$konto_id, $app]);
 }
 
 function r_konto_loeschen(): void
 {
     $k = konto_oder_404();
-    q('DELETE FROM konten WHERE id = ?', [$k['id']]);
-    q('UPDATE konto_links SET revoked = 1 WHERE email_hmac = ?', [$k['email_hmac']]);
+    q('DELETE FROM futter_konten WHERE id = ?', [$k['id']]);
+    q('UPDATE futter_konto_links SET revoked = 1 WHERE email_hmac = ?', [$k['email_hmac']]);
     konto_fotos_weg($k['id']);
     json_ende(['status' => 'deleted']);
 }
@@ -327,7 +327,7 @@ function r_konto_daten_lesen(string $app): void
     if (!app_ok($app, $k)) {
         fehler('CLOUD_AUS', 409);
     }
-    $rows = q('SELECT id, data, client_updated_at, updated_at FROM konto_daten WHERE konto_id = ? AND app = ? AND updated_at > ? ORDER BY updated_at', [$k['id'], $app, $seit])->fetchAll();
+    $rows = q('SELECT id, data, client_updated_at, updated_at FROM futter_konto_daten WHERE konto_id = ? AND app = ? AND updated_at > ? ORDER BY updated_at', [$k['id'], $app, $seit])->fetchAll();
     $stand = $seit;
     foreach ($rows as $r) {
         if (strcmp($r['updated_at'], $stand) > 0) {
@@ -392,8 +392,8 @@ function r_konto_daten_schreiben(string $app): void
     if (!app_ok($app, $k)) {
         fehler('CLOUD_AUS', 409);
     }
-    $n = (int) wert('SELECT COUNT(*) FROM konto_daten WHERE konto_id = ? AND app = ?', [$k['id'], $app]);
-    $total = (int) wert('SELECT COALESCE(SUM(bytes), 0) FROM konto_daten WHERE konto_id = ?', [$k['id']]);
+    $n = (int) wert('SELECT COUNT(*) FROM futter_konto_daten WHERE konto_id = ? AND app = ?', [$k['id'], $app]);
+    $total = (int) wert('SELECT COALESCE(SUM(bytes), 0) FROM futter_konto_daten WHERE konto_id = ?', [$k['id']]);
     $ok = [];
     $alt = [];
     $jetzt = jetzt_fein();
@@ -412,7 +412,7 @@ function r_konto_daten_schreiben(string $app): void
             fehler('TOO_LARGE', 413);
         }
         $cu = client_zeit(feld($r, 'updatedAt'));
-        $ex = zeile('SELECT client_updated_at, bytes FROM konto_daten WHERE konto_id = ? AND app = ? AND id = ?', [$k['id'], $app, $id]);
+        $ex = zeile('SELECT client_updated_at, bytes FROM futter_konto_daten WHERE konto_id = ? AND app = ? AND id = ?', [$k['id'], $app, $id]);
         if ($ex && $ex['client_updated_at'] && $cu !== '' && strcmp($ex['client_updated_at'], $cu) > 0) {
             $alt[] = $r->id;
             continue;
@@ -427,7 +427,7 @@ function r_konto_daten_schreiben(string $app): void
         if ($total > MAX_DATEN_BYTES) {
             fehler('SPEICHER_VOLL', 409);
         }
-        q('INSERT INTO konto_daten (konto_id, app, id, data, bytes, client_updated_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) '
+        q('INSERT INTO futter_konto_daten (konto_id, app, id, data, bytes, client_updated_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) '
             . 'ON DUPLICATE KEY UPDATE data = VALUES(data), bytes = VALUES(bytes), client_updated_at = VALUES(client_updated_at), updated_at = VALUES(updated_at)',
             [$k['id'], $app, $id, $txt, $b, $cu, $jetzt]);
         $ok[] = $r->id;
@@ -453,7 +453,7 @@ function r_konto_foto_hochladen(string $foto_id): void
     if (!app_ok($app, $k)) {
         fehler('CLOUD_AUS', 409);
     }
-    $belegt = (int) wert('SELECT COALESCE(SUM(bytes), 0) FROM konto_fotos WHERE konto_id = ? AND id != ?', [$k['id'], $foto_id]);
+    $belegt = (int) wert('SELECT COALESCE(SUM(bytes), 0) FROM futter_konto_fotos WHERE konto_id = ? AND id != ?', [$k['id'], $foto_id]);
     $limit = foto_limit($k['email_hmac'], konto_foto_standard());
     if ($belegt + strlen($daten) > $limit) {
         fehler('QUOTA', 409, ['bytes' => $belegt, 'limit' => $limit]);
@@ -462,7 +462,7 @@ function r_konto_foto_hochladen(string $foto_id): void
         fehler('SERVER_VOLL', 507);
     }
     datei_ablegen(konto_foto_pfad($k['id'], $foto_id), $daten);
-    q('INSERT INTO konto_fotos (konto_id, id, app, bytes, created_at) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE bytes = VALUES(bytes)',
+    q('INSERT INTO futter_konto_fotos (konto_id, id, app, bytes, created_at) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE bytes = VALUES(bytes)',
         [$k['id'], $foto_id, $app, strlen($daten), jetzt_iso()]);
     json_ende(['status' => 'ok']);
 }
@@ -473,7 +473,7 @@ function r_konto_foto_lesen(string $foto_id): void
         fehler('BAD_REQUEST', 400);
     }
     $k = konto_sitzung();
-    if (!$k || !wert('SELECT 1 FROM konto_fotos WHERE konto_id = ? AND id = ?', [$k['id'], $foto_id])) {
+    if (!$k || !wert('SELECT 1 FROM futter_konto_fotos WHERE konto_id = ? AND id = ?', [$k['id'], $foto_id])) {
         fehler('NOT_FOUND', 404);
     }
     bild_senden(konto_foto_pfad($k['id'], $foto_id));
@@ -483,7 +483,7 @@ function r_konto_foto_liste(): void
 {
     $k = konto_oder_404();
     json_ende(['fotos' => array_map(fn ($r) => ['id' => $r['id'], 'app' => $r['app']],
-        q('SELECT id, app FROM konto_fotos WHERE konto_id = ?', [$k['id']])->fetchAll())]);
+        q('SELECT id, app FROM futter_konto_fotos WHERE konto_id = ?', [$k['id']])->fetchAll())]);
 }
 
 function r_konto_foto_loeschen(string $foto_id): void
@@ -492,7 +492,7 @@ function r_konto_foto_loeschen(string $foto_id): void
         fehler('BAD_REQUEST', 400);
     }
     $k = konto_oder_404();
-    q('DELETE FROM konto_fotos WHERE konto_id = ? AND id = ?', [$k['id'], $foto_id]);
+    q('DELETE FROM futter_konto_fotos WHERE konto_id = ? AND id = ?', [$k['id'], $foto_id]);
     @unlink(konto_foto_pfad($k['id'], $foto_id));
     json_ende(['status' => 'deleted']);
 }
@@ -520,7 +520,7 @@ function r_quota_antrag(): void
             fehler('CODE_INVALID', 400);
         }
     }
-    q("INSERT INTO quota_antraege (id, email_hmac, email_enc, bereich, wunsch_mb, text_enc, status, created_at) VALUES (?, ?, ?, ?, ?, ?, 'offen', ?)",
+    q("INSERT INTO futter_quota_antraege (id, email_hmac, email_enc, bereich, wunsch_mb, text_enc, status, created_at) VALUES (?, ?, ?, ?, ?, ?, 'offen', ?)",
         [zufall_id(9), email_hmac($email), email_enc($email), $bereich, $wunsch, $text !== '' ? text_enc($text, 'quota') : null, jetzt_iso()]);
     $adm = admin_adresse();
     if ($adm) {
@@ -547,12 +547,12 @@ function r_admin_quota_liste(): void
     if (!admin_ok()) {
         fehler('NOT_FOUND', 404);
     }
-    $rows = q("SELECT * FROM quota_antraege ORDER BY status = 'offen' DESC, created_at DESC LIMIT 200")->fetchAll();
+    $rows = q("SELECT * FROM futter_quota_antraege ORDER BY status = 'offen' DESC, created_at DESC LIMIT 200")->fetchAll();
     $qu = [];
-    foreach (q('SELECT * FROM foto_quota')->fetchAll() as $r) {
+    foreach (q('SELECT * FROM futter_foto_quota')->fetchAll() as $r) {
         $qu[$r['email_hmac']] = (int) $r['mb'];
     }
-    json_ende(['konten' => (int) wert('SELECT COUNT(*) FROM konten'), 'antraege' => array_map(fn ($r) => [
+    json_ende(['konten' => (int) wert('SELECT COUNT(*) FROM futter_konten'), 'antraege' => array_map(fn ($r) => [
         'id' => $r['id'], 'email' => email_dec($r['email_enc']), 'bereich' => $r['bereich'], 'wunschMb' => (int) $r['wunsch_mb'],
         'text' => $r['text_enc'] ? text_dec($r['text_enc'], 'quota') : null, 'status' => $r['status'], 'createdAt' => $r['created_at'],
         'zusatzMb' => $qu[$r['email_hmac']] ?? 0], $rows)]);
@@ -569,7 +569,7 @@ function r_admin_quota_entscheid(string $aid): void
     if (!in_array($status, ['ok', 'abgelehnt'], true)) {
         fehler('BAD_REQUEST', 400);
     }
-    $r = zeile('SELECT * FROM quota_antraege WHERE id = ?', [$aid]);
+    $r = zeile('SELECT * FROM futter_quota_antraege WHERE id = ?', [$aid]);
     if (!$r) {
         fehler('NOT_FOUND', 404);
     }
@@ -581,10 +581,10 @@ function r_admin_quota_entscheid(string $aid): void
             fehler('BAD_REQUEST', 400);
         }
         $mb = max(1, min(20000, $mb));
-        q('INSERT INTO foto_quota (email_hmac, mb, decided_at) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE mb = VALUES(mb), decided_at = VALUES(decided_at)',
+        q('INSERT INTO futter_foto_quota (email_hmac, mb, decided_at) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE mb = VALUES(mb), decided_at = VALUES(decided_at)',
             [$r['email_hmac'], $mb, jetzt_iso()]);
     }
-    q('UPDATE quota_antraege SET status = ?, decided_at = ? WHERE id = ?', [$status, jetzt_iso(), $aid]);
+    q('UPDATE futter_quota_antraege SET status = ?, decided_at = ? WHERE id = ?', [$status, jetzt_iso(), $aid]);
     $email = email_dec($r['email_enc']);
     if ($email) {
         mail_senden($email, 'Ihr Antrag Foto-Speicher', $status === 'ok' ? "Ihr Antrag wurde angenommen: zusätzlich $mb MB Foto-Speicher.\n"

@@ -251,11 +251,11 @@ function rate_hit(string $bucket, int $limit, int $fenster, ?string $schluessel 
 {
     $k = substr(hash('sha256', $bucket . '|' . ($schluessel ?? client_key())), 0, 32);
     $t = microtime(true);
-    q('INSERT INTO rate_treffer (schluessel, zeit) VALUES (?, ?)', [$k, $t]);
+    q('INSERT INTO futter_rate_treffer (schluessel, zeit) VALUES (?, ?)', [$k, $t]);
     if (random_int(1, 200) === 1) {
-        q('DELETE FROM rate_treffer WHERE zeit < ?', [$t - 86400]);
+        q('DELETE FROM futter_rate_treffer WHERE zeit < ?', [$t - 86400]);
     }
-    $n = (int) wert('SELECT COUNT(*) FROM rate_treffer WHERE schluessel = ? AND zeit > ?', [$k, $t - $fenster]);
+    $n = (int) wert('SELECT COUNT(*) FROM futter_rate_treffer WHERE schluessel = ? AND zeit > ?', [$k, $t - $fenster]);
     if ($n > $limit) {
         fehler('RATE_LIMITED', 429);
     }
