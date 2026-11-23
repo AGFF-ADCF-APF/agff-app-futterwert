@@ -53,10 +53,12 @@
     const across = tangential ? thick - 4 : arcLen - 3;
     let fs = o.fs || 9;
     let lines;
-    for (; fs >= 5.6; fs -= 0.4) {
+    const fsMin = o.min || 5.6; let passt = false;
+    for (; fs >= fsMin; fs -= 0.4) {
       lines = wrap(text, Math.max(3, Math.floor(avail / (fs * 0.53))));
-      if (lines.length * fs * 1.08 <= across && lines.every((l) => l.length * fs * 0.53 <= avail + 2)) break;
+      if (lines.length * fs * 1.08 <= across && lines.every((l) => l.length * fs * 0.53 <= avail + 2)) { passt = true; break; }
     }
+    if (!passt) { if (o.weglassen) return ''; fs = fsMin; }  // weglassen: lieber kein Text als überlappender
     const [x, y] = pt(rm, am);
     let rot = tangential ? am : am - 90;
     let flip = false;
@@ -73,7 +75,8 @@
   /**
    * @param {Array} faktoren  Rad-Definition (K3.TYPEN[x].rad)
    * @param {Object} auswahl  {faktorId: optionId}
-   * @param {Object} o        {mini, interaktiv, fokus, zentrum:{wert, einheit, label, ton}, titel}
+   * @param {Object} o        {mini, interaktiv, fokus, zoom, zentrum:{wert, einheit, label, ton}, titel}
+   *                           zoom (Smartphone): Fokus-Faktor füllt das Bild, der Rest des Rades bleibt am Rand angeschnitten.
    */
   function render(faktoren, auswahl, o) {
     o = o || {};
@@ -96,7 +99,12 @@
     // Lupe (interaktiv): gewählter Faktor bekommt ~40 % des Kreises und wird nach oben gedreht – lesbar und gut zu treffen
     const lupe = !!(o.interaktiv && o.fokus && !mini && faktoren.some((f) => f.id === o.fokus));
     const fF = lupe ? faktoren.find((f) => f.id === o.fokus) : null;
-    const wF = lupe ? Math.max(1.5, Math.min(3, (0.4 * (N - fF.optionen.length)) / (0.6 * fF.optionen.length))) : 1;
+    const zoom = lupe && !!o.zoom;
+    // Zoom: Fokus bekommt je Ausprägung ~25° (84–160°), Bildausschnitt danach; sonst ~40 % des Kreises
+    const zSpan = zoom ? Math.max(84, Math.min(160, fF.optionen.length * 25)) : 0;
+    const restU = lupe ? N - fF.optionen.length : 0;
+    const wF = zoom ? Math.max(1, (zSpan * restU) / (fF.optionen.length * (360 - GAP * gruppen.length - zSpan)))
+      : (lupe ? Math.max(1.5, Math.min(3, (0.4 * (N - fF.optionen.length)) / (0.6 * fF.optionen.length))) : 1);
     const gew = (f) => (lupe && f.id === o.fokus ? wF : 1);
     const units = faktoren.reduce((n, f) => n + f.optionen.length * gew(f), 0);
     const einheit = usable / units;
@@ -109,6 +117,7 @@
     const RF = R3 + 12; // Fokus ragt heraus
     const a0Start = a;
     const parts = { seg: [], lab: [], ticks: [], grp: [], mid: [] };
+    let fokusBereich = null;
 
     gruppen.forEach((g) => {
       const g0 = a;
@@ -132,7 +141,7 @@
           const hit = sel && m.ids.includes(sel);
           parts.mid.push('<path d="' + arc(R1, R2, am, a1) + '" fill="' + mix(f.farbe, hit ? 0.25 : (lupe && !fokus ? 0.68 : 0.55)) + '" stroke="#fff" stroke-width="1.2"' +
             (o.interaktiv ? ' data-f="' + f.id + '" class="rz-hit"' : '') + '/>');
-          if (!mini && m.txt) parts.lab.push(label(m.txt, R1, R2, am, a1, { fs: big ? 10 : 8.6, weight: big ? 650 : null }));
+          if (!mini && m.txt && (big || !zoom)) parts.lab.push(label(m.txt, R1, R2, am, a1, { fs: big ? (zoom ? 11 : 10) : 8.6, weight: big ? 650 : null, weglassen: !big, min: big ? 5.6 : 6.4 }));
           am = a1;
         });
         f.optionen.forEach((op) => {
@@ -146,8 +155,8 @@
           if (!mini && big) {
             // Kriterium ausgeschrieben + Punkte/Korrektur
             const txt = (op.text || '').split(/: | – /)[0];
-            parts.lab.push(label(op.kurz === '!' ? '⚠' : op.kurz, r3 - 20, r3, a0, a1, { force: 'tan', fs: op.kurz.length > 2 ? 11 : 14, weight: 800, fill: isSel ? '#fff' : INK }));
-            if (txt && txt !== op.kurz) parts.lab.push(label(txt, R2 + 1, r3 - 19, a0, a1, { fs: 8.4, weight: isSel ? 700 : 500, fill: isSel ? '#fff' : INK }));
+            parts.lab.push(label(op.kurz === '!' ? '⚠' : op.kurz, r3 - 20, r3, a0, a1, { force: 'tan', fs: op.kurz.length > 2 ? 11 : (zoom ? 15 : 14), weight: 800, fill: isSel ? '#fff' : INK }));
+            if (txt && txt !== op.kurz) parts.lab.push(label(txt, R2 + 1, r3 - 19, a0, a1, { fs: zoom ? 9.6 : 8.4, weight: isSel ? 700 : 500, fill: isSel ? '#fff' : INK }));
           } else if (!mini) {
             parts.lab.push(label(op.kurz, R2, R3, a0, a1, { force: 'rad', fs: op.kurz.length > 2 ? 11 : 15, weight: isSel ? 800 : 600, fill: isSel ? '#fff' : INK }));
           }
@@ -158,7 +167,7 @@
           a = a1;
         });
         if (fokus && !mini) {
-          const f0 = a - f.optionen.length * step;
+          const f0 = a - f.optionen.length * step; fokusBereich = [f0, a];
           parts.seg.push('<path d="' + arc(R0 - 2, (big ? RF + 16 : RT + 8), f0 - 0.6, a + 0.6) + '" fill="none" stroke="' + INK + '" stroke-width="2.4" stroke-dasharray="5 4" pointer-events="none"/>');
         }
       });
@@ -166,7 +175,7 @@
       const allSet = auswahl && g.faktoren.every((f) => auswahl[f.id]);
       parts.grp.push('<path d="' + arc(R0, R1, g0, g1) + '" fill="' + (allSet || mini ? g.farbe : mix(g.farbe, 0.2)) + '" stroke="#fff" stroke-width="1.6"' +
         (o.interaktiv ? ' data-f="' + g.faktoren[0].id + '" class="rz-hit"' : '') + '/>');
-      if (!mini) parts.lab.push(label(g.name, R0, R1, g0, g1, { fs: 10, weight: 700 }));
+      if (!mini && (!zoom || g.faktoren.some((f) => f.id === o.fokus))) { const gb = zoom ? fokusBereich : [g0, g1]; parts.lab.push(label(g.name, R0, R1, gb[0], gb[1], { fs: 10, weight: 700, weglassen: lupe, min: 6.4 })); }  // Zoom: Gruppenname über dem Fokus, sonst angeschnitten
       a = g1 + GAP;
     });
 
@@ -175,7 +184,12 @@
     const center = '<circle r="' + (R0 - 3) + '" fill="' + ton + '"/>' + (mini ? '' :
       '<text y="' + (z.label ? -6 : 2) + '" text-anchor="middle" dominant-baseline="central" font-size="' + (String(z.wert || '').length > 3 ? 20 : 26) + '" font-weight="800" fill="#fff">' + esc(z.wert != null ? z.wert : '–') + '</text>' +
       (z.label ? '<text y="18" text-anchor="middle" font-size="8.5" font-weight="600" fill="#fff">' + esc(z.label) + '</text>' : ''));
-    const vb = mini ? '-198 -198 396 396' : (lupe ? '-232 -236 464 464' : '-216 -216 432 432');
+    let vb = mini ? '-198 -198 396 396' : (lupe ? '-232 -236 464 464' : '-216 -216 432 432');
+    if (zoom) { // Ausschnitt um den (nach oben gedrehten) Fokus-Faktor
+      const th = Math.min(90, zSpan / 2 + 6) * Math.PI / 180; const rA = RF + 22;
+      const xh = Math.min(232, rA * Math.sin(th) + 8); const yb = Math.min(12, -(R0 - 8) * Math.cos(th));
+      vb = f1(-xh) + ' -240 ' + f1(2 * xh) + ' ' + f1(240 + yb);
+    }
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' + vb + '" class="rad' + (mini ? ' rad-mini' : '') + '" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif"' +
       (o.titel ? ' role="img" aria-label="' + esc(o.titel) + '"' : '') + '>' +
       '<circle r="' + (RT + 10) + '" fill="#fff" opacity="' + (mini ? 0 : 1) + '"/>' +

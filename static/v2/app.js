@@ -916,7 +916,7 @@
       return '<button data-fokus="' + x.id + '" aria-current="' + (x.id === fokusId) + '"><span class="sw" style="background:' + x.farbe + '">' + (o ? (o.kurz === '–' ? '–' : '✓') : '') + '</span>' + esc((x.gruppe === 'Feldbedingungen' || x.gruppe === 'Sauberkeit' ? x.optionen[0].mitte : x.gruppe).replace(/-/g, '')) + '</button>';
     }).join('') + '</div>';
     const live = '<div class="live"><span class="dot" style="background:' + (Rad.TON[z.ton] || Rad.TON.offen) + ';width:14px;height:14px"></span><span class="grow">' + esc(res.sperre.length ? 'Nicht verfüttern' : (z.ton === 'offen' ? 'Noch keine Angaben' : res.klasse ? res.klasse.label : '')) + '</span><span class="muted small">' + esc(z.wert + ' ' + (z.label || '')) + '</span></div>';
-    return '<div class="rad-layout"><div class="rad-sticky"><div class="rad-box" id="radbox">' + wheelSvg(p, res, { interaktiv: true, fokus: fokusId }) + '</div>' + live +
+    return '<div class="rad-layout"><div class="rad-sticky"><div class="rad-box" id="radbox">' + wheelSvg(p, res, { interaktiv: true, fokus: fokusId, zoom: !!(window.matchMedia && window.matchMedia('(max-width: 640px)').matches) }) + '</div>' + live +
       '<p class="hint">Tipp: Faktor im Rad antippen – er dreht sich nach oben und wird gross; dann die passende Ausprägung antippen. Oder unten in Ruhe auswählen.</p></div>' +
       '<div>' + nav + factorCard + '</div></div>';
   }
