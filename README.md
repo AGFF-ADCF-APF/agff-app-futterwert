@@ -75,7 +75,8 @@ docker compose up -d --build futterrechner
 - `templates/`, `static/` und `data/` sind als Volumes eingebunden: Änderungen daran sind **sofort live**.
 - Python-Dateien sind ins Image kopiert: nach Änderungen `docker compose up -d --build futterrechner`.
 - `data/` (nicht im Repo) braucht mindestens `futterwerte.csv` (Agroscope-Nährwerttabelle) und `Rohdaten_Maschinen_Cleaned.csv`. Datenbanken (`database.db` v1, `v2.db`), Fotos und Laborberichte entstehen dort.
-- Umgebungsvariablen: siehe `.env.example` (Admin-Passwort, SMTP, `V2_SERVER_KEY`, Kursleitung, zentrale Anmeldung).
+- Umgebungsvariablen: siehe `.env.example` (Admin-Passwort, SMTP, `V2_SERVER_KEY`, Kursleitung, Admin-Anmeldung mit dem AGFF-Konto).
+- Admin-Anmeldung: AGFF-Konto über graswachstum.ch (SSO, Ed25519, Recht `futter.admin`, starke Anmeldung), `v2_zentral.py`; Einrichtung auf der Anbieterseite: `docs/sso-futter-anbieter.md`; Prüfungen: `tests/test_sso.py`. Rückfallebene: Admin-Passwort.
 
 ### Build-Nummer (v2)
 

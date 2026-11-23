@@ -19,9 +19,9 @@ services:
       - V2_KURSLEITUNG_EMAILS=${V2_KURSLEITUNG_EMAILS:-}
       - V2_KURSLEITUNG_DOMAINS=${V2_KURSLEITUNG_DOMAINS:-}
       - V2_ADMIN_MAIL=${V2_ADMIN_MAIL:-}
-      # Zentrale Anmeldung der Administration über graswachstum.ch (Geheimnis wie dort zugang.apps.futter)
-      - ZENTRAL_URL=${ZENTRAL_URL:-https://graswachstum.ch}
-      - ZENTRAL_GEHEIMNIS=${ZENTRAL_GEHEIMNIS:-}
+      # Admin-Anmeldung mit dem AGFF-Konto (SSO graswachstum.ch, client futter): öffentlicher Ed25519-Schlüssel des Anbieters
+      - SSO_URL=${SSO_URL:-https://graswachstum.ch}
+      - SSO_PUBLIC_KEY=${SSO_PUBLIC_KEY:-}
     networks:
       - web-netzwerk
     labels:

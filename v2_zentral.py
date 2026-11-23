@@ -1,15 +1,17 @@
-"""Futter v2 – zentrale Anmeldung über graswachstum.ch (Passkey, E-Mail-Code oder Authenticator-App).
+"""Futter v2 – Admin-Anmeldung über das AGFF-Konto (SSO der Anmelde-Website graswachstum.ch, Plugin agff-familie).
 
-Ablauf:
-  1. GET  /v2/anmelden            -> Nonce im Cookie, Weiterleitung zu graswachstum.ch
-     (<ZENTRAL_URL>/eagff-mitwirken/zugang/apps?app=futter&zurueck=…&nonce=…)
-  2. graswachstum.ch meldet an und schickt per POST einen kurz gültigen Ausweis (JWT HS256)
-  3. POST /v2/anmelden/rueckweg   -> Signatur, Empfänger, Ablauf, Nonce und Einmaligkeit prüfen;
-     mit Recht «admin» oder «apps_admin» entsteht eine Admin-Sitzung (Cookie, 8 h)
-  4. POST /v2/abmelden            -> Sitzung beenden
+Ablauf (Beschreibung des Anbieters: ~/git/lernherbar/docs/sso-agff.md, Code: grav-plugin-agff-familie/classes/SsoExtern.php):
+  1. GET  /v2/anmelden           -> state im Cookie, Weiterleitung zu
+     <SSO_URL>/_konto/sso/extern?client=futter&state=…&sprache=de&stark=1
+  2. graswachstum.ch meldet an (Passkey, Passwort + Code, Microsoft 365; stark=1: zweiter Faktor bzw. Passkey) und
+     leitet auf die beim Anbieter fest eingetragene Rückkehradresse um:
+     https://apps.graswachstum.ch/futter/v2/anmelden/zurueck?token=…&state=…  (bzw. ?error=access_denied|cancelled&state=…)
+  3. GET  /v2/anmelden/zurueck   -> Token prüfen: Signatur Ed25519 (öffentlicher Schlüssel SSO_PUBLIC_KEY), aud, iss,
+     exp/iat, state, jti einmalig; Recht «futter.admin» und starke Anmeldung -> Admin-Sitzung (Cookie, 8 h)
+  4. POST /v2/abmelden           -> Sitzung beenden
 
-Umgebung: ZENTRAL_URL (Standard https://graswachstum.ch), ZENTRAL_GEHEIMNIS (wie
-zugang.apps.futter.geheimnis auf graswachstum.ch), ZENTRAL_APP (Standard futter).
+Umgebung: SSO_URL (Standard https://graswachstum.ch), SSO_PUBLIC_KEY (base64, 32 Byte; ohne Schlüssel ist die
+Anmeldung aus), SSO_CLIENT (Standard futter), SSO_ISSUER (Standard = SSO_URL).
 Das Admin-Passwort (ADMIN_PASSWORD) bleibt als Rückfallebene gültig.
 """
 import base64
@@ -25,20 +27,39 @@ from flask import jsonify, make_response, redirect, render_template_string, requ
 from v2_api import v2, _db
 
 SITZUNG_COOKIE = 'agff_v2_admin'
-NONCE_COOKIE = 'agff_v2_anmeldung'
+STATE_COOKIE = 'agff_v2_anmeldung'
 SITZUNG_DAUER = 8 * 3600
+TOLERANZ = 30          # Sekunden Uhrabweichung
+HOECHSTALTER = 300     # Token höchstens 5 Minuten nach Ausstellung annehmen
+RECHT_ADMIN = 'admin'  # im Token als «<client>.admin»
 
 
 def _zentral_url():
-    return (os.environ.get('ZENTRAL_URL') or 'https://graswachstum.ch').rstrip('/')
+    return (os.environ.get('SSO_URL') or os.environ.get('ZENTRAL_URL') or 'https://graswachstum.ch').rstrip('/')
 
 
-def _geheimnis():
-    return os.environ.get('ZENTRAL_GEHEIMNIS') or ''
+def _issuer():
+    return (os.environ.get('SSO_ISSUER') or _zentral_url()).rstrip('/')
 
 
 def _app_id():
-    return os.environ.get('ZENTRAL_APP') or 'futter'
+    return os.environ.get('SSO_CLIENT') or 'futter'
+
+
+def _oeffentlicher_schluessel():
+    """Öffentlicher Ed25519-Schlüssel (32 Byte) oder None, wenn die Anmeldung nicht eingerichtet ist."""
+    roh = (os.environ.get('SSO_PUBLIC_KEY') or '').strip()
+    if not roh:
+        return None
+    try:
+        b = base64.b64decode(roh, validate=True)
+    except Exception:
+        return None
+    return b if len(b) == 32 else None
+
+
+def eingerichtet():
+    return _oeffentlicher_schluessel() is not None
 
 
 def _b64(b):
@@ -73,34 +94,58 @@ def _sicher():
     return (request.headers.get('X-Forwarded-Proto') or request.scheme) == 'https'
 
 
-def ausweis_pruefen(token, nonce):
-    """Gibt die Angaben des Ausweises zurück oder wirft ValueError."""
-    geheimnis = _geheimnis()
-    if len(geheimnis) < 32:
-        raise ValueError('Zentrale Anmeldung ist nicht eingerichtet (ZENTRAL_GEHEIMNIS fehlt).')
+def token_pruefen(token, state, jetzt=None):
+    """Prüft das Token des Anbieters und gibt seine Angaben zurück oder wirft ValueError (Text für die Person)."""
+    from cryptography.exceptions import InvalidSignature
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+    schluessel = _oeffentlicher_schluessel()
+    if schluessel is None:
+        raise ValueError('Die Anmeldung mit dem AGFF-Konto ist nicht eingerichtet (SSO_PUBLIC_KEY fehlt).')
     try:
         kopf, rumpf, sig = token.split('.')
         k = json.loads(_unb64(kopf))
         d = json.loads(_unb64(rumpf))
+        signatur = _unb64(sig)
     except Exception:
-        raise ValueError('Ausweis unlesbar.')
-    erwartet = _b64(hmac.new(geheimnis.encode(), (kopf + '.' + rumpf).encode(), hashlib.sha256).digest())
-    if k.get('alg') != 'HS256' or not hmac.compare_digest(erwartet, sig):
-        raise ValueError('Ausweis nicht gültig signiert.')
-    jetzt = int(time.time())
-    if d.get('aud') != _app_id() or d.get('iss', '').rstrip('/') != _zentral_url():
-        raise ValueError('Ausweis für eine andere App oder von einem anderen Aussteller.')
-    if not isinstance(d.get('exp'), int) or d['exp'] < jetzt or d.get('iat', 0) > jetzt + 60:
-        raise ValueError('Ausweis abgelaufen. Bitte nochmals anmelden.')
-    if not nonce or not hmac.compare_digest(str(d.get('nonce', '')), nonce):
-        raise ValueError('Ausweis gehört nicht zu dieser Anmeldung. Bitte nochmals anmelden.')
+        raise ValueError('Anmeldung unlesbar. Bitte nochmals anmelden.')
+    if not isinstance(k, dict) or not isinstance(d, dict) or k.get('alg') != 'EdDSA':
+        raise ValueError('Anmeldung nicht gültig signiert.')
+    try:
+        Ed25519PublicKey.from_public_bytes(schluessel).verify(signatur, (kopf + '.' + rumpf).encode())
+    except InvalidSignature:
+        raise ValueError('Anmeldung nicht gültig signiert.')
+    jetzt = int(time.time()) if jetzt is None else jetzt
+    if d.get('aud') != _app_id() or str(d.get('iss', '')).rstrip('/') != _issuer():
+        raise ValueError('Anmeldung für eine andere App oder von einem anderen Aussteller.')
+    exp, iat = d.get('exp'), d.get('iat')
+    if not isinstance(exp, int) or not isinstance(iat, int) or exp + TOLERANZ < jetzt or iat > jetzt + TOLERANZ or iat + HOECHSTALTER < jetzt:
+        raise ValueError('Anmeldung abgelaufen. Bitte nochmals anmelden.')
+    if not state or not hmac.compare_digest(str(d.get('state', '')), state):
+        raise ValueError('Anmeldung gehört nicht zu diesem Browser. Bitte nochmals anmelden.')
+    jti = str(d.get('jti', ''))
+    if len(jti) < 16:
+        raise ValueError('Anmeldung unvollständig. Bitte nochmals anmelden.')
     with _db() as conn:
         _tabellen(conn)
-        conn.execute('DELETE FROM zentral_ausweise WHERE expires_at < ?', (jetzt,))
-        if conn.execute('SELECT 1 FROM zentral_ausweise WHERE jti = ?', (str(d.get('jti', '')),)).fetchone():
-            raise ValueError('Ausweis wurde schon verwendet.')
-        conn.execute('INSERT INTO zentral_ausweise (jti, expires_at) VALUES (?, ?)', (str(d.get('jti', '')), d['exp']))
+        conn.execute('DELETE FROM zentral_ausweise WHERE expires_at < ?', (jetzt - HOECHSTALTER,))
+        if conn.execute('SELECT 1 FROM zentral_ausweise WHERE jti = ?', (jti,)).fetchone():
+            raise ValueError('Anmeldung wurde schon verwendet. Bitte nochmals anmelden.')
+        conn.execute('INSERT INTO zentral_ausweise (jti, expires_at) VALUES (?, ?)', (jti, exp))
     return d
+
+
+def ist_admin(d, jetzt=None):
+    """Recht «futter.admin» und starke Anmeldung (Passkey oder zweiter Faktor)."""
+    jetzt = int(time.time()) if jetzt is None else jetzt
+    rollen = d.get('roles') if isinstance(d.get('roles'), list) else []
+    stark = isinstance(d.get('stark_bis'), int) and d['stark_bis'] > jetzt
+    return (_app_id() + '.' + RECHT_ADMIN) in rollen, stark
+
+
+def _methode(d):
+    amr = d.get('amr') if isinstance(d.get('amr'), list) else []
+    namen = {'hwk': 'Passkey', 'pwd': 'Passwort', 'otp': 'E-Mail-Code', 'fed': 'Microsoft 365', 'mfa': 'zweiter Faktor'}
+    return ' + '.join(namen.get(a, str(a)) for a in amr)[:60] or None
 
 
 def sitzung():
@@ -124,36 +169,53 @@ SEITE = """<!doctype html><html lang="de-CH"><head><meta charset="utf-8"><meta n
 
 @v2.route('/v2/anmelden')
 def zentral_anmelden():
-    from urllib.parse import quote
-    nonce = secrets.token_urlsafe(24)
-    ziel = (_zentral_url() + '/eagff-mitwirken/zugang/apps?app=' + quote(_app_id())
-            + '&zurueck=' + quote(_url('/anmelden/rueckweg'), safe='') + '&nonce=' + quote(nonce))
+    from urllib.parse import urlencode
+    if not eingerichtet():
+        return _seite('Die Anmeldung mit dem AGFF-Konto ist auf diesem Server nicht eingerichtet. Bitte das Admin-Passwort verwenden.', 503)
+    state = secrets.token_urlsafe(24)
+    ziel = _zentral_url() + '/_konto/sso/extern?' + urlencode({'client': _app_id(), 'state': state, 'sprache': 'de', 'stark': 1})
     r = redirect(ziel)
-    # SameSite=None: der Rückweg ist ein POST von graswachstum.ch (andere Website)
-    r.set_cookie(NONCE_COOKIE, nonce, max_age=900, httponly=True, secure=_sicher(), samesite='None' if _sicher() else 'Lax', path=_cookie_pfad())
+    # Lax genügt: der Rückweg ist eine gewöhnliche Weiterleitung (GET) von graswachstum.ch
+    r.set_cookie(STATE_COOKIE, state, max_age=900, httponly=True, secure=_sicher(), samesite='Lax', path=_cookie_pfad())
     return r
 
 
-@v2.route('/v2/anmelden/rueckweg', methods=['POST'])
-def zentral_rueckweg():
+def _seite(text, status):
+    return render_template_string(SEITE, admin=_url('/admin'), css=_url('/assets/app.css'), text=text), status
+
+
+@v2.route('/v2/anmelden/zurueck')
+def zentral_zurueck():
+    state = request.cookies.get(STATE_COOKIE, '')
+    fehler = request.args.get('error')
+    if fehler:
+        r = make_response(_seite('Anmeldung abgebrochen.' if fehler == 'cancelled' else
+                                 'Ihr AGFF-Konto hat keinen Zugang. Bitte bei der Administration von graswachstum.ch melden.', 403))
+        r.delete_cookie(STATE_COOKIE, path=_cookie_pfad())
+        return r
+    if not state or not hmac.compare_digest(request.args.get('state', ''), state):
+        return _seite('Anmeldung gehört nicht zu diesem Browser oder ist abgelaufen. Bitte nochmals anmelden.', 400)
     try:
-        d = ausweis_pruefen(request.form.get('ausweis', ''), request.cookies.get(NONCE_COOKIE, ''))
+        d = token_pruefen(request.args.get('token', ''), state)
     except ValueError as e:
-        return render_template_string(SEITE, admin=_url('/admin'), css=_url('/assets/app.css'), text=str(e)), 400
-    rechte = d.get('rechte') or {}
-    if not (rechte.get('admin') or rechte.get('apps_admin')):
-        return render_template_string(SEITE, admin=_url('/admin'), css=_url('/assets/app.css'), text='Ihr Konto hat keinen Zugang zur Administration von Futter v2. '
-                                      'Freigabe über graswachstum.ch/admin (Recht «Apps verwalten»).'), 403
+        return _seite(str(e), 400)
+    admin, stark = ist_admin(d)
+    if not admin:
+        return _seite('Ihr AGFF-Konto hat keinen Zugang zur Administration von Futter v2 '
+                      '(Recht «' + _app_id() + '.' + RECHT_ADMIN + '» auf graswachstum.ch).', 403)
+    if not stark:
+        return _seite('Für die Administration braucht es eine starke Anmeldung (Passkey oder zweiter Faktor). Bitte nochmals anmelden.', 403)
     token = secrets.token_urlsafe(32)
     jetzt = int(time.time())
     with _db() as conn:
         _tabellen(conn)
         conn.execute('DELETE FROM zentral_sitzungen WHERE expires_at < ?', (jetzt,))
         conn.execute('INSERT INTO zentral_sitzungen (token_hash, sub, name, methode, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
-                     (hashlib.sha256(token.encode()).hexdigest(), d.get('sub'), d.get('name'), d.get('methode'), jetzt, jetzt + SITZUNG_DAUER))
+                     (hashlib.sha256(token.encode()).hexdigest(), str(d.get('sub', ''))[:120], str(d.get('name', ''))[:120],
+                      _methode(d), jetzt, jetzt + SITZUNG_DAUER))
     r = make_response(redirect(_url('/admin')), 303)
     r.set_cookie(SITZUNG_COOKIE, token, max_age=SITZUNG_DAUER, httponly=True, secure=_sicher(), samesite='Lax', path=_cookie_pfad())
-    r.delete_cookie(NONCE_COOKIE, path=_cookie_pfad())
+    r.delete_cookie(STATE_COOKIE, path=_cookie_pfad())
     return r
 
 
@@ -161,7 +223,7 @@ def zentral_rueckweg():
 def zentral_ich():
     s = sitzung()
     return jsonify({'angemeldet': bool(s), 'name': s['name'] if s else None, 'methode': s['methode'] if s else None,
-                    'zentral': len(_geheimnis()) >= 32})
+                    'zentral': eingerichtet()})
 
 
 @v2.route('/v2/abmelden', methods=['POST'])
