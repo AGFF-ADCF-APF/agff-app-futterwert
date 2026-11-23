@@ -443,7 +443,7 @@
     teaserWiese: 'Domande sul suo prato? Ho dei consigli.',
     berFutter: 'Domande sul suo foraggio', berWiese: 'Domande sul suo prato',
     erinnert: 'Ricorda', vorgehen: 'Come procedere', riechen: '👃 Annusare bene', riechenTitel: 'Annusare bene', verstanden: 'Capito',
-    einfach: 'Semplice', fachlich: 'Tecnico', ruhe: 'Silenzio, grazie', schliessen: 'Chiudi', sprache: 'Lingua',
+    einfach: 'Semplice', fachlich: 'Tecnico', ruhe: 'Silenzio, grazie', stumm: 'Silenzia', einstellungen: 'Impostazioni', schliessen: 'Chiudi', sprache: 'Lingua',
     bildQuelle: 'Fonte: AGFF / AGRIDEA', schlaeft: 'Il trattore dorme. Lo tocchi per svegliarlo.', btnLabel: 'Assistente trattore: aiuto per questo passo',
     passendProbe: 'Queste domande corrispondono al suo campione:', passendAufnahme: 'Queste domande corrispondono al suo rilievo:', keineMaengel: 'Nessun difetto importante – una domanda comunque?',
     weitere: 'Altre domande', voir: 'Approfondire (schede ADCF/AGRIDEA, in francese)', nichtGefunden: 'Non ha trovato la risposta? Servizio di consulenza della sua regione',

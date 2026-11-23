@@ -16,7 +16,8 @@
     z = z && typeof z === 'object' ? z : {};
     let sp = ['de', 'fr', 'it'].includes(z.sprache) ? z.sprache : null;
     if (!sp) { try { const l = ((navigator.languages && navigator.languages[0]) || navigator.language || '').slice(0, 2).toLowerCase(); sp = l === 'fr' || l === 'it' ? l : 'de'; } catch (e) { sp = 'de'; } }
-    return { ruhe: z.ruhe === true, stufe: z.stufe === 'fachlich' ? 'fachlich' : 'einfach', sprache: sp, gesehen: Array.isArray(z.gesehen) ? z.gesehen.filter((x) => typeof x === 'string').slice(-200) : [] };
+    return { ruhe: z.ruhe === true, stufe: z.stufe === 'fachlich' ? 'fachlich' : 'einfach', sprache: sp, gesehen: Array.isArray(z.gesehen) ? z.gesehen.filter((x) => typeof x === 'string').slice(-200) : [],
+      gelesen: Array.isArray(z.gelesen) ? z.gelesen.filter((x) => typeof x === 'string').slice(-200) : [] };
   }
   let Z = zustand();
   const merken = () => { try { localStorage.setItem(KEY, JSON.stringify(Z)); } catch (e) { /* privat: dann eben jedes Mal */ } };
@@ -280,7 +281,7 @@
   // ---------- Sprache (Deutsch / Französisch) ----------
   const UD = { teaser: 'Soll ich dir helfen? Tipp mich an.', teaserFutter: 'Fragen zu deinem Futter? Ich habe Tipps.', teaserWiese: 'Fragen zu deiner Wiese? Ich habe Tipps.',
     berFutter: 'Fragen zu deinem Futter', berWiese: 'Fragen zu deiner Wiese', erinnert: 'Erinnert an', vorgehen: 'So gehst du vor', riechen: '👃 So riechst du richtig', riechenTitel: 'So riechst du richtig',
-    verstanden: 'Verstanden', einfach: 'Einfach', fachlich: 'Fachlich', ruhe: 'Ruhe, bitte', schliessen: 'Schliessen', sprache: 'Sprache', bildQuelle: 'Quelle: AGFF / AGRIDEA',
+    verstanden: 'Verstanden', einfach: 'Einfach', fachlich: 'Fachlich', ruhe: 'Ruhe, bitte', stumm: 'Stumm schalten', einstellungen: 'Einstellungen', schliessen: 'Schliessen', sprache: 'Sprache', bildQuelle: 'Quelle: AGFF / AGRIDEA',
     schlaeft: 'Der Traktor schläft. Antippen weckt ihn wieder.', btnLabel: 'Traktor-Assistent: Hilfe zu diesem Schritt' };
   /** Übersetzung der gewählten Sprache (fr/it), sonst null = Deutsch */
   const FRX = () => (Z.sprache === 'fr' && global.AssistentFR) || (Z.sprache === 'it' && global.AssistentIT) || null;
@@ -295,14 +296,37 @@
   const PP = (key) => (FRX() && FRX().P[key]) || P[key];
 
   // ---------- Darstellung ----------
-  const TRAKTOR = '<svg viewBox="0 0 64 56" width="58" height="51" aria-hidden="true">' +
-    '<rect x="4" y="22" width="34" height="16" rx="4" fill="#2f9e5f"/><rect x="30" y="8" width="20" height="24" rx="4" fill="#1f7a49"/>' +
-    '<rect x="33" y="11" width="14" height="11" rx="2" fill="#dff3ff"/><circle class="aug" cx="37" cy="16.5" r="1.8" fill="#17221e"/><circle class="aug" cx="43" cy="16.5" r="1.8" fill="#17221e"/>' +
-    '<path class="mund" d="M37 20 q3 2.4 6 0" stroke="#17221e" stroke-width="1.3" fill="none" stroke-linecap="round"/>' +
-    '<rect x="9" y="12" width="3" height="11" rx="1" fill="#4b5a54"/><circle cx="46" cy="40" r="12" fill="#2b2f2d"/><circle cx="46" cy="40" r="5" fill="#f6c35b"/>' +
-    '<circle cx="14" cy="44" r="8" fill="#2b2f2d"/><circle cx="14" cy="44" r="3.4" fill="#f6c35b"/><rect x="2" y="27" width="5" height="5" rx="1" fill="#f6c35b"/></svg>';
+  // Traktor: Seitenansicht, Lack im AGFF-Grün, Gesicht im Kabinenfenster (Augen blinzeln, Mund spricht, wenn er etwas zu sagen hat).
+  const TRAKTOR = '<svg class="tk" viewBox="0 0 64 58" width="60" height="54" aria-hidden="true"><defs>' +
+    '<linearGradient id="tkLack" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c9686"/><stop offset="1" stop-color="#0a5a52"/></linearGradient>' +
+    '<linearGradient id="tkGlas" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f4fbf9"/><stop offset="1" stop-color="#d4ebe6"/></linearGradient>' +
+    '<radialGradient id="tkFelge" cx=".4" cy=".35" r=".7"><stop offset="0" stop-color="#fbf6e9"/><stop offset="1" stop-color="#d9cfb4"/></radialGradient></defs>' +
+    '<ellipse cx="31" cy="55.6" rx="25" ry="1.6" fill="#000" opacity=".13"/>' +
+    '<rect x="11.6" y="11" width="2.8" height="13" rx="1.4" fill="#3b4744"/><rect x="11" y="10" width="4" height="2" rx="1" fill="#2a3331"/>' +
+    '<path d="M8 23.5h23v15H9a4 4 0 0 1-4-4v-7a4 4 0 0 1 3-4z" fill="url(#tkLack)"/>' +
+    '<path d="M8.5 25.2h21" stroke="#fff" stroke-opacity=".35" stroke-width=".9" stroke-linecap="round"/>' +
+    '<path d="M6.6 28v6M8.4 27.6v7" stroke="#063f39" stroke-opacity=".55" stroke-width=".8" stroke-linecap="round"/>' +
+    '<circle cx="6.3" cy="26.3" r="1.2" fill="#ffe2a0"/>' +
+    '<rect x="28" y="5.5" width="25" height="3.2" rx="1.6" fill="#08504a"/>' +
+    '<rect x="30" y="7.5" width="21" height="29" rx="3.2" fill="url(#tkLack)"/>' +
+    '<rect x="32.6" y="10.4" width="15.8" height="13.4" rx="2.6" fill="url(#tkGlas)" stroke="#063f39" stroke-opacity=".35" stroke-width=".6"/>' +
+    '<g class="aug"><ellipse cx="37.6" cy="15.8" rx="1.45" ry="1.75" fill="#17221e"/><circle cx="38.1" cy="15.2" r=".45" fill="#fff"/></g>' +
+    '<g class="aug"><ellipse cx="43.4" cy="15.8" rx="1.45" ry="1.75" fill="#17221e"/><circle cx="43.9" cy="15.2" r=".45" fill="#fff"/></g>' +
+    '<path class="mund" d="M38.2 19.6q2.3 1.9 4.6 0" stroke="#17221e" stroke-width="1.15" fill="none" stroke-linecap="round"/>' +
+    '<ellipse class="sprech" cx="40.5" cy="20.2" rx="1.9" ry="1.25" fill="#17221e"/>' +
+    '<path d="M32.5 41a13.5 13.5 0 0 1 27 0" stroke="#08504a" stroke-width="2.6" fill="none" stroke-linecap="round"/>' +
+    '<circle cx="46" cy="43.5" r="11.2" fill="#23292b"/><circle cx="46" cy="43.5" r="10.4" fill="none" stroke="#3c4548" stroke-width="1.8" stroke-dasharray="1.6 2.1"/>' +
+    '<circle cx="46" cy="43.5" r="5.8" fill="url(#tkFelge)"/><circle cx="46" cy="43.5" r="2" fill="#0a5a52"/>' +
+    '<circle cx="14" cy="46.5" r="7.4" fill="#23292b"/><circle cx="14" cy="46.5" r="6.7" fill="none" stroke="#3c4548" stroke-width="1.3" stroke-dasharray="1.3 1.8"/>' +
+    '<circle cx="14" cy="46.5" r="3.6" fill="url(#tkFelge)"/><circle cx="14" cy="46.5" r="1.3" fill="#0a5a52"/></svg>';
+
+  // Kleine Symbole im Kopf der Blase: Zahnrad (Einstellungen), Lautsprecher durchgestrichen (stumm, wie am Smartphone)
+  const IC_ZAHNRAD = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
+  const IC_STUMM = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5z" fill="currentColor" fill-opacity=".15"/><path d="m23 9-6 6M17 9l6 6"/></svg>';
 
   let el = null; let offen = false; let aktKey = null; let aktGk = null;
+  let wunsch = false; let einst = false;  // einst: Einstellungen (Stufe, Sprache) aufgeklappt  // einmal ganz geöffnet: bleibt beim Schrittwechsel offen, bis man ihn schliesst
+  let redetTimer = null;
 
   const KONSERVE = ['heu', 'gras', 'mais', 'gps'];
   let aktCtx = null;  // Beratung nach der Analyse: { probe } oder { labor }
@@ -342,7 +366,12 @@
   function bubbleHtml(key) {
     const t = TT(key); const A = app(); const u = U(); const pp = PP(key);
     const fach = Z.stufe === 'fachlich';
-    return '<div class="assist-head"' + LANG() + '><b>' + A.esc(t.titel) + '</b><button type="button" class="assist-x" data-as="zu" aria-label="' + u.schliessen + '">×</button></div>' +
+    return '<div class="assist-head"' + LANG() + '><b>' + A.esc(t.titel) + '</b>' +
+      '<button type="button" class="assist-ic" data-as="einst" aria-expanded="' + einst + '" aria-label="' + (u.einstellungen || 'Einstellungen') + '" title="' + (u.einstellungen || 'Einstellungen') + '">' + IC_ZAHNRAD + '</button>' +
+      '<button type="button" class="assist-ic" data-as="ruhe" aria-label="' + (u.stumm || u.ruhe) + '" title="' + (u.stumm || u.ruhe) + '">' + IC_STUMM + '</button>' +
+      '<button type="button" class="assist-x" data-as="zu" aria-label="' + u.schliessen + '">×</button></div>' +
+      (einst ? '<div class="assist-einst"><div class="seg sm" role="group" aria-label="' + u.einfach + ' / ' + u.fachlich + '"><button type="button" data-as="stufe" data-v="einfach" aria-pressed="' + !fach + '">' + u.einfach + '</button><button type="button" data-as="stufe" data-v="fachlich" aria-pressed="' + fach + '">' + u.fachlich + '</button></div>' +
+        '<div class="seg sm" role="group" aria-label="' + u.sprache + '"><button type="button" data-as="sprache" data-v="de" lang="de" aria-pressed="' + (Z.sprache === 'de') + '">DE</button><button type="button" data-as="sprache" data-v="fr" lang="fr" aria-pressed="' + (Z.sprache === 'fr') + '">FR</button><button type="button" data-as="sprache" data-v="it" lang="it" aria-pressed="' + (Z.sprache === 'it') + '">IT</button></div></div>' : '') +
       '<div' + LANG() + '><div class="assist-text">' + (fach ? t.fachlich : t.einfach) + '</div>' +
       (aktCtx && global.Beratung ? '<div class="assist-praxis ber"><b>' + (aktCtx.aufnahme ? u.berWiese : u.berFutter) + '</b>' + global.Beratung.bubble(aktCtx) + '</div>' : '') +
       (pp && pp.wie ? '<div class="assist-praxis"><b>' + u.erinnert + '</b><p>' + A.esc(pp.wie) + '</p></div>' : '') +
@@ -350,9 +379,7 @@
       (key.startsWith('rad.') && !/\.(regen|blaetter|mist|erde|ph)$/.test(key) ? '<button type="button" class="btn sm block assist-riechen" data-as="riechen">' + u.riechen + '</button>' : '') +
       (global.Beratung && eagFuer(key) ? global.Beratung.eagLinks(eagFuer(key)) : '') + '</div>' +
       (t.bilder ? '<div class="assist-bilder">' + t.bilder.map((b, i) => '<button type="button" data-as="bild" data-i="' + i + '"><img alt="' + A.esc(b.cap) + '" src="' + b.src + '" loading="lazy"><span>' + A.esc(b.cap) + '</span></button>').join('') + '</div>' : '') +
-      '<div class="assist-foot"><div class="seg sm" role="group" aria-label="' + u.einfach + ' / ' + u.fachlich + '"><button type="button" data-as="stufe" data-v="einfach" aria-pressed="' + !fach + '">' + u.einfach + '</button><button type="button" data-as="stufe" data-v="fachlich" aria-pressed="' + fach + '">' + u.fachlich + '</button></div>' +
-      '<div class="seg sm" role="group" aria-label="' + u.sprache + '"><button type="button" data-as="sprache" data-v="de" lang="de" aria-pressed="' + (Z.sprache === 'de') + '">DE</button><button type="button" data-as="sprache" data-v="fr" lang="fr" aria-pressed="' + (Z.sprache === 'fr') + '">FR</button><button type="button" data-as="sprache" data-v="it" lang="it" aria-pressed="' + (Z.sprache === 'it') + '">IT</button></div>' +
-      '<button type="button" class="btn ghost sm" data-as="ruhe">' + u.ruhe + '</button></div>';
+      '';
   }
 
   let teaserTimer = null;
@@ -366,30 +393,44 @@
     el.classList.add('offen');
     const gk = aktCtx ? aktCtx.angebot : key;
     if (!Z.gesehen.includes(gk)) { Z.gesehen.push(gk); merken(); }
+    if (!kurz) { wunsch = true; if (!Z.gelesen.includes(gk)) { Z.gelesen.push(gk); merken(); } }
+    mimik(true);
     if (kurz) teaserTimer = setTimeout(() => { if (b.classList.contains('kurz')) schliessen(); }, 9000);
   }
-  function schliessen() {
-    offen = false; clearTimeout(teaserTimer); if (!el) return;
+  /** Ausblenden. ausdruecklich = vom Nutzer geschlossen (× oder Traktor) – erst dann bleibt er beim Weitergehen zu. */
+  function schliessen(ausdruecklich) {
+    offen = false; clearTimeout(teaserTimer); if (ausdruecklich) wunsch = false; if (!el) return;
     el.querySelector('.assist-bubble').hidden = true; el.classList.remove('offen');
+    mimik(false);
   }
-  // Tippen ausserhalb schliesst die Blase (der Tipp wirkt trotzdem auf das Ziel)
-  document.addEventListener('pointerdown', (e) => { if (offen && el && !el.contains(e.target) && !e.target.closest('#sheet-root')) schliessen(); }, true);
+  /** Gesicht: spricht leise, solange es für diese Stelle etwas Neues gibt; beim Öffnen/Umblättern kurz. */
+  function mimik(kurzSprechen) {
+    if (!el) return;
+    clearTimeout(redetTimer);
+    const gk = aktCtx ? aktCtx.angebot : aktKey;
+    const neu = !Z.ruhe && !!gk && !Z.gelesen.includes(gk) && !(offen && !el.querySelector('.assist-bubble').classList.contains('kurz'));
+    el.classList.toggle('redet', neu || !!kurzSprechen);
+    if (kurzSprechen && !neu) redetTimer = setTimeout(() => el.classList.remove('redet'), 2600);
+  }
+  // Tippen ausserhalb schliesst nur das kurze Angebot; die geöffnete Hilfe bleibt, bis man sie schliesst.
+  document.addEventListener('pointerdown', (e) => { if (offen && el && !el.contains(e.target) && !e.target.closest('#sheet-root') && el.querySelector('.assist-bubble').classList.contains('kurz')) schliessen(); }, true);
 
   function klick(e) {
     const t = e.target.closest('[data-as], .assist-btn'); if (!t) return;
     if (t.classList.contains('assist-btn')) {
       if (Z.ruhe) { Z.ruhe = false; merken(); el.classList.remove('schlaeft'); }
-      if (offen && !el.querySelector('.assist-bubble').classList.contains('kurz')) schliessen(); else if (aktKey) zeigen(aktKey);
+      if (offen && !el.querySelector('.assist-bubble').classList.contains('kurz')) schliessen(true); else if (aktKey) zeigen(aktKey);
       return;
     }
     const a = t.dataset.as;
-    if (a === 'zu') schliessen();
+    if (a === 'zu') schliessen(true);
     if (a === 'frage') { global.Beratung.frageSheet(t.dataset.k, aktCtx); return; }
     if (a === 'fachstelle') { global.Beratung.fachstelle(aktCtx); return; }
     if (a === 'mehr') zeigen(aktKey);
+    if (a === 'einst') { einst = !einst; zeigen(aktKey); return; }
     if (a === 'stufe') { Z.stufe = t.dataset.v; merken(); zeigen(aktKey); }
     if (a === 'sprache') { Z.sprache = ['fr', 'it'].includes(t.dataset.v) ? t.dataset.v : 'de'; merken(); el.querySelector('.assist-btn').setAttribute('aria-label', U().btnLabel); zeigen(aktKey); }
-    if (a === 'ruhe') { Z.ruhe = true; merken(); schliessen(); el.classList.add('schlaeft'); app().toast(U().schlaeft); }
+    if (a === 'ruhe') { Z.ruhe = true; merken(); schliessen(true); el.classList.add('schlaeft'); app().toast(U().schlaeft); }
     if (a === 'riechen') {
       app().sheet('<div' + LANG() + '><h2>' + U().riechenTitel + '</h2><ol class="assist-liste">' + PP('riechen').vorgehen.map((x) => '<li>' + app().esc(x) + '</li>').join('') + '</ol></div><button class="btn primary block" data-close style="margin-top:12px">' + U().verstanden + '</button>');
       return;
@@ -408,18 +449,20 @@
     const gk = aktCtx ? aktCtx.angebot : key;
     const wechsel = gk !== aktGk; aktGk = gk;
     aktKey = key;
+    if (wunsch && !Z.ruhe) { if (wechsel || !offen) zeigen(key); return; }  // geöffnet lassen, Inhalt nachführen
     if (offen && wechsel) schliessen();
     if (wechsel && !Z.ruhe && !Z.gesehen.includes(gk)) zeigen(key, true);
+    else mimik(false);
   }
 
   global.Assistent = {
     update, TEXTE: T, PRAXIS: P,
     get ruhe() { return Z.ruhe; },
-    set ruhe(v) { Z.ruhe = !!v; merken(); if (el) el.classList.toggle('schlaeft', Z.ruhe); if (Z.ruhe) schliessen(); },
+    set ruhe(v) { Z.ruhe = !!v; merken(); if (el) el.classList.toggle('schlaeft', Z.ruhe); if (Z.ruhe) schliessen(true); },
     get stufe() { return Z.stufe; },
     get sprache() { return Z.sprache; },
     set sprache(v) { Z.sprache = ['fr', 'it'].includes(v) ? v : 'de'; merken(); if (offen && aktKey) zeigen(aktKey); },
     set stufe(v) { Z.stufe = v === 'fachlich' ? 'fachlich' : 'einfach'; merken(); if (offen && aktKey) zeigen(aktKey); },
-    zuruecksetzen() { Z.gesehen = []; merken(); },
+    zuruecksetzen() { Z.gesehen = []; Z.gelesen = []; merken(); },
   };
 })(window);
