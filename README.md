@@ -64,6 +64,14 @@ Eine Videoliste für alle AGFF-Apps. Gepflegt wird nur `static/v2/mediathek.json
 - Einbinden in einer weiteren Seite: `<div data-agff-mediathek data-app="…" data-themen="heu,anwelken" data-filter></div>` plus Skript und CSS (siehe Kopf von `mediathek.js`).
 - Eine Änderung nur an der Liste braucht keinen Neubau. Nach dem Speichern gilt sie sofort in allen drei Apps (in Heureka wegen des Offline-Caches spätestens beim zweiten Aufruf).
 
+## Entwicklung und Auslieferung
+
+- **Gearbeitet wird in `/home/dev/git/agff-app-futterwert`** (Entwicklung). Der Betriebsordner `/opt/stacks/agff-apps/futter`
+  wird nie direkt bearbeitet: `templates/`, `static/` und `data/` sind dort live eingebunden, jede Änderung wäre sofort öffentlich.
+- Ausliefern auf den Home-Server: `skripte/heimserver-deploy.sh [ZWEIG]` (Standard `feature/v2-beta1`). Der Betrieb übernimmt den
+  Zweig aus der Entwicklung nur per Fast-Forward, baut bei Python-/Docker-Änderungen neu und prüft die Build-Nummer live.
+- Nach dem Umzug auf all-inkl (`allinkl/`, Plan in `docs/PORTIERUNG-ALL-INKL.md`) wird mit einem eigenen Skript ausgeliefert.
+
 ## Betrieb
 
 Docker-Stack hinter Traefik (`docker-compose.yml`). Die App läuft mit gunicorn auf Port 5000; Traefik entfernt `/futter` und bildet `/wiese/…` auf `/v2/…` ab (Kopfzeile `X-AGFF-Modus: wiese`).
