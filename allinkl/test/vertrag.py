@@ -749,7 +749,183 @@ def fall_kurse(P):
     P.vergleich('lesen nach löschen', 'GET', kp(), kopf=S('A2'), ctx=C, erwartet=404)
 
 
-FAELLE = {'grundlagen': fall_grundlagen, 'rueckmeldung': fall_rueckmeldung, 'statistik': fall_statistik, 'anmeldung': fall_anmeldung, 'freigaben': fall_freigaben, 'konto': fall_konto, 'kurse': fall_kurse}
+AP = {'X-Admin-Pass': ADMIN}
+
+
+def uebersicht_sort(j):
+    if isinstance(j, dict):
+        for k, schl in (('kursleitende', 'email'), ('einladungen', 'notiz')):
+            if isinstance(j.get(k), list):
+                j[k].sort(key=lambda r: str(r.get(schl)))
+        for e in j.get('einladungen') or []:
+            if re.match(r'^[A-HJ-NP-Z2-9]{3}$', str(e.get('hinweis'))):
+                e['hinweis'] = '<hinweis>'  # letzte Zeichen des Zufallscodes
+
+
+def fall_admin(P):
+    print('Kursleitung und Administration')
+    ea, ef = 'antrag@andere.example.org', 'frei@schule.example.org'
+    P.vergleich('status ungültig', 'POST', 'api/kursleitung/status', body={'email': 'x'})
+    P.vergleich('status domain', 'POST', 'api/kursleitung/status', body={'email': 'Jemand@Schule.example.org'}, erwartet=200)
+    P.vergleich('status andere', 'POST', 'api/kursleitung/status', body={'email': ea}, erwartet=200)
+    P.vergleich('antrag code ungültig', 'POST', 'api/kursleitung/antrag/code', body={'email': 'x'})
+    for em in (ea, ef):
+        P.vergleich('antrag code ' + em, 'POST', 'api/kursleitung/antrag/code', body={'email': em}, erwartet=200)
+    time.sleep(0.3)
+    C = {s: {'ca': letzter_code(s, ea), 'cf': letzter_code(s, ef)} for s in ('flask', 'php')}
+    antrag = lambda c, **x: dict({'email': ea, 'consent': {'accepted': True}, 'name': '  Erika Muster ', 'org': 'Schule «Wald»', 'text': 'Kurs im Juni', 'code': c['ca']}, **x)
+    P.vergleich('antrag ohne consent', 'POST', 'api/kursleitung/antrag', body=lambda c: antrag(c, consent={}), ctx=C)
+    P.vergleich('antrag ohne name', 'POST', 'api/kursleitung/antrag', body=lambda c: antrag(c, name='   '), ctx=C)
+    P.vergleich('antrag falscher code', 'POST', 'api/kursleitung/antrag', body=lambda c: antrag(c, code='000000' if c['ca'] != '000000' else '111111'), ctx=C)
+    P.vergleich('antrag', 'POST', 'api/kursleitung/antrag', body=antrag, ctx=C, erwartet=200)
+    P.vergleich('antrag freie domain', 'POST', 'api/kursleitung/antrag', body=lambda c: antrag(c, email=ef, code=c['cf'], org=None, text=5), ctx=C, erwartet=200)
+    P.vergleich('übersicht ohne', 'GET', 'api/admin/uebersicht')
+    P.vergleich('übersicht', 'GET', 'api/admin/uebersicht', kopf=AP, erwartet=200, sortiere=uebersicht_sort)
+    # Entscheid
+    eh = hmac.new(base64.urlsafe_b64decode('AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8='), b'email|' + ea.encode(), hashlib.sha256).hexdigest()
+    P.vergleich('entscheid ohne', 'POST', 'api/admin/kursleitung/' + eh, body={'status': 'frei'})
+    P.vergleich('entscheid schlecht', 'POST', 'api/admin/kursleitung/' + eh, body={'status': 'vielleicht'}, kopf=AP)
+    P.vergleich('entscheid unbekannt', 'POST', 'api/admin/kursleitung/' + '0' * 64, body={'status': 'frei'}, kopf=AP)
+    P.vergleich('entscheid abgelehnt', 'POST', 'api/admin/kursleitung/' + eh, body={'status': 'abgelehnt'}, kopf=AP, erwartet=200)
+    P.vergleich('status abgelehnt', 'POST', 'api/kursleitung/status', body={'email': ea}, erwartet=200)
+    P.vergleich('entscheid frei', 'POST', 'api/admin/kursleitung/' + eh, body={'status': 'frei'}, kopf=AP, erwartet=200)
+    P.vergleich('status frei', 'POST', 'api/kursleitung/status', body={'email': ea}, erwartet=200)
+    time.sleep(0.3)
+    for s in C:
+        m = letzte_mail(s, ea)
+        if m.get('betreff') != 'Freigeschaltet: Kurse anlegen':
+            P.fehler.append((f'Mail Freischaltung {s}', [str(m)]))
+    P.vergleich('entscheid löschen', 'POST', 'api/admin/kursleitung/' + eh, body={'status': 'loeschen'}, kopf=AP, erwartet=200)
+    P.vergleich('status gelöscht', 'POST', 'api/kursleitung/status', body={'email': ea}, erwartet=200)
+    # Einladungen
+    codes = []
+
+    def code_merken(j):
+        codes.append(j.get('code') if isinstance(j, dict) else None)
+        if codes[-1] and re.match(r'^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$', codes[-1]):
+            j['code'] = '<code>'
+    P.vergleich('einladung ohne', 'POST', 'api/admin/einladungen', body={})
+    P.vergleich('einladung', 'POST', 'api/admin/einladungen', body={'max': 2.9, 'tage': '10', 'notiz': 'Kurs Plantahof'}, kopf=AP, erwartet=200, sortiere=code_merken)
+    P.vergleich('einladung grenzen', 'POST', 'api/admin/einladungen', body={'max': 9999, 'tage': -5, 'notiz': 'x' * 300}, kopf=AP, erwartet=200, sortiere=code_merken)
+    P.vergleich('einladung standard', 'POST', 'api/admin/einladungen', body={}, kopf=AP, erwartet=200, sortiere=code_merken)
+    if not all(codes):
+        return
+    C['flask']['einl'], C['php']['einl'] = codes[0], codes[1]
+    C['flask']['einl2'], C['php']['einl2'] = codes[4], codes[5]
+    eg = 'gast@andere.example.org'
+    P.vergleich('kurs mit falscher einladung', 'POST', 'api/kurse', body={'consent': KC, 'email': eg, 'joinHash': hashlib.sha256(b'y').hexdigest(), 'einladung': 'FALS-CHCO-DE99'})
+    K = {'flask': kurs_schluessel(), 'php': kurs_schluessel()}
+    for s in K:
+        K[s]['einl'] = C[s]['einl']
+    ids = []
+    P.vergleich('kurs mit einladung', 'POST', 'api/kurse', body=lambda c: {'consent': KC, 'email': eg, 'joinHash': c['jh'], 'einladung': c['einl'].lower().replace('-', ' ')},
+                ctx=K, erwartet=201, sortiere=merke(ids, 'id'))
+    if all(ids):
+        K['flask']['kid'], K['php']['kid'] = ids
+        time.sleep(0.3)
+        for s in K:
+            K[s]['code'] = letzter_code(s, eg)
+        t = []
+        P.vergleich('kurs mit einladung aktivieren', 'POST', kp('/aktivieren'), body=lambda c: {'email': eg, 'code': c['code']}, ctx=K, erwartet=200, sortiere=merke(t))
+        K['flask']['L'], K['php']['L'] = t
+        P.vergleich('gast jetzt frei', 'POST', 'api/kursleitung/status', body={'email': eg}, erwartet=200)
+        P.vergleich('fremd: gast-sitzung in anderem kurs', 'GET', 'api/kurse/anderer0kurs', kopf=S('L'), ctx=K, erwartet=404)
+        P.vergleich('gast-kurs löschen', 'DELETE', kp(), kopf=S('L'), ctx=K, erwartet=200)
+    liste = []
+    P.vergleich('übersicht mit einladungen', 'GET', 'api/admin/uebersicht', kopf=AP, erwartet=200, sortiere=lambda j: (liste.append(j), uebersicht_sort(j)))
+    if all(liste):
+        for s, j in zip(C, liste):
+            C[s]['eid'] = [e['id'] for e in j['einladungen'] if e['notiz'] == ''][0]
+        P.vergleich('einladung sperren ohne', 'DELETE', lambda c: 'api/admin/einladungen/' + c['eid'], ctx=C)
+        P.vergleich('einladung sperren', 'DELETE', lambda c: 'api/admin/einladungen/' + c['eid'], kopf=AP, ctx=C, erwartet=200)
+        P.vergleich('kurs mit gesperrter einladung', 'POST', 'api/kurse', body=lambda c: {'consent': KC, 'email': 'zwei@andere.example.org', 'joinHash': hashlib.sha256(b'z').hexdigest(),
+                                                                                       'einladung': c['einl2']}, ctx=C, erwartet=403)
+        P.vergleich('übersicht gesperrt', 'GET', 'api/admin/uebersicht', kopf=AP, erwartet=200, sortiere=uebersicht_sort)
+
+
+def pool_daten(**x):
+    d = {'typ': 'heu', 'titel': '  Heu «Muster» ', 'beschreibung': 'Erster Schnitt', 'quelle': 'Kurs Plantahof', 'schnittNr': ' 1 ', 'bestand': 'AR',
+         'sammlung': ' Ernte 2026 ', 'oeffentlich': True, 'schnitt': '2026-06-01', 'region': {'plz': 3052, 'ort': 'Zollikofen', 'hoehe': ''},
+         'labor': {'nel': 5.6, 'rp': 140, 'ts': 88.5},
+         'fotos': [{'id': 'poolfoto00000001', 'art': 'futter', 'mime': 'image/jpeg', 'w': 800, 'h': 0, 'ger': 'auto', 'fremd': 1, 'key': None}],
+         'referenzen': [{'label': ' Referenz A ', 'analyse': {'id': 'refA0001', 'typ': 'heu', 'antworten': {'bestand': 'AR'}, 'rad': {'geruch': 'g1'}}}]}
+    d.update(x)
+    return {k: v for k, v in d.items() if v is not None}
+
+
+def fall_pool(P):
+    print('Probenpool')
+    C = kurs_neu(P, 'pool1@schule.example.org', 'pool-kurs 1')
+    D = kurs_neu(P, 'pool2@schule.example.org', 'pool-kurs 2', secret=False)
+    if not (C and D):
+        return
+    for s in C:
+        C[s]['L2'], C[s]['kid2'] = D[s]['L'], D[s]['kid']
+    et = []
+    P.vergleich('pool: etikett', 'POST', kp('/etiketten'), body={'anzahl': 1}, kopf=S('L'), ctx=C, erwartet=200, sortiere=lambda j: et.append(j))
+    for s, j in zip(C, et):
+        C[s]['p1'] = j['proben'][0]['id']
+    H1 = lambda c: {'X-Kurs-Id': c['kid'], 'X-Kurs-Session': c['L']}
+    H2 = lambda c: {'X-Kurs-Id': c['kid2'], 'X-Kurs-Session': c['L2']}
+    P.vergleich('pool ohne sitzung', 'GET', 'api/pool')
+    P.vergleich('pool falsche sitzung', 'GET', 'api/pool', kopf=lambda c: {'X-Kurs-Id': c['kid'], 'X-Kurs-Session': tok()[:43]}, ctx=C)
+    P.vergleich('pool sitzung falscher kurs', 'GET', 'api/pool', kopf=lambda c: {'X-Kurs-Id': c['kid2'], 'X-Kurs-Session': c['L']}, ctx=C)
+    P.vergleich('pool leer', 'GET', 'api/pool', kopf=H1, ctx=C, erwartet=200)
+    schlecht = [pool_daten(typ='kuh'), pool_daten(titel='x' * 121), pool_daten(region={'plz': '0123'}), pool_daten(region={'kanton': 'BE'}),
+                pool_daten(region={'hoehe': 550}), pool_daten(labor={'nel': 2001}), pool_daten(labor={'nel': True}), pool_daten(labor={'fremd': 1}),
+                pool_daten(fotos=[{'id': 'kurz', 'art': 'futter', 'mime': 'image/jpeg'}]), pool_daten(fotos=[{'id': 'poolfoto00000001', 'art': 'futter', 'mime': 'image/png'}]),
+                pool_daten(fotos=[{'id': f'poolfoto0000000{i}', 'art': 'futter', 'mime': 'image/jpeg'} for i in range(9)]),
+                pool_daten(referenzen=[{'label': 'x', 'analyse': {'id': 'refA0001', 'typ': 'kuh'}}]), pool_daten(referenzen=[{'label': 'x'}]),
+                pool_daten(sammlung='Ernte <2026>'), pool_daten(oeffentlich=1), pool_daten(schnitt='Juni'), pool_daten(bestand='x' * 81), 'text', None]
+    for i, d in enumerate(schlecht):
+        P.vergleich(f'pool speichern ungültig #{i}', 'PUT', 'api/pool/poolEintrag01', body={'daten': d}, kopf=H1, ctx=C)
+    P.vergleich('pool quelle ungültig', 'PUT', 'api/pool/poolEintrag01', body={'daten': pool_daten(), 'quelleKurs': 'x'}, kopf=H1, ctx=C)
+    P.vergleich('pool falsche id', 'PUT', 'api/pool/kurz', body={'daten': pool_daten()}, kopf=H1, ctx=C)
+    P.vergleich('pool speichern', 'PUT', 'api/pool/poolEintrag01', body=lambda c: {'daten': pool_daten(), 'quelleKurs': c['kid'], 'quelleProbe': c['p1']}, kopf=H1, ctx=C, erwartet=200)
+    P.vergleich('pool fremd überschreiben', 'PUT', 'api/pool/poolEintrag01', body={'daten': pool_daten()}, kopf=H2, ctx=C, erwartet=404)
+    P.vergleich('pool zweiter eintrag', 'PUT', 'api/pool/poolEintrag02', body={'daten': pool_daten(typ='gras', titel=None, oeffentlich=False, sammlung=None, fotos=[], referenzen=[],
+                                                                                                    region={'ort': ''})}, kopf=H2, ctx=C, erwartet=200)
+    psrt = lambda j: isinstance(j, dict) and isinstance(j.get('eintraege'), list) and j['eintraege'].sort(key=lambda e: e['id'])
+    P.vergleich('pool liste 1', 'GET', 'api/pool', kopf=H1, ctx=C, erwartet=200, sortiere=psrt)
+    P.vergleich('pool liste 2', 'GET', 'api/pool', kopf=H2, ctx=C, erwartet=200, sortiere=psrt)
+    # Fotos
+    P.vergleich('pool foto nicht im eintrag', 'PUT', 'api/pool/poolEintrag01/fotos/poolfoto00000009', roh=JPG, kopf=H1, ctx=C, erwartet=404)
+    P.vergleich('pool foto fremd', 'PUT', 'api/pool/poolEintrag01/fotos/poolfoto00000001', roh=JPG, kopf=H2, ctx=C, erwartet=404)
+    P.vergleich('pool foto kein bild', 'PUT', 'api/pool/poolEintrag01/fotos/poolfoto00000001', roh=b'x' * 300, kopf=H1, ctx=C, erwartet=422)
+    P.vergleich('pool foto', 'PUT', 'api/pool/poolEintrag01/fotos/poolfoto00000001', roh=JPG, kopf=H1, ctx=C, erwartet=200)
+    bild_vergleich(P, 'pool foto lesen', lambda c: 'api/pool/poolEintrag01/fotos/poolfoto00000001', H2, C, JPG)
+    P.vergleich('pool foto unbekannt', 'GET', 'api/pool/poolEintrag01/fotos/poolfoto00000009', kopf=H2, ctx=C, erwartet=404)
+    P.vergleich('pool foto ohne sitzung', 'GET', 'api/pool/poolEintrag01/fotos/poolfoto00000001', erwartet=404)
+    # Öffentlich
+    P.vergleich('öffentlich pool', 'GET', 'api/oeffentlich/pool', erwartet=200)
+    P.vergleich('öffentlich foto', 'GET', 'api/oeffentlich/pool/poolEintrag01/fotos/poolfoto00000001', erwartet=404)
+    P.vergleich('öffentlich kursprobe', 'GET', lambda c: f"api/oeffentlich/kursprobe/{c['kid']}/{c['p1']}", ctx=C, erwartet=200)
+    P.vergleich('öffentlich kursprobe unbekannt', 'GET', 'api/oeffentlich/kursprobe/kurs00001/probe0001', erwartet=200)
+    P.vergleich('öffentlich kursprobe schlecht', 'GET', 'api/oeffentlich/kursprobe/x/y', erwartet=404)
+    # Übernahme in einen anderen Kurs
+    D2 = {s: dict(kid=C[s]['kid2'], L=C[s]['L2'], kid1=C[s]['kid'], L1=C[s]['L']) for s in C}
+    P.vergleich('übernehmen pool unbekannt', 'PUT', kp('/proben/musterprobe1'), body={'analyse': {'typ': 'heu'}, 'poolId': 'poolGibtsNicht'}, kopf=S('L'), ctx=D2, erwartet=404)
+    P.vergleich('übernehmen', 'PUT', kp('/proben/musterprobe1'), body={'analyse': {'typ': 'heu'}, 'privat': {'bezeichnung': 'Muster'}, 'poolId': 'poolEintrag01'},
+                kopf=S('L'), ctx=D2, erwartet=200)
+    P.vergleich('kurs 2 lesen (übernommen)', 'GET', kp(), kopf=S('L'), ctx=D2, erwartet=200, sortiere=tn_sort)
+    P.vergleich('kurs 1 lesen (quelle)', 'GET', kp(), kopf=S('L'), ctx=C, erwartet=200, sortiere=tn_sort)
+    bild_vergleich(P, 'pool-foto über kurs 2', lambda c: f"api/kurse/{c['kid']}/fotos/poolfoto00000001", S('L'), D2, JPG)
+    P.vergleich('vergleich mit referenzen', 'GET', kp('/proben/musterprobe1/beurteilungen'), kopf=S('L'), ctx=D2, erwartet=200)
+    # Admin und Löschen
+    P.vergleich('admin pool ohne', 'GET', 'api/admin/pool')
+    P.vergleich('admin pool', 'GET', 'api/admin/pool', kopf=AP, erwartet=200, sortiere=psrt)
+    P.vergleich('pool löschen fremd', 'DELETE', 'api/pool/poolEintrag01', kopf=H2, ctx=C, erwartet=404)
+    P.vergleich('pool löschen', 'DELETE', 'api/pool/poolEintrag01', kopf=H1, ctx=C, erwartet=200)
+    P.vergleich('admin pool löschen ohne', 'DELETE', 'api/admin/pool/poolEintrag02')
+    P.vergleich('admin pool löschen', 'DELETE', 'api/admin/pool/poolEintrag02', kopf=AP, erwartet=200)
+    P.vergleich('pool am schluss', 'GET', 'api/pool', kopf=H1, ctx=C, erwartet=200)
+    P.vergleich('kurs 2 nach pool-löschen', 'GET', kp(), kopf=S('L'), ctx=D2, erwartet=200, sortiere=tn_sort)
+    P.vergleich('übersicht am schluss', 'GET', 'api/admin/uebersicht', kopf=AP, erwartet=200, sortiere=uebersicht_sort)
+    P.vergleich('pool-kurs 1 löschen', 'DELETE', kp(), kopf=S('L'), ctx=C, erwartet=200)
+    P.vergleich('pool-kurs 2 löschen', 'DELETE', kp(), kopf=S('L'), ctx=D2, erwartet=200)
+
+
+FAELLE = {'grundlagen': fall_grundlagen, 'rueckmeldung': fall_rueckmeldung, 'statistik': fall_statistik, 'anmeldung': fall_anmeldung, 'freigaben': fall_freigaben, 'konto': fall_konto, 'kurse': fall_kurse, 'admin': fall_admin, 'pool': fall_pool}
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()

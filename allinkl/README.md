@@ -17,6 +17,9 @@ allinkl/
     mail.php        Einmal-Codes, Versand über mail() (Testmodus: V2_MAIL_DRYRUN_FILE wie in Flask)
     konto.php       Konto: Anmeldung per Code/Link, Geräte, Cloud-Daten je App, Fotos, Antrag auf mehr Foto-Speicher
     spaces.php      Freigaben: Datensätze, Fotos, Links erneuern, Gruppen-Beitritt per Code
+    kurs.php        Kurse: Anlegen/Aktivieren, Beitritt, Etiketten, Ersterfassung, Beurteilungen, Fotos, «Meine Kurse»
+    pool.php        Probenpool der Kursleitenden, öffentliche Sammlungen, Übernahme in Kurse
+    admin.php       Kursleitung (Status, Antrag, Freischaltung), Einladungscodes, Admin-Übersicht
   public/         Dokumentenwurzel-Teil: index.php (Router), .htaccess; beim Bauen kommt assets/ (= static/v2) dazu
   schema.sql      MySQL/MariaDB-Schema (alle 23 Tabellen + rate_treffer)
   skripte/bauen.py   Paket bauen: lib, public+assets, vorgerenderte Seiten (Futter/Wiese), basis.json, build.txt
@@ -46,10 +49,12 @@ vergleicht Status, Sicherheits-Header und JSON.
 | Admin-Anmeldung (SSO) | portiert, Fehlerwege geprüft; Anmeldung mit echtem Token noch offen |
 | E-Mail-Codes, Freigaben (Spaces) inkl. Fotos und Gruppen-Beitritt | portiert, geprüft |
 | Konto und Cloud-Speicherung, Antrag Foto-Speicher | portiert, geprüft |
-| Kurse, Pool, Administration (Übersicht, Kursleitung, Einladungen) | offen |
+| Kurse, Pool, Administration (Übersicht, Kursleitung, Einladungen) | portiert, geprüft |
 | Texterkennung | bleibt auf dem Home-Server bzw. im Browser (Plan Abschnitt 5) |
 | Deploy-Skript, Datenumzug, Umzugsseite | offen |
 
 Abweichungen von Flask, bewusst: Ratenbegrenzung in MySQL statt im Arbeitsspeicher; Admin-Cookie nur für den Pfad
 der App (`/futter/`) statt `/`; unbekannte Adressen antworten mit JSON `{"error":"NOT_FOUND"}`; Fehler werden nie an Besucher ausgegeben (JSON 500, Stelle im Fehlerprotokoll);
-E-Mail über `mail()` statt SMTP-Anmeldung (auf all-inkl liefert das Web-PHP über sendmail aus); Datensätze ohne feste Reihenfolge (InnoDB: nach ID).
+E-Mail über `mail()` statt SMTP-Anmeldung (auf all-inkl liefert das Web-PHP über sendmail aus); Links in E-Mails (Kurs-Bestätigung,
+Freischaltung, Antrag) zeigen auf `V2_PUBLIC_URL` bzw. die eigene Adresse statt fest auf apps.graswachstum.ch; Einladung mit ungültiger Zahl
+(`max`, `tage`) → 400 statt 500; Datensätze ohne feste Reihenfolge (InnoDB: nach ID).
