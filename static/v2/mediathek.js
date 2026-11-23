@@ -1,8 +1,10 @@
 /*
- * AGFF-Mediathek: eine gemeinsame Videoliste für futter (v2, auch /wiese), Heureka (/heureka, früher /drysim) und drywatch.
+ * AGFF-Mediathek: eine gemeinsame Videoliste für futter (v2, auch /wiese), Heureka (app.graswachstum.ch/heureka, früher /drysim) und drywatch.
  *
  * Daten: mediathek.json im selben Ordner wie dieses Skript (wird nur hier in futter gepflegt).
- * Einbinden in einer anderen App (gleicher Host apps.graswachstum.ch, daher keine CSP-/CORS-Änderung nötig):
+ * Heureka liegt seit 23.11.2026 auf einem anderen Host (all-inkl) und nutzt eine Kopie (agff-drysim/public/mediathek/,
+ * nachgezogen von tools/seiten.mjs); neue Einträge kommen dort erst mit dem nächsten Heureka-Deploy an.
+ * Einbinden in einer anderen App auf demselben Host (apps.graswachstum.ch, dann keine CSP-/CORS-Änderung nötig):
  *   <link rel="stylesheet" href="/futter/v2/assets/mediathek.css">
  *   <script src="/futter/v2/assets/mediathek.js" defer></script>
  *   <div data-agff-mediathek data-app="heureka" data-themen="anwelken,heu" data-filter></div>
