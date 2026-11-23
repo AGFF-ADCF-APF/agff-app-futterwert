@@ -1,7 +1,7 @@
 # Portierungsplan: Futter v2 auf all-inkl.com (PHP + MySQL)
 
-Stand: 23.11.2026 (Build b1-90). Ziel: v2 (inkl. Modus «Wiese») läuft auf dem Webhosting von all-inkl
-neben den anderen Apps, mit MySQL statt SQLite. Der Home-Server bleibt nur noch für die
+Stand: 23.11.2026 (Build b1-91). Ziel: v2 (inkl. Modus «Wiese») läuft auf dem Webhosting von all-inkl
+unter **`app.graswachstum.ch/futter`** (wie Heureka unter `app.graswachstum.ch/heureka`) neben den anderen Apps, mit MySQL statt SQLite. Der Home-Server bleibt nur noch für die
 Texterkennung (OCR) und als Rückfallebene.
 
 ## 1. Ausgangslage
@@ -19,7 +19,7 @@ dauerhafter Flask-Server, keine Systempakete). PHP + MySQL ist dort der tragfäh
 
 ## 2. Vorab klären (Phase 0, ½ Tag, im KAS-Panel bzw. per SSH)
 
-- [ ] **Domain/Ursprung** – siehe Abschnitt 4: Bleibt die Adresse `apps.graswachstum.ch/futter/v2/` (DNS-Umzug) oder wird es `app.graswachstum.ch`? **Wichtigste Entscheidung.**
+- [x] **Adresse entschieden:** `app.graswachstum.ch/futter` (Wiese: `app.graswachstum.ch/wiese`). Neuer Ursprung → Umzug der Browserdaten nötig (Abschnitt 4).
 - [ ] PHP-Version ≥ 8.2, Erweiterungen: `openssl` (AES-256-GCM), `pdo_mysql`, `mbstring`, `json`, `fileinfo`
 - [ ] MySQL/MariaDB-Version; eigene Datenbank für Futter v2 (nicht mit anderen Apps teilen)
 - [ ] `upload_max_filesize` / `post_max_size` ≥ 13 MB (Laborberichte 12 MB, Fotos 5 MB), `max_execution_time`, `memory_limit`
@@ -69,23 +69,29 @@ Jedes Modul ist erst fertig, wenn der Prüfstand aus Phase 1 dafür grün ist.
 - Generalprobe auf einer Test-Adresse mit Kopie der Daten; du testest Kurs, Konto, Mail, Pool, Admin.
 - Umschalten (DNS bzw. Weiterleitung), Home-Server-Version 2 Wochen als Rückweg bereithalten (nur lesend).
 
-**Summe: ca. 14–18 Arbeitstage** Entwicklung, plus deine Testzeit. Grösste Unsicherheit: Kursmodus und
+**Summe: ca. 16–20 Arbeitstage** (inkl. Umzugsseite) Entwicklung, plus deine Testzeit. Grösste Unsicherheit: Kursmodus und
 Konto (viele Sonderfälle).
 
-## 4. Achtung: Browserdaten hängen an der Adresse
+## 4. Umzug der Browserdaten (neue Adresse `app.graswachstum.ch`)
 
 Proben, Anlässe und Fotos liegen im Browser (`localStorage`, IndexedDB) – und zwar **pro Adresse
-(Ursprung)**. Wechselt die App von `apps.graswachstum.ch` auf `app.graswachstum.ch`, sieht der Browser
-dort eine **leere App**; auch installierte Apps (PWA) zeigen weiter auf die alte Adresse.
+(Ursprung)**. Unter `app.graswachstum.ch` sieht der Browser zuerst eine **leere App**; installierte
+Apps (PWA) zeigen weiter auf `apps.graswachstum.ch`. Darum (Phase 5, ca. 2 Tage zusätzlich):
 
-Empfehlung (in dieser Reihenfolge):
-1. **Gleiche Adresse behalten**: `apps.graswachstum.ch` per DNS auf all-inkl umziehen (v1 dann ebenfalls
-   dort bzw. unter einer eigenen Unteradresse). Kein Datenverlust, keine Migration nötig.
-2. Falls neue Adresse: eine **Umzugsseite** auf der alten Adresse, die die Daten nach Zustimmung per
-   `postMessage` an die neue Adresse übergibt (inkl. Fotos), und vorher den bestehenden JSON-Export
-   anbieten. Mehraufwand ca. 2 Tage, und alle Nutzenden müssen die alte Seite noch einmal öffnen.
+1. **Umzugsseite auf der alten Adresse** (`apps.graswachstum.ch/futter/v2/`, bleibt auf dem Home-Server):
+   Hinweis «Die App ist umgezogen», Knopf «Meine Daten mitnehmen». Die alte Seite öffnet die neue in
+   einem Fenster und übergibt Anlässe, Proben, Einstellungen und Fotos per `postMessage` – nur an den
+   festen Ursprung `https://app.graswachstum.ch`, mit Bestätigung auf der neuen Seite. Nichts geht
+   über einen Server.
+2. Die neue App übernimmt die Daten wie beim bestehenden JSON-Import (gleiche Prüfung durch `model.js`,
+   bei gleicher ID gewinnt der neuere Stand) und meldet die Anzahl übernommener Proben und Fotos.
+3. Rückfall: Auf der alten Seite bleibt der JSON-/PDF-Export, auf der neuen der Import.
+4. Die alte Adresse leitet nach erfolgreichem Umzug (gemerkt im Browser) künftig direkt weiter;
+   installierte Apps zeigen einen Hinweis zum Neu-Installieren.
+5. Kurs-, Freigabe- und Zugangs-Links mit der alten Adresse leiten weiter (Pfad und `#…` bleiben erhalten),
+   QR-Etiketten bleiben damit gültig. Die alte Adresse darum mindestens ein Jahr bestehen lassen.
 
-Server-seitige Daten (Kurse, Konten, Freigaben, Pool) ziehen in beiden Fällen ohne Zutun mit.
+Server-seitige Daten (Kurse, Konten, Freigaben, Pool) ziehen mit der Datenbank ohne Zutun mit.
 
 ## 5. Texterkennung (OCR)
 
@@ -135,7 +141,7 @@ Server-seitige Daten (Kurse, Konten, Freigaben, Pool) ziehen in beiden Fällen o
 | Kurse, Konto, Freigaben, Pool, Statistik, Rückmeldung, Admin | weg | portiert (Phase 3) |
 | Laborbericht lesen (Server) | weg | Text-PDF im Browser, Fotos über Home-Server, Rückfall Gerät |
 | Laboranalyse auswerten | weg | Text-PDF im Browser, Scans über Home-Server |
-| Daten im Browser | bei neuer Adresse unsichtbar | gleiche Adresse oder Umzugsseite (Abschnitt 4) |
+| Daten im Browser | unter der neuen Adresse zuerst leer | Umzugsseite (Abschnitt 4) |
 | Anfragebegrenzung im Speicher | – | MySQL-Tabelle |
 
 ## 7. Sicherheit (Vorrang)
@@ -147,7 +153,7 @@ Server-seitige Daten (Kurse, Konten, Freigaben, Pool) ziehen in beiden Fällen o
 - Nach der Umschaltung: Sicherheitsprüfung des PHP-Codes (Review) vor der Freigabe für Kurse.
 
 ## 8. Offene Entscheidungen
-1. Adresse: `apps.graswachstum.ch` behalten (empfohlen) oder `app.graswachstum.ch`?
+1. ~~Adresse~~ → entschieden: `app.graswachstum.ch/futter` (Umzugsseite nötig).
 2. Soll v1 mitziehen (nur statisch/archiviert) oder bis zum Go-live auf dem Home-Server bleiben?
 3. OCR: Home-Server als Dienst behalten (empfohlen) oder Versuch mit Tesseract auf all-inkl?
 4. Alternative ohne Neuschreiben: kleiner VPS bzw. Managed Server mit Docker – weniger Arbeit, aber laufende Kosten und eigene Wartung.

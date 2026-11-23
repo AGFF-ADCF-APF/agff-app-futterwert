@@ -97,36 +97,42 @@
     const GAP = 1.6;
     const usable = 360 - GAP * gruppen.length;
     // Lupe (interaktiv): gewählter Faktor bekommt ~40 % des Kreises und wird nach oben gedreht – lesbar und gut zu treffen
-    const lupe = !!(o.interaktiv && o.fokus && !mini && faktoren.some((f) => f.id === o.fokus));
-    const fF = lupe ? faktoren.find((f) => f.id === o.fokus) : null;
+    const lupe = !!(o.interaktiv && !mini && ((o.fokus && faktoren.some((f) => f.id === o.fokus)) || o._g));
     const zoom = lupe && !!o.zoom;
     // Zoom: Fokus bekommt je Ausprägung ~25° (84–160°), Bildausschnitt danach; sonst ~40 % des Kreises
-    const zSpan = zoom ? Math.max(84, Math.min(160, fF.optionen.length * 25)) : 0;
-    const restU = lupe ? N - fF.optionen.length : 0;
-    const wF = zoom ? Math.max(1, (zSpan * restU) / (fF.optionen.length * (360 - GAP * gruppen.length - zSpan)))
-      : (lupe ? Math.max(1.5, Math.min(3, (0.4 * (N - fF.optionen.length)) / (0.6 * fF.optionen.length))) : 1);
-    const gew = (f) => (lupe && f.id === o.fokus ? wF : 1);
+    const zSpanVon = (f) => Math.max(84, Math.min(160, f.optionen.length * 25));
+    const wFuer = (f) => { // Breiten-Faktor, wenn f der Fokus ist
+      const n = f.optionen.length; const rest = N - n;
+      return zoom ? Math.max(1, (zSpanVon(f) * rest) / (n * (360 - GAP * gruppen.length - zSpanVon(f)))) : Math.max(1.5, Math.min(3, (0.4 * rest) / (0.6 * n)));
+    };
+    // G: «Fokus-Anteil» je Faktor (0–1). Normal 1 für den Fokus; während der Animation gleitet er vom alten zum neuen.
+    const G = o._g || (lupe ? { [o.fokus]: 1 } : {});
+    const gOf = (f) => (lupe ? G[f.id] || 0 : 0);
+    const gew = (f) => 1 + gOf(f) * (wFuer(f) - 1);
     const units = faktoren.reduce((n, f) => n + f.optionen.length * gew(f), 0);
     const einheit = usable / units;
     let a = GAP / 2;
-    if (lupe) { // Mitte des Fokus-Faktors auf 0° (oben) legen
-      let x = GAP / 2; let mitte = 0; let gi = 0;
-      gruppen.forEach((g) => { g.faktoren.forEach((f) => { const w = f.optionen.length * gew(f) * einheit; if (f.id === o.fokus) mitte = x + w / 2; x += w; }); x += GAP; gi++; });
+    if (o._start != null) a = o._start;
+    else if (lupe) { // Mitte des Fokus-Faktors auf 0° (oben) legen
+      let x = GAP / 2; let mitte = 0;
+      gruppen.forEach((g) => { g.faktoren.forEach((f) => { const w = f.optionen.length * gew(f) * einheit; if (f.id === o.fokus) mitte = x + w / 2; x += w; }); x += GAP; });
       a = GAP / 2 - mitte;
     }
     const RF = R3 + 12; // Fokus ragt heraus
     const a0Start = a;
     const parts = { seg: [], lab: [], ticks: [], grp: [], mid: [] };
     let fokusBereich = null;
+    const deck = (html, op) => (!html || op >= 0.999 ? html : (op <= 0.01 ? '' : '<g opacity="' + f1(op) + '">' + html + '</g>'));
 
     gruppen.forEach((g) => {
       const g0 = a;
       g.faktoren.forEach((f) => {
         const sel = auswahl ? auswahl[f.id] : null;
-        const fokus = o.fokus === f.id;
+        const gf = gOf(f);
         const step = einheit * gew(f);
-        const big = lupe && fokus;
-        const r3 = big ? RF : R3;
+        const big = gf > 0.01;                 // Detailtexte (ein-/ausgeblendet mit gf)
+        const r3 = R3 + gf * (RF - R3);
+        const dimM = lupe ? 0.68 - 0.13 * gf : 0.55; const dimS = lupe ? 0.6 - 0.18 * gf : 0.42;
         // Mitte: aufeinanderfolgende Optionen mit gleichem "mitte"-Text zusammenfassen
         const mids = [];
         f.optionen.forEach((op) => {
@@ -139,9 +145,12 @@
         mids.forEach((m) => {
           const a1 = am + m.n * step;
           const hit = sel && m.ids.includes(sel);
-          parts.mid.push('<path d="' + arc(R1, R2, am, a1) + '" fill="' + mix(f.farbe, hit ? 0.25 : (lupe && !fokus ? 0.68 : 0.55)) + '" stroke="#fff" stroke-width="1.2"' +
+          parts.mid.push('<path d="' + arc(R1, R2, am, a1) + '" fill="' + mix(f.farbe, hit ? 0.25 : dimM) + '" stroke="#fff" stroke-width="1.2"' +
             (o.interaktiv ? ' data-f="' + f.id + '" class="rz-hit"' : '') + '/>');
-          if (!mini && m.txt && (big || !zoom)) parts.lab.push(label(m.txt, R1, R2, am, a1, { fs: big ? (zoom ? 11 : 10) : 8.6, weight: big ? 650 : null, weglassen: !big, min: big ? 5.6 : 6.4 }));
+          if (!mini && m.txt) {
+            if (big) parts.lab.push(deck(label(m.txt, R1, R2, am, a1, { fs: zoom ? 11 : 10, weight: 650 }), gf));
+            if (!zoom && gf < 0.99) parts.lab.push(deck(label(m.txt, R1, R2, am, a1, { fs: 8.6, weglassen: true, min: 6.4 }), big ? 1 - gf : 1));
+          }
           am = a1;
         });
         f.optionen.forEach((op) => {
@@ -149,68 +158,103 @@
           const isSel = sel === op.id;
           const dim = sel && !isSel;
           const shade = op.block ? '#d9534f' : f.farbe;
-          const fill = isSel ? darker(shade, 0.06) : mix(shade, dim ? 0.78 : (lupe && !fokus ? 0.6 : 0.42));
+          const fill = isSel ? darker(shade, 0.06) : mix(shade, dim ? 0.78 : dimS);
           parts.seg.push('<path d="' + arc(R2, r3, a0, a1) + '" fill="' + fill + '" stroke="' + (isSel ? INK : '#fff') + '" stroke-width="' + (isSel ? 2 : 1.2) +
             '"' + (o.interaktiv ? ' data-f="' + f.id + '" data-o="' + op.id + '" class="rz-hit" role="button" aria-label="' + esc(f.frage + ': ' + op.text) + '"' : '') + '/>');
           if (!mini && big) {
             // Kriterium ausgeschrieben + Punkte/Korrektur
             const txt = (op.text || '').split(/: | – /)[0];
-            parts.lab.push(label(op.kurz === '!' ? '⚠' : op.kurz, r3 - 20, r3, a0, a1, { force: 'tan', fs: op.kurz.length > 2 ? 11 : (zoom ? 15 : 14), weight: 800, fill: isSel ? '#fff' : INK }));
-            if (txt && txt !== op.kurz) parts.lab.push(label(txt, R2 + 1, r3 - 19, a0, a1, { fs: zoom ? 9.6 : 8.4, weight: isSel ? 700 : 500, fill: isSel ? '#fff' : INK }));
-          } else if (!mini) {
-            parts.lab.push(label(op.kurz, R2, R3, a0, a1, { force: 'rad', fs: op.kurz.length > 2 ? 11 : 15, weight: isSel ? 800 : 600, fill: isSel ? '#fff' : INK }));
+            parts.lab.push(deck(label(op.kurz === '!' ? '⚠' : op.kurz, r3 - 20, r3, a0, a1, { force: 'tan', fs: op.kurz.length > 2 ? 11 : (zoom ? 15 : 14), weight: 800, fill: isSel ? '#fff' : INK }), gf));
+            if (txt && txt !== op.kurz) parts.lab.push(deck(label(txt, R2 + 1, r3 - 19, a0, a1, { fs: zoom ? 9.6 : 8.4, weight: isSel ? 700 : 500, fill: isSel ? '#fff' : INK }), gf));
+          }
+          if (!mini && gf < 0.99) {
+            parts.lab.push(deck(label(op.kurz, R2, r3, a0, a1, { force: 'rad', fs: op.kurz.length > 2 ? 11 : 15, weight: isSel ? 800 : 600, fill: isSel ? '#fff' : INK }), 1 - gf));
           }
           if (!mini) {
-            const [tx, ty] = pt(big ? RF + 10 : RT, (a0 + a1) / 2);
+            const [tx, ty] = pt(RT + gf * (RF + 10 - RT), (a0 + a1) / 2);
             parts.ticks.push('<circle cx="' + f1(tx) + '" cy="' + f1(ty) + '" r="5.2" fill="' + (isSel ? INK : '#fff') + '" stroke="' + darker(f.farbe, 0.15) + '" stroke-width="1.4"/>');
           }
           a = a1;
         });
-        if (fokus && !mini) {
-          const f0 = a - f.optionen.length * step; fokusBereich = [f0, a];
-          parts.seg.push('<path d="' + arc(R0 - 2, (big ? RF + 16 : RT + 8), f0 - 0.6, a + 0.6) + '" fill="none" stroke="' + INK + '" stroke-width="2.4" stroke-dasharray="5 4" pointer-events="none"/>');
+        if (big && !mini) {
+          const f0 = a - f.optionen.length * step; if (f.id === o.fokus) fokusBereich = [f0, a];
+          parts.seg.push('<path d="' + arc(R0 - 2, RT + 8 + gf * (RF + 16 - RT - 8), f0 - 0.6, a + 0.6) + '" fill="none" stroke="' + INK + '" stroke-opacity="' + f1(gf) + '" stroke-width="2.4" stroke-dasharray="5 4" pointer-events="none"/>');
         }
       });
       const g1 = a;
       const allSet = auswahl && g.faktoren.every((f) => auswahl[f.id]);
       parts.grp.push('<path d="' + arc(R0, R1, g0, g1) + '" fill="' + (allSet || mini ? g.farbe : mix(g.farbe, 0.2)) + '" stroke="#fff" stroke-width="1.6"' +
         (o.interaktiv ? ' data-f="' + g.faktoren[0].id + '" class="rz-hit"' : '') + '/>');
-      if (!mini && (!zoom || g.faktoren.some((f) => f.id === o.fokus))) { const gb = zoom ? fokusBereich : [g0, g1]; parts.lab.push(label(g.name, R0, R1, gb[0], gb[1], { fs: 10, weight: 700, weglassen: lupe, min: 6.4 })); }  // Zoom: Gruppenname über dem Fokus, sonst angeschnitten
+      if (!mini) { // Zoom: Gruppenname nur über dem Fokus (sonst angeschnitten), während der Animation eingeblendet
+        const gz = zoom ? Math.max(...g.faktoren.map(gOf)) : 1;
+        const fb = zoom && g.faktoren.find((f) => gOf(f) === gz && gz > 0);
+        if (gz > 0.01) {
+          let b0 = g0, b1 = g1;
+          if (fb) { let x = g0; g.faktoren.forEach((f) => { const w = f.optionen.length * einheit * gew(f); if (f === fb) { b0 = x; b1 = x + w; } x += w; }); }
+          parts.lab.push(deck(label(g.name, R0, R1, b0, b1, { fs: 10, weight: 700, weglassen: lupe, min: 6.4 }), gz));
+        }
+      }
       a = g1 + GAP;
     });
+    void fokusBereich;
 
     const z = o.zentrum || {};
     const ton = TON[z.ton] || TON.offen;
     const center = '<circle r="' + (R0 - 3) + '" fill="' + ton + '"/>' + (mini ? '' :
       '<text y="' + (z.label ? -6 : 2) + '" text-anchor="middle" dominant-baseline="central" font-size="' + (String(z.wert || '').length > 3 ? 20 : 26) + '" font-weight="800" fill="#fff">' + esc(z.wert != null ? z.wert : '–') + '</text>' +
       (z.label ? '<text y="18" text-anchor="middle" font-size="8.5" font-weight="600" fill="#fff">' + esc(z.label) + '</text>' : ''));
-    let vb = mini ? '-198 -198 396 396' : (lupe ? '-232 -236 464 464' : '-216 -216 432 432');
-    if (zoom) { // Ausschnitt um den (nach oben gedrehten) Fokus-Faktor
+    let vb = mini ? [-198, -198, 396, 396] : (lupe ? [-232, -236, 464, 464] : [-216, -216, 432, 432]);
+    const fokusF = faktoren.find((f) => f.id === o.fokus);
+    if (zoom && fokusF) { // Ausschnitt um den (nach oben gedrehten) Fokus-Faktor
+      const zSpan = zSpanVon(fokusF);
       const th = Math.min(90, zSpan / 2 + 6) * Math.PI / 180; const rA = RF + 22;
       const xh = Math.min(232, rA * Math.sin(th) + 8); const yb = Math.min(12, -(R0 - 8) * Math.cos(th));
-      vb = f1(-xh) + ' -240 ' + f1(2 * xh) + ' ' + f1(240 + yb);
+      vb = [-xh, -240, 2 * xh, 240 + yb];
     }
-    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' + vb + '" class="rad' + (mini ? ' rad-mini' : '') + '" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif"' +
+    if (o._vb) vb = o._vb;
+    if (o.interaktiv && !mini && !o._g) letzteLage = { fokus: fokusF ? o.fokus : null, start: a0Start, vb, faktoren, auswahl, o, zoom: !!o.zoom };
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' + vb.map(f1).join(' ') + '" class="rad' + (mini ? ' rad-mini' : '') + '" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif"' +
       (o.titel ? ' role="img" aria-label="' + esc(o.titel) + '"' : '') + '>' +
       '<circle r="' + (RT + 10) + '" fill="#fff" opacity="' + (mini ? 0 : 1) + '"/>' +
-      '<g class="rad-dreh"' + (lupe ? ' data-winkel="' + f1(-(GAP / 2 - a0Start)) + '"' : '') + '>' +
+      '<g class="rad-dreh">' +
       parts.grp.join('') + parts.mid.join('') + parts.seg.join('') + '<g pointer-events="none">' + parts.ticks.join('') + parts.lab.join('') + '</g></g>' +
       '<g pointer-events="none">' + center + '</g></svg>';
   }
 
-  /** Drehung animieren: das neu gezeichnete Rad startet in der alten Lage und dreht zur neuen. */
-  let letzterWinkel = null;
+  /**
+   * Fokuswechsel animieren: Das Rad wird Bild für Bild neu gezeichnet. Der alte Faktor schrumpft, der neue
+   * wächst, und das Rad dreht auf dem kürzesten Weg, bis der neue Faktor oben steht (Texte blenden über).
+   */
+  let letzteLage = null; let vorher = null; let lauf = 0; let laeuft = null;
+  const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
   function animieren(root) {
-    const g = root && root.querySelector('svg.rad .rad-dreh[data-winkel]');
-    if (!g) { letzterWinkel = null; return; }
-    const neu = Number(g.dataset.winkel);
-    if (letzterWinkel != null && Math.abs(neu - letzterWinkel) > 0.5 && !(global.matchMedia && global.matchMedia('(prefers-reduced-motion: reduce)').matches)) {
-      let d = neu - letzterWinkel; d = ((d + 540) % 360) - 180; // kürzester Weg
-      g.style.transform = 'rotate(' + d + 'deg)'; g.style.transformOrigin = '0 0';
-      g.getBoundingClientRect();
-      requestAnimationFrame(() => { g.style.transition = 'transform .45s cubic-bezier(.3,.7,.3,1)'; g.style.transform = 'rotate(0deg)'; });
-    }
-    letzterWinkel = neu;
+    const svg = root && root.querySelector('svg.rad');
+    const jetzt = svg ? letzteLage : null;
+    // Wird dasselbe Ziel gleich nochmals gezeichnet (zweites Rendern), läuft die Animation weiter.
+    if (laeuft && jetzt && laeuft.ziel === jetzt.fokus && laeuft.faktoren === jetzt.faktoren) { vorher = jetzt; laeuft.jetzt = jetzt; return; }
+    const alt = vorher; vorher = jetzt; lauf++; laeuft = null;
+    if (!jetzt || !alt || alt.fokus === jetzt.fokus || alt.faktoren !== jetzt.faktoren || alt.zoom !== jetzt.zoom) return;
+    if (global.matchMedia && global.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const meinLauf = lauf; const dauer = 620; const t0 = performance.now();
+    const id = root.id; const box0 = () => (id ? document.getElementById(id) : root);
+    const zustand = laeuft = { ziel: jetzt.fokus, faktoren: jetzt.faktoren, jetzt };
+    const d = ((jetzt.start - alt.start + 540) % 360) - 180; // kürzester Weg
+    const bild = (e) => {
+      const G = {}; if (alt.fokus) G[alt.fokus] = 1 - e; if (jetzt.fokus) G[jetzt.fokus] = (G[jetzt.fokus] || 0) + e;  // auch von/zur Übersicht ohne Fokus
+      const vb = alt.vb.map((v, i) => v + (jetzt.vb[i] - v) * e);
+      const r = box0(); const box = r && r.querySelector('svg.rad'); if (!box) return false;
+      const j = zustand.jetzt; // ggf. neuere Auswahl/Anzeige übernehmen
+      box.outerHTML = render(j.faktoren, j.auswahl, Object.assign({}, j.o, { _g: G, _start: alt.start + d * e, _vb: vb }));
+      return true;
+    };
+    bild(0);
+    const schritt = (now) => {
+      if (meinLauf !== lauf || !box0()) { if (laeuft === zustand) laeuft = null; return; } // neuer Zustand: abbrechen
+      const t = Math.min(1, (now - t0) / dauer);
+      if (t < 1) { if (!bild(ease(t))) { laeuft = null; return; } requestAnimationFrame(schritt); }
+      else { laeuft = null; const r = box0(); const box = r && r.querySelector('svg.rad'); const j = zustand.jetzt; if (box) box.outerHTML = render(j.faktoren, j.auswahl, j.o); }
+    };
+    requestAnimationFrame(schritt);
   }
 
   global.Rad = { render, animieren, TON };
