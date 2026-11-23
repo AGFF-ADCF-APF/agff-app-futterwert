@@ -82,7 +82,7 @@ if [ "$AKTION" = einrichten ]; then
   # Vorlage ohne Geheimnisse; Martin trägt die Werte auf dem Server selbst ein
   scp -q "$REPO/allinkl/konfig.example.php" "$ZIEL:$APP/konfig.php"
   ssh "$ZIEL" "chmod 600 $APP/konfig.php"
-  echo "Eingerichtet: $APP (Code), $DOCROOT/{${PFADE[*]// /,}} -> public/."
+  echo "Eingerichtet: $APP (Code), $DOCROOT/{$(IFS=,; echo "${PFADE[*]}")} -> public/."
   echo "Jetzt $APP/konfig.php auf dem Server ausfüllen (Datenbank aus dem KAS, V2_SERVER_KEY, SMTP_FROM, SSO). Dann: $0 --$UMGEBUNG"
   exit 0
 fi
