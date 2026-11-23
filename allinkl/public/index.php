@@ -155,6 +155,9 @@ $rest = strncmp($pfad, $basis, strlen($basis)) === 0 ? substr($pfad, strlen($bas
 $ist_api = strncmp($rest, 'api/', 4) === 0;
 
 try {
+    if (function_exists('dev_tor')) {
+        dev_tor($rest); // nur auf dev: tor.php ist der Einstieg (allinkl/dev/)
+    }
     $gefunden = false;
     foreach ($ROUTEN as [$m, $muster, $fn]) {
         if (!preg_match('#^' . $muster . '$#D', $rest, $treffer)) {

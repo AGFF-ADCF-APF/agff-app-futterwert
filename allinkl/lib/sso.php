@@ -41,10 +41,11 @@ function sso_eingerichtet(): bool
     return sso_schluessel() !== null;
 }
 
-/** Cookie nur für den Pfad dieser App (/futter/ bzw. /wiese/), nicht für die ganze Subdomain. */
+/** Cookie nur für den Pfad dieser App (/futter/ bzw. /wiese/), nicht für die ganze Subdomain. Auf dev COOKIE_PFAD '/', damit die
+ *  Anmeldung (Rückkehradresse /futter/anmelden/zurueck) auch für /wiese/ gilt. */
 function cookie_setzen(string $name, string $wert, int $dauer): void
 {
-    setcookie($name, $wert, ['expires' => $dauer > 0 ? time() + $dauer : time() - 3600, 'path' => basis_pfad(), 'secure' => ist_https(),
+    setcookie($name, $wert, ['expires' => $dauer > 0 ? time() + $dauer : time() - 3600, 'path' => (string) konfig('COOKIE_PFAD', basis_pfad()), 'secure' => ist_https(),
         'httponly' => true, 'samesite' => 'Lax']);
 }
 

@@ -23,6 +23,9 @@ allinkl/
   public/         Dokumentenwurzel-Teil: index.php (Router), .htaccess; beim Bauen kommt assets/ (= static/v2) dazu
   schema.sql      MySQL/MariaDB-Schema (alle 23 Tabellen + rate_treffer)
   skripte/bauen.py   Paket bauen: lib, public+assets, vorgerenderte Seiten (Futter/Wiese), basis.json, build.txt
+  skripte/deploy-allinkl.sh   Auslieferung nach all-inkl (--dev einrichten | --dev [--trocken] | --live …), Sicherung vor jedem Deploy
+  skripte/server.php  läuft auf dem Server: konfig.php prüfen (nur Namen), Schema einspielen, Datenbank sichern
+  dev/            Tor der Testumgebung (tor.php + .htaccess, nur auf dev): Zugang nur mit Admin-Anmeldung über das AGFF-Konto
   test/           lokale Nachbildung von all-inkl (PHP 8.4 + MariaDB 10.11) und Prüfstand gegen Flask
 ```
 
@@ -51,7 +54,8 @@ vergleicht Status, Sicherheits-Header und JSON.
 | Konto und Cloud-Speicherung, Antrag Foto-Speicher | portiert, geprüft |
 | Kurse, Pool, Administration (Übersicht, Kursleitung, Einladungen) | portiert, geprüft |
 | Texterkennung | bleibt auf dem Home-Server bzw. im Browser (Plan Abschnitt 5) |
-| Deploy-Skript, Datenumzug, Umzugsseite | offen |
+| Deploy-Skript (dev mit Tor, live mit Bestätigung) | geschrieben, lokal geprüft; erster Dev-Deploy wartet auf Datenbank und konfig.php |
+| Datenumzug, Umzugsseite | offen |
 
 Abweichungen von Flask, bewusst: Ratenbegrenzung in MySQL statt im Arbeitsspeicher; Admin-Cookie nur für den Pfad
 der App (`/futter/`) statt `/`; unbekannte Adressen antworten mit JSON `{"error":"NOT_FOUND"}`; Fehler werden nie an Besucher ausgegeben (JSON 500, Stelle im Fehlerprotokoll);
