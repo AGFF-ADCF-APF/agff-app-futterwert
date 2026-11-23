@@ -1,5 +1,5 @@
 {
-  "_hinweis": "Gemeinsame Videoliste der AGFF-Apps (futter, Heureka/drysim, drywatch). Gepflegt nur hier; die anderen Apps laden sie über /futter/v2/assets/mediathek.json. Felder: id (eindeutig), titel, url (nur https), quelle (Sendung/Herausgeber), anbieter (Plattform), sprache (de/fr/it/en), dauer (Minuten), datum (JJJJ-MM-TT, Erstausstrahlung), verfuegbarBis (JJJJ-MM-TT, danach ausgeblendet; leer = unbefristet), beschreibung (eigene Worte, keine Kopie), themen (siehe themenNamen), apps (optional: nur in diesen Apps zeigen: futter, wiese, heureka, drywatch).",
+  "_hinweis": "Gemeinsame Videoliste der AGFF-Apps (futter, Heureka/drysim, drywatch). Gepflegt nur hier; die anderen Apps laden sie über /futter/v2/assets/mediathek.json. Felder: id (eindeutig), titel, url (nur https), quelle (Sendung/Herausgeber), anbieter (Plattform), sprache (de/fr/it/en), dauer (Minuten), datum (JJJJ-MM-TT, Veröffentlichung), verfuegbarBis (JJJJ-MM-TT, danach ausgeblendet; leer = unbefristet), beschreibung (eigene Worte, keine Kopie), themen (siehe themenNamen), apps (optional: nur in diesen Apps zeigen: futter, wiese, heureka, drywatch), bilder (optional false: bei YouTube keine Standbilder anbieten). Bei YouTube-Links bietet die Mediathek die drei Standbilder von YouTube an (erst nach Klick geladen).",
   "themenNamen": {
     "anwelken": "Anwelken",
     "trocknung": "Trocknung auf dem Feld",
@@ -11,17 +11,30 @@
   },
   "videos": [
     {
-      "id": "br-unser-land-heu-trocknungsanlage",
-      "titel": "Heu aus der Trocknungsanlage",
-      "url": "https://www.ardmediathek.de/video/unser-land/heu-aus-der-trocknungsanlage/br/Y3JpZDovL2JyLmRlL2Jyb2FkY2FzdC9GMjAyNFdPMDEyOTg5QTAvc2VjdGlvbi9lZWY4M2M3ZC03MzdiLTQxM2MtYTUzYy1hNWUyMDNmNzc2MDQ",
-      "quelle": "Unser Land (BR)",
-      "anbieter": "ARD Mediathek",
+      "id": "agrarheute-grassilage-anwelken",
+      "titel": "Ratgeber Grassilage: Siliergut richtig anwelken",
+      "url": "https://www.youtube.com/watch?v=E8Fd_jFLJRs",
+      "quelle": "agrarheute",
+      "anbieter": "YouTube",
       "sprache": "de",
-      "dauer": null,
-      "datum": "",
+      "dauer": 2,
+      "datum": "2016-05-24",
       "verfuegbarBis": "",
-      "beschreibung": "Ein Milchviehbetrieb in Bayern trocknet sein Heu nicht nur mit der Sonne auf der Wiese, sondern in einer eigenen Anlage fertig. Der Beitrag zeigt, warum sich das für die Futterqualität lohnen kann und worauf es dabei ankommt.",
-      "themen": ["heu", "belueftung", "trocknung"]
+      "beschreibung": "Kurz erklärt: auf welchen TS-Gehalt Gras für Silage anwelken soll, und was passiert, wenn es zu nass oder zu trocken ins Silo kommt.",
+      "themen": ["anwelken", "silage"]
+    },
+    {
+      "id": "topagrar-aufbereiter-systemvergleich",
+      "titel": "Gras mit Aufbereiter trocknen oder geht's auch ohne? (Systemvergleich)",
+      "url": "https://www.youtube.com/watch?v=urvxU9JAB94",
+      "quelle": "top agrar",
+      "anbieter": "YouTube",
+      "sprache": "de",
+      "dauer": 7,
+      "datum": "2021-11-26",
+      "verfuegbarBis": "",
+      "beschreibung": "Versuch der Redaktion: Mähen mit und ohne Aufbereiter im Vergleich, mit Leistungsbedarf und dem Verlauf der Abtrocknung auf dem Feld.",
+      "themen": ["anwelken", "trocknung", "ernte"]
     },
     {
       "id": "moeller-gras-maehen-aufbereiter",
@@ -30,11 +43,102 @@
       "quelle": "Möller Agrarmarketing",
       "anbieter": "YouTube",
       "sprache": "de",
-      "dauer": null,
-      "datum": "",
+      "dauer": 11,
+      "datum": "2025-04-25",
       "verfuegbarBis": "",
       "beschreibung": "Jan-Hendrik Puckhaber erklärt, wann sich ein Mähaufbereiter für Grassilage lohnt und was er beim Anwelken bewirkt.",
       "themen": ["anwelken", "trocknung", "ernte", "silage"]
+    },
+    {
+      "id": "agrarheute-grassilage-haeckseln-verdichten",
+      "titel": "Ratgeber Grassilage: Häckseln und Silo verdichten",
+      "url": "https://www.youtube.com/watch?v=6Am21FV9zbE",
+      "quelle": "agrarheute",
+      "anbieter": "YouTube",
+      "sprache": "de",
+      "dauer": 2,
+      "datum": "2016-05-24",
+      "verfuegbarBis": "",
+      "beschreibung": "Wie lang gehäckselt werden soll und warum beim Einsilieren das Walzen das Tempo vorgibt, nicht der Häcksler.",
+      "themen": ["silage", "ernte"]
+    },
+    {
+      "id": "lkv-bw-reskuh-grassilage-grundlagen",
+      "titel": "Projekt ResKuh: Grundlagen der Grassilageproduktion",
+      "url": "https://www.youtube.com/watch?v=WDpUZ58RiQk",
+      "quelle": "LKV Baden-Württemberg",
+      "anbieter": "YouTube",
+      "sprache": "de",
+      "dauer": 5,
+      "datum": "2025-09-02",
+      "verfuegbarBis": "",
+      "beschreibung": "Überblick über die Arbeitsschritte zu guter Grassilage, aus einem Beratungsprojekt des Landeskontrollverbands Baden-Württemberg.",
+      "themen": ["silage", "anwelken", "ernte"]
+    },
+    {
+      "id": "br-unser-land-silage",
+      "titel": "Konserviertes Futter: Silage",
+      "url": "https://www.youtube.com/watch?v=RGRSWZ2KvAc",
+      "quelle": "Unser Land (BR)",
+      "anbieter": "YouTube",
+      "sprache": "de",
+      "dauer": 5,
+      "datum": "2019-06-26",
+      "verfuegbarBis": "",
+      "beschreibung": "Fernsehbeitrag darüber, wie aus Gras Silage wird und weshalb sie als Winterfutter so verbreitet ist.",
+      "themen": ["silage"]
+    },
+    {
+      "id": "br-unser-land-heu-trocknungsanlage",
+      "titel": "Hochwertiges Heu, gesunde Kühe, mehr Milch: Die moderne Heutrocknung",
+      "url": "https://www.youtube.com/watch?v=6cF04RJYkcs",
+      "quelle": "Unser Land (BR)",
+      "anbieter": "YouTube",
+      "sprache": "de",
+      "dauer": 6,
+      "datum": "2025-07-09",
+      "verfuegbarBis": "",
+      "beschreibung": "Ein Milchviehbetrieb in Bayern trocknet sein Heu nicht nur mit der Sonne auf der Wiese, sondern in einer eigenen Anlage fertig. Der Beitrag zeigt, warum sich das für die Futterqualität lohnen kann und worauf es dabei ankommt.",
+      "themen": ["heu", "belueftung", "trocknung"]
+    },
+    {
+      "id": "lasco-heutrocknung-bergzone-schweiz",
+      "titel": "Heutrocknung ohne Dachabsaugung, Bergzone 1 (Schweiz)",
+      "url": "https://www.youtube.com/watch?v=1MEIEC0u_eI",
+      "quelle": "LASCO Heutechnik (Hersteller)",
+      "anbieter": "YouTube",
+      "sprache": "de",
+      "dauer": 2,
+      "datum": "2017-01-16",
+      "verfuegbarBis": "",
+      "beschreibung": "Ein Milchviehbetrieb im St. Galler Rheintal zeigt seine Heubelüftung mit Lüfter, Steuerung und Luftentfeuchter, ohne Dachabsaugung. Video des Herstellers.",
+      "themen": ["heu", "belueftung"]
+    },
+    {
+      "id": "segrafo-foin-sechage-en-grange",
+      "titel": "Itinéraire technique du foin de séchage en grange",
+      "url": "https://www.youtube.com/watch?v=4iTKgUJBCkk",
+      "quelle": "Association SEGRAFO",
+      "anbieter": "YouTube",
+      "sprache": "fr",
+      "dauer": 10,
+      "datum": "2026-08-24",
+      "verfuegbarBis": "",
+      "beschreibung": "Der ganze Ablauf für Belüftungsheu, vom Mähen über das Anwelken bis zur Trocknung auf dem Heustock. Auf Französisch.",
+      "themen": ["heu", "belueftung", "trocknung"]
+    },
+    {
+      "id": "fugea-sechage-foin-en-grange",
+      "titel": "Le séchage de foin en grange",
+      "url": "https://www.youtube.com/watch?v=9QiPJ45TS0E",
+      "quelle": "FUGEA (Belgien)",
+      "anbieter": "YouTube",
+      "sprache": "fr",
+      "dauer": 6,
+      "datum": "2017-12-19",
+      "verfuegbarBis": "",
+      "beschreibung": "Belgischer Bauernverband stellt die Heubelüftung vor: wie sie funktioniert und was sie dem Betrieb bringt. Auf Französisch.",
+      "themen": ["heu", "belueftung"]
     }
   ]
 }

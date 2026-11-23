@@ -36,3 +36,21 @@
   border: 1px solid var(--agm-l); background: var(--agm-f); color: inherit;
 }
 .agm-chip[aria-pressed="true"] { background: var(--agm-a); border-color: var(--agm-a); color: #fff; }
+/* Standbilder (YouTube), erst nach Klick geladen */
+.agm-bilder { margin: 6px 0 0 52px; }
+.agm-bilder-knopf { min-height: 32px; padding: 4px 12px; }
+.agm-galerie { margin-top: 8px; max-width: 480px; }
+.agm-galerie[hidden] { display: none; }
+.agm-galerie:focus-visible { outline: 3px solid var(--agm-a); outline-offset: 2px; }
+.agm-buehne { position: relative; border-radius: 10px; overflow: hidden; background: #000; aspect-ratio: 4 / 3; }
+.agm .agm-buehne img.agm-bild { display: block; width: 100%; height: 100%; object-fit: contain; max-width: none; margin: 0; }
+.agm .agm-pfeil {
+  position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; border-radius: 50%;
+  border: 0; background: rgba(0, 0, 0, .55); color: #fff; font: 28px/1 system-ui, sans-serif; cursor: pointer; padding: 0;
+}
+.agm .agm-pfeil:hover { background: rgba(0, 0, 0, .75); }
+.agm .agm-pfeil:focus-visible { outline: 3px solid #fff; outline-offset: -3px; }
+.agm-pfeil-l { left: 8px; }
+.agm-pfeil-r { right: 8px; }
+.agm-galerie-fuss { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 4px; font-size: .8em; color: var(--agm-s); }
+@media (max-width: 480px) { .agm-bilder { margin-left: 0; } }

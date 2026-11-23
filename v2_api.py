@@ -288,7 +288,8 @@ def _check_record(record_id, data):
 
 
 # --- Sicherheits-Header ------------------------------------------------
-# Strikte CSP: nur eigene Skripte, keine Inline-Skripte, keine Fremd-Ressourcen.
+# Strikte CSP: nur eigene Skripte, keine Inline-Skripte, keine Fremd-Ressourcen
+# (einzige Ausnahme: YouTube-Standbilder der Mediathek, siehe static/v2/mediathek.js).
 # style-src-attr erlaubt style="..."-Attribute (Layout), aber keine fremden Stylesheets.
 CSP = '; '.join([
     "default-src 'self'",
@@ -296,7 +297,7 @@ CSP = '; '.join([
     "style-src 'self' 'unsafe-inline'",
     "style-src-elem 'self'",
     "style-src-attr 'unsafe-inline'",
-    "img-src 'self' data: blob:",
+    "img-src 'self' data: blob: https://i.ytimg.com",  # Mediathek: YouTube-Standbilder, erst nach Klick geladen
     "font-src 'self'",
     "connect-src 'self'",
     "worker-src 'self' blob:",
@@ -433,7 +434,7 @@ def v2_basis():
 
 # --- Freigabe-Bereiche (nur mit Zustimmung; Zugriff nur mit Lese-/Bearbeiten-Link) ----
 mimetypes.add_type("image/webp", ".webp")  # fehlt in python:slim
-ASSET_BUILD = 'b1-91'  # gleich wie ?v= in templates/v2/index.html
+ASSET_BUILD = 'b1-92'  # gleich wie ?v= in templates/v2/index.html
 
 
 @v2.route('/v2/api/config')
