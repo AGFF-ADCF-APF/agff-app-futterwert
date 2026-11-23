@@ -5,8 +5,17 @@
  */
 declare(strict_types=1);
 
+// Nie Fehlertexte an Besucher ausgeben; Warnungen werden zu Ausnahmen (→ JSON 500, Stelle im Fehlerprotokoll)
+ini_set('display_errors', '0');
+set_error_handler(function (int $nr, string $text, string $datei, int $zeile): bool {
+    if (!(error_reporting() & $nr)) {
+        return false; // mit @ unterdrückt
+    }
+    throw new ErrorException($text, 0, $nr, $datei, $zeile);
+});
+
 $lib = getenv('FUTTER_LIB') ?: dirname(__DIR__) . '/lib';
-foreach (['kern', 'sso', 'statistik', 'rueckmeldung', 'seiten'] as $modul) {
+foreach (['kern', 'mail', 'konto', 'sso', 'statistik', 'rueckmeldung', 'seiten', 'spaces'] as $modul) {
     require $lib . '/' . $modul . '.php';
 }
 
@@ -48,6 +57,19 @@ $ROUTEN = [
     ['GET', 'anmelden/zurueck', 'r_anmelden_zurueck'],
     ['GET', 'api/admin/ich', 'r_admin_ich'],
     ['POST', 'abmelden', 'r_abmelden'],
+    // Freigaben (Spaces) und Gruppen
+    ['POST', 'api/spaces/code', 'r_space_code'],
+    ['POST', 'api/spaces', 'r_space_anlegen'],
+    ['GET', 'api/spaces/([^/]+)', 'r_space_lesen'],
+    ['DELETE', 'api/spaces/([^/]+)', 'r_space_loeschen'],
+    ['PUT', 'api/spaces/([^/]+)/records/([^/]+)', 'r_record_speichern'],
+    ['DELETE', 'api/spaces/([^/]+)/records/([^/]+)', 'r_record_loeschen'],
+    ['POST', 'api/spaces/([^/]+)/rotate', 'r_space_rotate'],
+    ['GET|POST|DELETE', 'api/spaces/([^/]+)/beitritt', 'r_beitritt'],
+    ['POST', 'api/gruppen/beitreten', 'r_gruppe_beitreten'],
+    ['PUT', 'api/spaces/([^/]+)/fotos/([^/]+)', 'r_foto_hochladen'],
+    ['GET', 'api/spaces/([^/]+)/fotos/([^/]+)', 'r_foto_lesen'],
+    ['DELETE', 'api/spaces/([^/]+)/fotos/([^/]+)', 'r_foto_loeschen'],
 ];
 
 function ausgeben(Antwort $a, bool $api): void
@@ -74,7 +96,8 @@ try {
             continue;
         }
         $gefunden = true;
-        if ($m !== $methode && !($m === 'GET' && $methode === 'HEAD')) {
+        $erlaubt = explode('|', $m);
+        if (!in_array($methode, $erlaubt, true) && !($methode === 'HEAD' && in_array('GET', $erlaubt, true))) {
             continue;
         }
         if ($ist_api || $fn === 'r_abmelden') {

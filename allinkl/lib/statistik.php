@@ -427,22 +427,6 @@ function r_admin_statistik_csv(): void
     exit;
 }
 
-/** json.dumps(v) wie Python (Trenner «, » und «: », Nicht-ASCII als \\uXXXX, «/» unverändert). */
-function py_json($v): string
-{
-    if ($v instanceof stdClass) {
-        $t = [];
-        foreach (get_object_vars($v) as $k => $x) {
-            $t[] = py_json((string) $k) . ': ' . py_json($x);
-        }
-        return '{' . implode(', ', $t) . '}';
-    }
-    if (is_array($v)) {
-        return '[' . implode(', ', array_map('py_json', $v)) . ']';
-    }
-    return json_encode($v, JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);
-}
-
 function csv_wert($v): string
 {
     if ($v === true) {

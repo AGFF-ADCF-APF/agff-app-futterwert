@@ -336,3 +336,50 @@ function email_mask(?string $email): string
     $tld = substr($domain, $i + 1);
     return $head . '…@…' . mb_substr($name, -2) . '.' . $tld;
 }
+
+// --- Python-Gleichheit ------------------------------------------------------------------------
+/** json.dumps(v) wie Python (Trenner «, » und «: »); $ascii = ensure_ascii (Standard in Python: True). */
+function py_json($v, bool $ascii = true): string
+{
+    if ($v instanceof stdClass) {
+        $t = [];
+        foreach (get_object_vars($v) as $k => $x) {
+            $t[] = py_json((string) $k, $ascii) . ': ' . py_json($x, $ascii);
+        }
+        return '{' . implode(', ', $t) . '}';
+    }
+    if (is_array($v)) {
+        return '[' . implode(', ', array_map(fn ($x) => py_json($x, $ascii), $v)) . ']';
+    }
+    if (is_float($v) && (is_nan($v) || is_infinite($v))) {
+        return is_nan($v) ? 'NaN' : ($v > 0 ? 'Infinity' : '-Infinity');
+    }
+    return json_encode($v, JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION | ($ascii ? 0 : JSON_UNESCAPED_UNICODE));
+}
+
+/** str(v) wie Python für JSON-Werte (True/False/None, 5.0, Text unverändert). */
+function py_str($v): string
+{
+    if ($v === null) {
+        return 'None';
+    }
+    if (is_bool($v)) {
+        return $v ? 'True' : 'False';
+    }
+    if (is_float($v)) {
+        return json_encode($v, JSON_PRESERVE_ZERO_FRACTION);
+    }
+    if (is_string($v)) {
+        return $v;
+    }
+    if (is_int($v)) {
+        return (string) $v;
+    }
+    return py_json($v);
+}
+
+/** Text auf n Zeichen kürzen wie Python s[:n] (Zeichen, nicht Bytes). */
+function py_kurz(string $s, int $n): string
+{
+    return mb_substr($s, 0, $n);
+}
