@@ -21,7 +21,7 @@ allinkl/
     pool.php        Probenpool der Kursleitenden, öffentliche Sammlungen, Übernahme in Kurse
     admin.php       Kursleitung (Status, Antrag, Freischaltung), Einladungscodes, Admin-Übersicht
   public/         Dokumentenwurzel-Teil: index.php (Router), .htaccess; beim Bauen kommt assets/ (= static/v2) dazu
-  schema.sql      MySQL/MariaDB-Schema (alle 23 Tabellen + rate_treffer)
+  schema.sql      MySQL/MariaDB-Schema, alle Tabellen mit Präfix futter_ (die Datenbank darf geteilt sein, auf dev mit dem Journal)
   skripte/bauen.py   Paket bauen: lib, public+assets, vorgerenderte Seiten (Futter/Wiese), basis.json, build.txt
   skripte/deploy-allinkl.sh   Auslieferung nach all-inkl (--dev einrichten | --dev [--trocken] | --live …), Sicherung vor jedem Deploy
   skripte/server.php  läuft auf dem Server: konfig.php prüfen (nur Namen), Schema einspielen, Datenbank sichern

@@ -10,7 +10,7 @@ return [
     'SSO_URL' => 'https://graswachstum.ch',   // dev: https://dev-graswachstum.graswachstum.ch (Aussteller = dieselbe Adresse)
     'SSO_CLIENT' => 'futter',
     'SSO_PUBLIC_KEY' => '',          // Ed25519, base64 (32 Byte); dev und live haben je ein eigenes Schlüsselpaar
-    'SMTP_FROM' => '',               // Absender für mail() (auf all-inkl ein Postfach der Domain); SMTP_HOST/USER/PASS braucht es hier nicht
+    'SMTP_FROM' => 'webmaster@graswachstum.ch',   // Absender für mail() wie graswachstum.ch (sendmail auf all-inkl); SMTP_HOST/USER/PASS braucht es nicht
     'V2_PUBLIC_URL' => 'https://app.graswachstum.ch/futter/',   // Links in E-Mails; dev: https://dev-app.graswachstum.ch/futter/
     'V2_KURSLEITUNG_EMAILS' => '', 'V2_KURSLEITUNG_DOMAINS' => '', 'V2_ADMIN_MAIL' => '',
     'V2_RETENTION_DAYS' => 730,
