@@ -12,6 +12,7 @@ Bitte Sicherheitslücken **nicht** als öffentliches Issue melden, sondern vertr
 - Anonyme Beiträge enthalten keine Namen, Betriebe oder Fotos; Vergleiche erst ab 5 Beiträgen je Gruppe.
 - Fotos werden ohne Metadaten gespeichert.
 - Keine Tracker, keine externen Skripte; Content-Security-Policy ohne Inline-Scripts.
+- Administration: Anmeldung mit dem AGFF-Konto (graswachstum.ch), signiertes Token (Ed25519, 60 s, einmalig, an Browser und App gebunden), nur mit Recht `futter.admin` und Passkey bzw. zweitem Faktor; Futter kennt nur den öffentlichen Schlüssel.
 
 ## Für Mitwirkende
 
