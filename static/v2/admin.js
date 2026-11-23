@@ -13,7 +13,8 @@
     return j;
   }
   async function laden() {
-    const [u, pool, quota] = await Promise.all([api('admin/uebersicht'), api('admin/pool'), api('admin/quota').catch(() => ({ antraege: [], konten: 0 }))]);
+    const [u, pool, quota, rm] = await Promise.all([api('admin/uebersicht'), api('admin/pool'), api('admin/quota').catch(() => ({ antraege: [], konten: 0 })), api('admin/rueckmeldungen').catch(() => ({ eintraege: [] }))]);
+    const rmHoch = rm.eintraege.filter((x) => x.daumen === 'hoch').length;
     const s = u.statistik;
     const antraege = u.kursleitende.filter((k) => k.status === 'antrag');
     const frei = u.kursleitende.filter((k) => k.status !== 'antrag');
@@ -29,6 +30,8 @@
       '<h2>Foto-Speicher: Anträge (' + quota.antraege.filter((a) => a.status === 'offen').length + ' offen) · ' + quota.konten + ' Konten</h2>' +
       (quota.antraege.length ? '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>E-Mail</th><th>Bereich</th><th>Wunsch</th><th>Begründung</th><th>Status</th><th></th></tr></thead><tbody>' + quota.antraege.map((a) => '<tr><td>' + esc(a.email) + '</td><td>' + esc(a.bereich) + '</td><td>' + a.wunschMb + ' MB' + (a.zusatzMb ? '<br><small>bisher +' + a.zusatzMb + ' MB</small>' : '') + '</td><td class="small">' + esc(a.text || '–') + '</td><td>' + esc(a.status) + '<br><small>' + datum(a.createdAt) + '</small></td><td>' +
         (a.status === 'offen' ? '<input class="input" type="number" min="1" max="20000" value="' + a.wunschMb + '" data-qmb="' + esc(a.id) + '" style="width:90px"> <button class="btn sm primary" data-q="' + esc(a.id) + '" data-s="ok">Freigeben</button> <button class="btn sm danger" data-q="' + esc(a.id) + '" data-s="abgelehnt">Ablehnen</button>' : '') + '</td></tr>').join('') + '</tbody></table></div>' : '<p class="small muted">Keine Anträge.</p>') +
+      '<h2>Rückmeldungen zur Beta (' + rm.eintraege.length + ': 👍 ' + rmHoch + ' · 👎 ' + (rm.eintraege.length - rmHoch) + ')</h2><p class="small muted">Anonym, ohne IP-Adresse; Text verschlüsselt gespeichert.</p>' +
+      (rm.eintraege.length ? '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Datum</th><th></th><th>App</th><th>Text</th><th>Build</th><th></th></tr></thead><tbody>' + rm.eintraege.map((x) => '<tr><td>' + esc(x.datum) + '</td><td>' + (x.daumen === 'hoch' ? '👍' : '👎') + '</td><td>' + esc(x.app) + '</td><td style="white-space:pre-wrap">' + esc(x.text || '–') + '</td><td>' + esc(x.build || '') + '</td><td><button class="btn sm danger" data-rm="' + esc(x.id) + '">Löschen</button></td></tr>').join('') + '</tbody></table></div>' : '<p class="small muted">Noch keine.</p>') +
       '<h2>Anonyme Beiträge</h2><p class="small muted">Für Auswertungen und Publikationen (ohne Namen, Betriebe, Parzellen).</p><button class="btn" id="csvExport">CSV herunterladen</button>' +
       '<h2>Probenpool (' + pool.eintraege.length + ')</h2><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Titel</th><th>Futter</th><th>Quelle</th><th>Datum</th><th></th></tr></thead><tbody>' + pool.eintraege.map((p) => '<tr><td>' + esc(p.daten.titel) + '</td><td>' + esc(p.daten.typ) + '</td><td>' + esc(p.daten.quelle) + '</td><td>' + datum(p.createdAt) + '</td><td><button class="btn sm danger" data-pool="' + p.id + '">Löschen</button></td></tr>').join('') + '</tbody></table></div>';
     $('#inhalt').hidden = false; $('#login').hidden = true;
@@ -40,11 +43,12 @@
       const url = URL.createObjectURL(await r.blob()); const l = document.createElement('a'); l.href = url; l.download = 'futter_beitraege_' + new Date().toISOString().slice(0, 10) + '.csv'; document.body.appendChild(l); l.click(); l.remove();
       return;
     }
-    const b = e.target.closest('[data-e],[data-inv],[data-pool],[data-q]'); if (!b) return;
+    const b = e.target.closest('[data-e],[data-inv],[data-pool],[data-q],[data-rm]'); if (!b) return;
     try {
       if (b.dataset.e) { if (b.dataset.s !== 'frei' && !confirm('Wirklich?')) return; await api('admin/kursleitung/' + b.dataset.e, { method: 'POST', body: JSON.stringify({ status: b.dataset.s }) }); }
       if (b.dataset.inv) { if (!confirm('Code sperren?')) return; await api('admin/einladungen/' + b.dataset.inv, { method: 'DELETE' }); }
       if (b.dataset.q) { const mbI = document.querySelector('[data-qmb="' + b.dataset.q + '"]'); if (b.dataset.s !== 'ok' && !confirm('Antrag ablehnen?')) return; await api('admin/quota/' + b.dataset.q, { method: 'POST', body: JSON.stringify({ status: b.dataset.s, mb: mbI ? Number(mbI.value) : undefined }) }); }
+      if (b.dataset.rm) { if (!confirm('Rückmeldung löschen?')) return; await api('admin/rueckmeldungen/' + b.dataset.rm, { method: 'DELETE' }); }
       if (b.dataset.pool) { if (!confirm('Pool-Eintrag endgültig löschen?')) return; await api('admin/pool/' + b.dataset.pool, { method: 'DELETE' }); }
       await laden();
     } catch (er) { alert('Fehler: ' + er.message); }

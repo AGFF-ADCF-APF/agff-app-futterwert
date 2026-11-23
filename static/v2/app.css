@@ -801,15 +801,21 @@ html.kb-hinweise [data-kb]::after { content: attr(data-kb); position: absolute; 
 .doc .kurz ul { margin: 6px 0 0; padding-left: 20px; }
 input[aria-invalid="true"] { border-color: var(--schlecht); box-shadow: 0 0 0 2px var(--schlecht-soft); }
 
-/* Ecke «zurück zu v1» (grau, Gegenstück zur gelben «v2 testen»-Ecke in v1; etwas kleiner, damit sie keine Knöpfe verdeckt) */
-.v1-ecke { position: fixed; top: 0; right: 0; width: 92px; height: 92px; overflow: hidden; z-index: 20; pointer-events: none; }
-.v1-ecke a { position: absolute; top: 17px; right: -34px; width: 124px; transform: rotate(45deg); background: #d1d5db; color: #1f2937; text-align: center;
-  font: 800 11.5px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; letter-spacing: .02em; padding: 6px 0; text-decoration: none; white-space: nowrap;
-  box-shadow: 0 2px 6px rgba(0,0,0,.25); pointer-events: auto; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #9ca3af; }
-.v1-ecke a:hover, .v1-ecke a:focus-visible { background: #e5e7eb; }
-:root[data-theme="dark"] .v1-ecke a { background: #4b5563; color: #f3f4f6; border-top-color: #6b7280; border-bottom-color: #374151; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .v1-ecke a { background: #4b5563; color: #f3f4f6; border-top-color: #6b7280; border-bottom-color: #374151; } }
-:root[data-outdoor="1"] .v1-ecke a { background: #e5e7eb; color: #000; border-color: #000; }
+/* Gelbe Ecke «v2 Beta» (öffnet die Rückmeldung mit Link zurück zu v1; kleiner, damit sie keine Knöpfe verdeckt) */
+.beta-ecke { position: fixed; top: 0; right: 0; width: 92px; height: 92px; overflow: hidden; z-index: 20; pointer-events: none; }
+.beta-ecke button { position: absolute; top: 17px; right: -34px; width: 124px; transform: rotate(45deg); background: #facc15; color: #1f2937; text-align: center; border: 0;
+  font: 800 11.5px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; letter-spacing: .04em; padding: 6px 0; white-space: nowrap; cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,.25); pointer-events: auto; border-top: 1px solid #fde68a; border-bottom: 1px solid #ca8a04; }
+.beta-ecke button:hover { background: #fde047; }
+.beta-ecke button:focus-visible { outline: 3px solid var(--ink); outline-offset: -3px; }
+:root[data-outdoor="1"] .beta-ecke button { background: #ffd800; color: #000; border-color: #000; }
+/* Rückmeldung: Daumen */
+.rm-daumen { display: flex; gap: 12px; margin-top: 8px; }
+.rm-d { flex: 1; height: 64px; border-radius: 16px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink-2); display: grid; place-items: center; cursor: pointer; }
+.rm-d.runter svg { transform: rotate(180deg); }
+.rm-d:hover { background: var(--surface-2); }
+.rm-d.hoch[aria-pressed="true"] { background: var(--gut-soft, #e3f4ea); border-color: #2f9e5f; color: #237a49; box-shadow: inset 0 0 0 1px #2f9e5f; }
+.rm-d.runter[aria-pressed="true"] { background: var(--schlecht-soft, #fde8e6); border-color: #c93a32; color: #a52e27; box-shadow: inset 0 0 0 1px #c93a32; }
 /* Platz für die Ecke: Kopfbalken am rechten Fensterrand */
 #main .bar { padding-right: 84px; }
 @media (max-width: 900px) { .bar { padding-right: 84px; } }
