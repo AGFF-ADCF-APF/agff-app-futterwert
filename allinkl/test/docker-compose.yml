@@ -1,0 +1,26 @@
+# Lokale Testumgebung für den Port (nicht für den Betrieb). Start: allinkl/test/start.sh
+services:
+  db:
+    image: mariadb:10.11.14          # wie all-inkl (MariaDB 10.11)
+    environment:
+      MARIADB_DATABASE: futter
+      MARIADB_USER: futter
+      MARIADB_PASSWORD: futter-test
+      MARIADB_RANDOM_ROOT_PASSWORD: "1"
+    tmpfs: [/var/lib/mysql]
+    healthcheck: { test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"], interval: 2s, retries: 30 }
+  php:
+    build: .
+    depends_on: { db: { condition: service_healthy } }
+    environment:
+      FUTTER_KONFIG: /konfig/konfig.php
+      FUTTER_LIB: /app/lib
+    volumes:
+      - ../_bau:/app:ro
+      - ../_bau/public:/var/www/html/futter:ro
+      - ../_bau/public:/var/www/html/wiese:ro
+      - ./konfig.test.php:/konfig/konfig.php:ro
+      - daten:/daten
+    ports: ["127.0.0.1:5097:80"]
+volumes:
+  daten:

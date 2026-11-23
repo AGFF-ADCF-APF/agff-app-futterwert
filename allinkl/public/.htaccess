@@ -1,0 +1,42 @@
+# Futter v2 auf all-inkl. Statische Dateien nur unter assets/, alles andere geht an index.php.
+Options -Indexes -MultiViews
+DirectoryIndex index.php
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  # Vorhandene Dateien unter assets/ direkt ausliefern
+  RewriteCond %{REQUEST_FILENAME} -f
+  RewriteRule ^assets/ - [L]
+  # Alles andere (Seiten, API, sw.js, Manifest) über index.php; versteckte Dateien nie direkt
+  RewriteRule ^ index.php [L,QSA]
+</IfModule>
+
+# Typen wie in Flask (v2_assets): .mjs als JavaScript, Sprachdaten roh (Tesseract.js entpackt selbst)
+AddType text/javascript .mjs
+AddType application/manifest+json .webmanifest
+AddType image/webp .webp
+AddType application/wasm .wasm
+<FilesMatch "\.traineddata\.gz$">
+  ForceType application/octet-stream
+  <IfModule mod_headers.c>
+    Header unset Content-Encoding
+  </IfModule>
+</FilesMatch>
+RemoveEncoding .gz
+
+<IfModule mod_headers.c>
+  # Gleiche Sicherheits-Header wie die PHP-Antworten (lib/kern.php sicherheits_header) für statische Dateien
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; style-src-elem 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob: https://i.ytimg.com; font-src 'self'; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" "expr=%{REQUEST_URI} =~ m#/assets/#"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "no-referrer"
+  Header always set X-Frame-Options "DENY"
+  Header always set Cross-Origin-Opener-Policy "same-origin"
+  Header always set Cross-Origin-Resource-Policy "same-origin"
+  Header always set Strict-Transport-Security "max-age=31536000"
+  Header set Cache-Control "no-cache" "expr=%{REQUEST_URI} =~ m#/assets/#"
+</IfModule>
+
+# Versteckte Dateien (.htaccess, .deploy-commit …) nie ausliefern
+<FilesMatch "^\.">
+  Require all denied
+</FilesMatch>
