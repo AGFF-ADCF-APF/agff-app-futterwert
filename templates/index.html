@@ -388,6 +388,46 @@
             return '';
         }
 
+        // «Ins Wiesenjournal übernehmen» (Weideleistung, Variante A): nur die Futterwerte in der Adresse, kein Abruf,
+        // keine Betriebsdaten. Ziel per WIESENJOURNAL_URL (app.py), Vorgabe die Dev-Umgebung des Journals.
+        const WIESENJOURNAL_URL = {{ wiesenjournal_url|tojson }};
+        // TS-Vorschlag (% der Frischsubstanz) je Futterart bzw. Konservierung; im Journal vor dem Übernehmen änderbar
+        const WIESENJOURNAL_TS = { hay: 88, silage: 35, greenfeed: 16, 'Silomais': 32, 'Ganzpflanzensilage (GPS)': 35 };
+        const WIESENJOURNAL_GRUPPE = { 'Zuckerrüben-Schnitzel': 'saft', 'Malztreber': 'saft' };
+        const WIESENJOURNAL_NAME = { hay: 'Heu/Emd', silage: 'Grassilage', greenfeed: 'Eingrasfutter' };
+        function buildWiesenjournalUrl(res) {
+            if (!res) return '';
+            const werte = res.effektiv || res.corrected || res.basis || {};
+            const basis = res.basis || res.base || {};
+            const zahl = (v) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : null);
+            const nel = zahl(werte.nel);
+            if (nel == null) return '';
+            const futterart = (document.getElementById('futterart')?.value || '').trim();
+            const konservierung = futterart === 'Wiesenfutter' ? (document.querySelector('input[name="konservierung"]:checked')?.value || '') : '';
+            const probe = getCurrentProbeNrForExternalApps();
+            const url = new URL('futtermittel/neu', WIESENJOURNAL_URL.endsWith('/') ? WIESENJOURNAL_URL : WIESENJOURNAL_URL + '/');
+            url.searchParams.set('name', [WIESENJOURNAL_NAME[konservierung] || futterart || 'Futter', probe].filter(Boolean).join(' – '));
+            url.searchParams.set('gruppe', WIESENJOURNAL_GRUPPE[futterart] || 'grund');
+            url.searchParams.set('nel', nel.toFixed(2));
+            const rp = zahl(werte.rp ?? basis.rp);
+            if (rp != null) url.searchParams.set('rp', String(Math.round(rp)));
+            const apde = zahl(werte.apde);
+            if (apde != null) url.searchParams.set('apde', String(Math.round(apde)));
+            const ts = WIESENJOURNAL_TS[konservierung] || WIESENJOURNAL_TS[futterart];
+            if (ts) url.searchParams.set('ts', String(ts));
+            if (probe) url.searchParams.set('probe', probe);
+            url.searchParams.set('quelle', 'futterwert');
+            return url.toString();
+        }
+        function openWiesenjournal() {
+            const url = buildWiesenjournalUrl(lastCalculationResult);
+            if (!url) {
+                alert('Zuerst eine Beurteilung mit Futterwert berechnen.');
+                return;
+            }
+            window.open(url, '_blank', 'noopener');
+        }
+
         function getCurrentProbeNrForExternalApps() {
             return (document.getElementById('probeNr')?.value || '').trim();
         }
@@ -1362,6 +1402,7 @@
             const nextProbeBtn = document.getElementById('nextProbeBtn');
             if (nextProbeBtn) {
                 nextProbeBtn.addEventListener('click', handleNextProbeAssessment);
+                document.getElementById('wiesenjournalBtn')?.addEventListener('click', openWiesenjournal);
             }
             const aufwuchsNrInput = document.getElementById('aufwuchsNr');
             if (aufwuchsNrInput) {
@@ -8064,6 +8105,13 @@
                     <button id="nextProbeBtn" type="button" class="w-full py-3 bg-emerald-600 text-white font-bold rounded hover:bg-emerald-700 transition-colors opacity-70">
                         Nächste Probe beurteilen
                     </button>
+
+                    <div>
+                        <button id="wiesenjournalBtn" type="button" class="w-full py-3 bg-white border border-emerald-700 text-emerald-800 font-bold rounded hover:bg-emerald-50 transition-colors">
+                            Ins Wiesenjournal übernehmen
+                        </button>
+                        <p class="mt-1 text-xs text-gray-600">Öffnet das AGFF Wiesenjournal mit diesen Futterwerten (NEL, RP, APDE, TS-Vorschlag) als Futtermittel für die Stallration. Übergeben werden nur die Futterwerte, im Browser.</p>
+                    </div>
 
                 </div>
 

@@ -651,8 +651,11 @@ def load_machine_catalog_grouped():
     return {'categories': categories, 'machines': machines}
 
 # --- ROUTEN ---
+# Ziel für «Ins Wiesenjournal übernehmen» (nur Futterwerte, keine Betriebsdaten); Vorgabe die Dev-Umgebung des Journals
+WIESENJOURNAL_URL = os.environ.get('WIESENJOURNAL_URL', 'https://dev-app.graswachstum.ch/journal/')
+
 @app.route('/')
-def index(): return render_template('index.html')
+def index(): return render_template('index.html', wiesenjournal_url=WIESENJOURNAL_URL)
 
 @app.route('/dashboard')
 def dashboard(): return render_template('dashboard.html')
