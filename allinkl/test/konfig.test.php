@@ -10,4 +10,5 @@ return [
     'SEITEN_DIR' => '/app/seiten',
     'ASSETS_DIR' => '/app/public/assets',
     'V2_MAIL_DRYRUN_FILE' => '/daten/mail.jsonl',
+    'V2_KURSLEITUNG_DOMAINS' => 'schule.example.org',
 ];

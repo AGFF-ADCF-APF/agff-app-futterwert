@@ -15,7 +15,7 @@ set_error_handler(function (int $nr, string $text, string $datei, int $zeile): b
 });
 
 $lib = getenv('FUTTER_LIB') ?: dirname(__DIR__) . '/lib';
-foreach (['kern', 'mail', 'konto', 'sso', 'statistik', 'rueckmeldung', 'seiten', 'spaces'] as $modul) {
+foreach (['kern', 'mail', 'konto', 'sso', 'statistik', 'rueckmeldung', 'seiten', 'spaces', 'admin', 'kurs', 'pool'] as $modul) {
     require $lib . '/' . $modul . '.php';
 }
 
@@ -90,6 +90,51 @@ $ROUTEN = [
     ['POST', 'api/quota-antrag/code', 'r_quota_antrag_code'],
     ['GET', 'api/admin/quota', 'r_admin_quota_liste'],
     ['POST', 'api/admin/quota/([^/]+)', 'r_admin_quota_entscheid'],
+    // Kurse
+    ['GET', 'api/kurs-config', 'r_kurs_config'],
+    ['POST', 'api/kurse', 'r_kurs_anlegen'],
+    ['POST', 'api/kurse/([^/]+)/aktivieren', 'r_kurs_aktivieren'],
+    ['POST', 'api/kurse/([^/]+)/beitreten', 'r_kurs_beitreten'],
+    ['POST', 'api/kurse/([^/]+)/email/code', 'r_kurs_email_code'],
+    ['POST', 'api/kurse/([^/]+)/email/verify', 'r_kurs_email_verify'],
+    ['POST', 'api/kurse/([^/]+)/logout', 'r_kurs_logout'],
+    ['GET', 'api/kurse/([^/]+)', 'r_kurs_lesen'],
+    ['DELETE', 'api/kurse/([^/]+)', 'r_kurs_loeschen'],
+    ['GET', 'api/kurse/([^/]+)/proben/([^/]+)/status', 'r_kurs_probe_status'],
+    ['PUT', 'api/kurse/([^/]+)/meta', 'r_kurs_meta'],
+    ['PUT', 'api/kurse/([^/]+)/zustimmung', 'r_kurs_zustimmung'],
+    ['PUT', 'api/kurse/([^/]+)/link', 'r_kurs_link'],
+    ['POST', 'api/meine-kurse/code', 'r_meine_kurse_code'],
+    ['POST', 'api/meine-kurse', 'r_meine_kurse'],
+    ['POST', 'api/kurse/([^/]+)/etiketten', 'r_kurs_etiketten'],
+    ['PUT', 'api/kurse/([^/]+)/proben/([^/]+)', 'r_kurs_probe_erfassen'],
+    ['DELETE', 'api/kurse/([^/]+)/proben/([^/]+)', 'r_kurs_probe_loeschen'],
+    ['PUT', 'api/kurse/([^/]+)/proben/([^/]+)/beurteilung', 'r_kurs_abgeben'],
+    ['GET', 'api/kurse/([^/]+)/proben/([^/]+)/beurteilungen', 'r_kurs_vergleich'],
+    ['PUT', 'api/kurse/([^/]+)/fotos/([^/]+)', 'r_kurs_foto_hochladen'],
+    ['GET', 'api/kurse/([^/]+)/fotos/([^/]+)', 'r_kurs_foto_lesen'],
+    ['DELETE', 'api/kurse/([^/]+)/fotos/([^/]+)', 'r_kurs_foto_loeschen'],
+    ['PUT', 'api/kurse/([^/]+)/ich', 'r_kurs_name'],
+    ['DELETE', 'api/kurse/([^/]+)/teilnehmende/([^/]+)', 'r_kurs_person_loeschen'],
+    // Probenpool
+    ['GET', 'api/pool', 'r_pool_liste'],
+    ['PUT', 'api/pool/([^/]+)', 'r_pool_speichern'],
+    ['DELETE', 'api/pool/([^/]+)', 'r_pool_loeschen'],
+    ['PUT', 'api/pool/([^/]+)/fotos/([^/]+)', 'r_pool_foto_hochladen'],
+    ['GET', 'api/pool/([^/]+)/fotos/([^/]+)', 'r_pool_foto_lesen'],
+    ['GET', 'api/oeffentlich/pool', 'r_pool_oeffentlich'],
+    ['GET', 'api/oeffentlich/pool/([^/]+)/fotos/([^/]+)', 'r_pool_oeffentlich_foto'],
+    ['GET', 'api/oeffentlich/kursprobe/([^/]+)/([^/]+)', 'r_kursprobe_oeffentlich'],
+    ['GET', 'api/admin/pool', 'r_admin_pool'],
+    ['DELETE', 'api/admin/pool/([^/]+)', 'r_admin_pool_loeschen'],
+    // Kursleitung und Administration
+    ['POST', 'api/kursleitung/status', 'r_kl_status'],
+    ['POST', 'api/kursleitung/antrag/code', 'r_kl_antrag_code'],
+    ['POST', 'api/kursleitung/antrag', 'r_kl_antrag'],
+    ['GET', 'api/admin/uebersicht', 'r_admin_uebersicht'],
+    ['POST', 'api/admin/kursleitung/([^/]+)', 'r_admin_kl_entscheid'],
+    ['POST', 'api/admin/einladungen', 'r_admin_einladung_neu'],
+    ['DELETE', 'api/admin/einladungen/([^/]+)', 'r_admin_einladung_sperren'],
 ];
 
 function ausgeben(Antwort $a, bool $api): void

@@ -63,6 +63,10 @@ def norm(v, schluessel=''):
             return '<id>'
         if schluessel in ('session',):
             return '<token>'
+        if schluessel in ('ownerId', 'teilnehmerId', 'ichId', 'kursId') and re.match(r'^[A-Za-z0-9_-]{8,}$', v):
+            return '<id>'
+        if schluessel in ('secret',) and re.match(r'^[A-Za-z0-9_-]{43}$', v):
+            return '<geheim>'
     if schluessel in ('expiresAt',) and isinstance(v, (int, float)):
         return '<ablauf>'
     if isinstance(v, float) and v == int(v):
@@ -497,7 +501,255 @@ def fall_konto(P):
     P.vergleich('nach löschen', 'GET', 'api/konto', kopf=K, ctx=C, erwartet=404)
 
 
-FAELLE = {'grundlagen': fall_grundlagen, 'rueckmeldung': fall_rueckmeldung, 'statistik': fall_statistik, 'anmeldung': fall_anmeldung, 'freigaben': fall_freigaben, 'konto': fall_konto}
+KC = {'accepted': True, 'version': '2026-10-k5'}
+JPG = b'\xff\xd8\xff\xe0' + b'P' * 500
+WEBP = b'RIFF\x00\x00\x00\x00WEBPVP8 ' + b'Q' * 400
+
+
+def kurs_schluessel():
+    secret = b64u(secrets.token_bytes(32))
+    jt = hkdf(secret, 'kurs-join')
+    return {'ksecret': secret, 'jt': jt, 'jh': hashlib.sha256(jt.encode()).hexdigest()}
+
+
+def merke(liste, schluessel='session'):
+    return lambda j: liste.append(j.get(schluessel) if isinstance(j, dict) else None)
+
+
+def kurs_neu(P, em, name, einladung=None, secret=True):
+    """Kurs anlegen und aktivieren (beide Seiten); gibt den Zustand je Seite zurück oder None."""
+    C = {'flask': kurs_schluessel(), 'php': kurs_schluessel()}
+    body = lambda c: dict({'consent': KC, 'email': em, 'joinHash': c['jh']}, **({'secret': c['ksecret']} if secret else {}), **({'einladung': einladung} if einladung else {}))
+    ids = []
+    P.vergleich(f'{name}: anlegen', 'POST', 'api/kurse', body=body, ctx=C, erwartet=201, sortiere=merke(ids, 'id'))
+    if not all(ids):
+        return None
+    C['flask']['kid'], C['php']['kid'] = ids
+    time.sleep(0.3)
+    for seite in C:
+        C[seite]['code'] = letzter_code(seite, em)
+    tok = []
+    P.vergleich(f'{name}: aktivieren', 'POST', lambda c: f"api/kurse/{c['kid']}/aktivieren", body=lambda c: {'email': em, 'code': c['code']}, ctx=C, erwartet=200, sortiere=merke(tok))
+    if not all(tok):
+        return None
+    C['flask']['L'], C['php']['L'] = tok
+    return C
+
+
+def kp(rest=''):
+    return lambda c: f"api/kurse/{c['kid']}{rest}"
+
+
+def S(wer):
+    return lambda c: {'X-Kurs-Session': c[wer]}
+
+
+def tn_sort(j):
+    """Teilnehmende mit gleicher Erstellungszeit haben keine feste Reihenfolge (SQLite rowid / InnoDB Primärschlüssel)."""
+    if isinstance(j, dict) and isinstance(j.get('teilnehmende'), list):
+        j['teilnehmende'].sort(key=lambda t: (t['rolle'] != 'leitung', json.dumps({k: v for k, v in t.items() if k != 'id'}, sort_keys=True)))
+
+
+def bild_vergleich(P, name, pfad, kopf, C, inhalt, erwartet=200):
+    a = anfrage(P.flask, 'GET', pfad(C['flask']), kopf=kopf(C['flask']))
+    b = anfrage(P.php, 'GET', pfad(C['php']), kopf=kopf(C['php']))
+    gleich = (a.status, a.kopf.get('Content-Type'), a.roh) == (b.status, b.kopf.get('Content-Type'), b.roh)
+    if not gleich or a.status != erwartet or (erwartet == 200 and b.roh != inhalt):
+        P.fehler.append((name, [f"Flask {a.status} {a.kopf.get('Content-Type')} {len(a.roh)} / PHP {b.status} {b.kopf.get('Content-Type')} {len(b.roh)}"]))
+        print('  ✗ ' + name)
+    else:
+        P.ok += 1
+
+
+def beurteilung(bid, typ='heu', **x):
+    return {'data': {'analyse': dict({'id': bid, 'typ': typ, 'createdAt': '2026-11-05T09:00:00.000Z', 'kopf': {'schnitt': '2026-06-01'},
+                                      'antworten': {'bestand': 'AR', 'n': 3, 'w': 1.5, 'b': True}, 'rad': {'geruch': 'g1'}}, **x),
+                     'privat': {'notiz': 'riecht «gut» ä'}}}
+
+
+def fall_kurse(P):
+    print('Kurse')
+    em = 'leitung@schule.example.org'
+    P.vergleich('kurs-config', 'GET', 'api/kurs-config')
+    jh = hashlib.sha256(b'x').hexdigest()
+    P.vergleich('anlegen ohne consent', 'POST', 'api/kurse', body={'email': em, 'joinHash': jh})
+    P.vergleich('anlegen alte version', 'POST', 'api/kurse', body={'consent': {'accepted': True, 'version': 'alt'}, 'email': em, 'joinHash': jh})
+    P.vergleich('anlegen schlechter hash', 'POST', 'api/kurse', body={'consent': KC, 'email': em, 'joinHash': 'abc'})
+    P.vergleich('anlegen nicht freigeschaltet', 'POST', 'api/kurse', body={'consent': KC, 'email': 'lehrer@andere.example.org', 'joinHash': jh})
+    C = kurs_neu(P, em, 'kurs')
+    if not C:
+        return
+    P.vergleich('aktivieren nochmals', 'POST', kp('/aktivieren'), body=lambda c: {'email': em, 'code': c['code']}, ctx=C)
+    P.vergleich('aktivieren ungültige adresse', 'POST', kp('/aktivieren'), body={'email': 'x'}, ctx=C)
+    P.vergleich('lesen leitung leer', 'GET', kp(), kopf=S('L'), ctx=C, erwartet=200)
+    P.vergleich('lesen ohne sitzung', 'GET', kp(), ctx=C)
+    # Beitreten
+    P.vergleich('beitreten ohne consent', 'POST', kp('/beitreten'), body=lambda c: {'joinToken': c['jt']}, ctx=C)
+    P.vergleich('beitreten falsches token', 'POST', kp('/beitreten'), body={'consent': KC, 'joinToken': tok()[:43]}, ctx=C)
+    for wer in ('A', 'B', 'X'):
+        t = []
+        P.vergleich(f'beitreten {wer}', 'POST', kp('/beitreten'), body=lambda c: {'consent': KC, 'joinToken': c['jt']}, ctx=C, erwartet=200, sortiere=merke(t))
+        C['flask'][wer], C['php'][wer] = t
+        time.sleep(1.05)  # unterschiedliche Erstellungszeit → feste Reihenfolge der Teilnehmenden
+    # Etiketten
+    for i, n in enumerate([0, 106, 'drei', 3.0, None]):
+        P.vergleich(f'etiketten ungültig #{i}', 'POST', kp('/etiketten'), body={'anzahl': n}, kopf=S('L'), ctx=C)
+    P.vergleich('etiketten als teilnahme', 'POST', kp('/etiketten'), body={'anzahl': 2}, kopf=S('A'), ctx=C)
+    et = []
+    P.vergleich('etiketten 3', 'POST', kp('/etiketten'), body={'anzahl': 3}, kopf=S('L'), ctx=C, erwartet=200, sortiere=lambda j: et.append(j))
+    P.vergleich('etiketten true', 'POST', kp('/etiketten'), body={'anzahl': True}, kopf=S('L'), ctx=C, erwartet=200)
+    if not all(et):
+        return
+    for seite, j in zip(C, et):
+        C[seite]['p1'], C[seite]['p2'], C[seite]['p3'] = [p['id'] for p in j['proben']]
+    # Meta
+    meta = {'analyse': {'datum': '2026-06-15', 'hinweise': {'foto': True, 'labor': False}, 'beitragen': True}, 'privat': {'titel': 'Kurs «Heu» 2026'}}
+    for i, body in enumerate([
+        {'analyse': {'fremd': 1}}, {'analyse': {'beitragen': 1}}, {'analyse': {'datum': '15.6.2026'}}, {'analyse': {'hinweise': {'foto': 1}}},
+        {'analyse': {'hinweise': {'unbekannt': True}}}, {'analyse': {'hinweise': []}}, {'analyse': [1]}, {'privat': {'böse': 1}},
+    ]):
+        P.vergleich(f'meta ungültig #{i}', 'PUT', kp('/meta'), body=body, kopf=S('L'), ctx=C)
+    P.vergleich('meta als teilnahme', 'PUT', kp('/meta'), body=meta, kopf=S('A'), ctx=C)
+    P.vergleich('meta ok', 'PUT', kp('/meta'), body=meta, kopf=S('L'), ctx=C, erwartet=200)
+    # Ersterfassung
+    pr = lambda n, rest='': (lambda c: f"api/kurse/{c['kid']}/proben/{c[n]}{rest}")
+    P.vergleich('status leer', 'GET', pr('p1', '/status'), kopf=S('A'), ctx=C, erwartet=200)
+    P.vergleich('status unbekannt', 'GET', kp('/proben/gibtsnicht/status'), kopf=S('A'), ctx=C)
+    erf = {'analyse': {'typ': 'heu'}, 'privat': {'bezeichnung': 'Wiese Ost', 'standort': {'plz': '3052'}}, 'labor': {'nel': 5.5, 'rp': 140}}
+    for i, body in enumerate([{'analyse': {'typ': 'kuh'}}, {'analyse': {'typ': 'heu', 'x': 1}}, {'analyse': 'heu'}, {'analyse': {'typ': 'heu'}, 'labor': [1]},
+                              {'analyse': {'typ': 'heu'}, 'privat': {'t': 'x' * 5001}}]):
+        P.vergleich(f'erfassen ungültig #{i}', 'PUT', pr('p1'), body=body, kopf=S('A'), ctx=C)
+    P.vergleich('erfassen pool unbekannt', 'PUT', pr('p1'), body=dict(erf, poolId='gibtsnicht1'), kopf=S('A'), ctx=C)
+    P.vergleich('erfassen ohne sitzung', 'PUT', pr('p1'), body=erf, ctx=C)
+    P.vergleich('erfassen A', 'PUT', pr('p1'), body=erf, kopf=S('A'), ctx=C, erwartet=200)
+    P.vergleich('erfassen B fremde probe', 'PUT', pr('p1'), body=erf, kopf=S('B'), ctx=C, erwartet=409)
+    P.vergleich('erfassen A ändert', 'PUT', pr('p1'), body=dict(erf, privat={'bezeichnung': 'Wiese West'}), kopf=S('A'), ctx=C, erwartet=200)
+    P.vergleich('erfassen teilnahme ohne etikett', 'PUT', kp('/proben/eigeneprobe1'), body=erf, kopf=S('A'), ctx=C, erwartet=404)
+    P.vergleich('erfassen leitung ohne etikett', 'PUT', kp('/proben/leitungprobe1'), body={'analyse': {'typ': 'gras'}}, kopf=S('L'), ctx=C, erwartet=200)
+    P.vergleich('erfassen B zweites etikett', 'PUT', pr('p2'), body={'analyse': {'typ': 'mais'}, 'privat': None, 'labor': {}}, kopf=S('B'), ctx=C, erwartet=200)
+    P.vergleich('status erfasst', 'GET', pr('p1', '/status'), kopf=S('B'), ctx=C, erwartet=200)
+    # Namen
+    for i, body in enumerate([{'name': {'name': ''}}, {'name': {'name': '  　 '}}, {'name': {'name': 'x' * 81}}, {'name': {'name': 'a', 'x': 1}},
+                              {'name': 'Anna'}, {'name': {'name': 5}}, {'name': {'name': 'a\u0001'}}]):
+        P.vergleich(f'name ungültig #{i}', 'PUT', kp('/ich'), body=body, kopf=S('A'), ctx=C)
+    for wer, name in (('A', 'Anna «A» ä'), ('B', ' Beat '), ('X', 'Xaver')):
+        P.vergleich(f'name {wer}', 'PUT', kp('/ich'), body={'name': {'name': name}}, kopf=S(wer), ctx=C, erwartet=200)
+    for wer in ('L', 'A', 'B'):
+        P.vergleich(f'lesen {wer}', 'GET', kp(), kopf=S(wer), ctx=C, erwartet=200, sortiere=tn_sort)
+    # Beurteilungen
+    bu = lambda n: pr(n, '/beurteilung')
+    vg = lambda n: pr(n, '/beurteilungen')
+    P.vergleich('abgeben zu gross', 'PUT', bu('p1'), roh=b'{"data":"' + b'x' * 70000 + b'"}', kopf=S('A'), ctx=C)
+    P.vergleich('abgeben kein json', 'PUT', bu('p1'), roh=b'{kaputt', kopf=S('A'), ctx=C)
+    P.vergleich('abgeben liste', 'PUT', bu('p1'), roh=b'[1]', kopf=S('A'), ctx=C)
+    for i, body in enumerate([{'data': None}, {'data': {'analyse': {'id': 'k', 'typ': 'heu'}}}, beurteilung('beurtA001', antworten={'k': [1]}),
+                              beurteilung('beurtA001', fremd=1), {'data': {'analyse': {'id': 'beurtA001', 'typ': 'heu'}, 'x': 1}}]):
+        P.vergleich(f'abgeben ungültig #{i}', 'PUT', bu('p1'), body=body, kopf=S('A'), ctx=C)
+    P.vergleich('abgeben falscher typ', 'PUT', bu('p1'), body=beurteilung('beurtA001', typ='gras'), kopf=S('A'), ctx=C, erwartet=422)
+    P.vergleich('abgeben leeres etikett', 'PUT', bu('p3'), body=beurteilung('beurtA001'), kopf=S('A'), ctx=C, erwartet=404)
+    P.vergleich('vergleich vor abgabe', 'GET', vg('p1'), kopf=S('B'), ctx=C, erwartet=403)
+    P.vergleich('abgeben A', 'PUT', bu('p1'), body=beurteilung('beurtA001'), kopf=S('A'), ctx=C, erwartet=200)
+    P.vergleich('abgeben A zweimal', 'PUT', bu('p1'), body=beurteilung('beurtA001'), kopf=S('A'), ctx=C, erwartet=409)
+    P.vergleich('abgeben B', 'PUT', bu('p1'), body=beurteilung('beurtB001', rad={'geruch': 'g3'}), kopf=S('B'), ctx=C, erwartet=200)
+    bsrt = lambda j: isinstance(j, dict) and isinstance(j.get('beurteilungen'), list) and j['beurteilungen'].sort(key=lambda b: b['analyse']['id'])
+    P.vergleich('vergleich B', 'GET', vg('p1'), kopf=S('B'), ctx=C, erwartet=200, sortiere=bsrt)
+    P.vergleich('vergleich leitung', 'GET', vg('p1'), kopf=S('L'), ctx=C, erwartet=200, sortiere=bsrt)
+    P.vergleich('typ nach abgaben fest', 'PUT', pr('p1'), body=dict(erf, analyse={'typ': 'gras'}), kopf=S('A'), ctx=C, erwartet=409)
+    # Fotos
+    fo = lambda fid, q='': (lambda c: f"api/kurse/{c['kid']}/fotos/{fid}?probe={c['p1']}{q}")
+    P.vergleich('foto falsche art', 'PUT', fo('kursfoto00000001', '&art=bild'), roh=JPG, kopf=S('A'), ctx=C)
+    P.vergleich('foto falsche id', 'PUT', fo('kurz', '&art=futter'), roh=JPG, kopf=S('A'), ctx=C)
+    P.vergleich('foto zu klein', 'PUT', fo('kursfoto00000001', '&art=futter'), roh=JPG[:60], kopf=S('A'), ctx=C)
+    P.vergleich('foto kein bild', 'PUT', fo('kursfoto00000001', '&art=futter'), roh=b'%PDF' + b'x' * 300, kopf=S('A'), ctx=C)
+    P.vergleich('foto B zur fremden probe', 'PUT', fo('kursfoto00000009', '&art=futter'), roh=JPG, kopf=S('B'), ctx=C, erwartet=404)
+    P.vergleich('foto A futter', 'PUT', fo('kursfoto00000001', '&art=futter'), roh=JPG, kopf=S('A'), ctx=C, erwartet=200)
+    P.vergleich('foto A labor', 'PUT', fo('kursfoto00000002', '&art=labor'), roh=WEBP, kopf=S('A'), ctx=C, erwartet=200)
+    P.vergleich('foto B zur beurteilung', 'PUT', fo('kursfoto00000003', '&art=futter&zu=beurteilung'), roh=JPG, kopf=S('B'), ctx=C, erwartet=200)
+    P.vergleich('foto B überschreibt fremdes', 'PUT', fo('kursfoto00000001', '&art=futter'), roh=JPG, kopf=S('L'), ctx=C, erwartet=404)
+    fg = lambda fid: (lambda c: f"api/kurse/{c['kid']}/fotos/{fid}")
+    bild_vergleich(P, 'foto futter für X (Hilfestellung)', fg('kursfoto00000001'), S('X'), C, JPG)
+    bild_vergleich(P, 'foto labor für B (nach Abgabe)', fg('kursfoto00000002'), S('B'), C, WEBP)
+    bild_vergleich(P, 'foto labor für leitung', fg('kursfoto00000002'), S('L'), C, WEBP)
+    P.vergleich('foto labor für X (ohne Abgabe)', 'GET', fg('kursfoto00000002'), kopf=S('X'), ctx=C, erwartet=403)
+    P.vergleich('foto beurteilung für X', 'GET', fg('kursfoto00000003'), kopf=S('X'), ctx=C, erwartet=403)
+    P.vergleich('foto unbekannt', 'GET', fg('kursfoto00000008'), kopf=S('A'), ctx=C, erwartet=404)
+    P.vergleich('foto falsche id lesen', 'GET', fg('kurz'), kopf=S('A'), ctx=C, erwartet=400)
+    P.vergleich('foto löschen fremd', 'DELETE', fg('kursfoto00000001'), kopf=S('B'), ctx=C, erwartet=404)
+    P.vergleich('foto löschen', 'DELETE', fg('kursfoto00000003'), kopf=S('B'), ctx=C, erwartet=200)
+    P.vergleich('lesen A mit fotos', 'GET', kp(), kopf=S('A'), ctx=C, erwartet=200, sortiere=tn_sort)
+    # E-Mail verknüpfen und auf neuem Gerät anmelden
+    ea = 'anna@example.org'
+    P.vergleich('email code ungültig', 'POST', kp('/email/code'), body={'email': 'x'}, kopf=S('A'), ctx=C)
+    P.vergleich('email code ohne alles', 'POST', kp('/email/code'), body={'email': ea}, ctx=C, erwartet=404)
+    P.vergleich('email code A', 'POST', kp('/email/code'), body={'email': ea}, kopf=S('A'), ctx=C, erwartet=200)
+    time.sleep(0.3)
+    for seite in C:
+        C[seite]['ca'] = letzter_code(seite, ea)
+    P.vergleich('email verify falsch', 'POST', kp('/email/verify'), body=lambda c: {'email': ea, 'code': '000000' if c['ca'] != '000000' else '111111'}, kopf=S('A'), ctx=C)
+    P.vergleich('email verify A', 'POST', kp('/email/verify'), body=lambda c: {'email': ea, 'code': c['ca']}, kopf=S('A'), ctx=C, erwartet=200)
+    P.vergleich('email code B dieselbe', 'POST', kp('/email/code'), body={'email': ea}, kopf=S('B'), ctx=C, erwartet=200)
+    time.sleep(0.3)
+    for seite in C:
+        C[seite]['cb'] = letzter_code(seite, ea)
+    P.vergleich('email verify B vergeben', 'POST', kp('/email/verify'), body=lambda c: {'email': ea, 'code': c['cb']}, kopf=S('B'), ctx=C, erwartet=409)
+    P.vergleich('email code neues gerät', 'POST', kp('/email/code'), body=lambda c: {'email': ea, 'joinToken': c['jt']}, ctx=C, erwartet=200)
+    time.sleep(0.3)
+    for seite in C:
+        C[seite]['cn'] = letzter_code(seite, ea)
+    t = []
+    P.vergleich('email verify neues gerät', 'POST', kp('/email/verify'), body=lambda c: {'email': ea, 'code': c['cn'], 'joinToken': c['jt']}, ctx=C, erwartet=200, sortiere=merke(t))
+    C['flask']['A2'], C['php']['A2'] = t
+    en = 'niemand@example.org'
+    P.vergleich('email code unbekannt', 'POST', kp('/email/code'), body=lambda c: {'email': en, 'joinToken': c['jt']}, ctx=C, erwartet=200)
+    time.sleep(0.3)
+    for seite in C:
+        C[seite]['cu'] = letzter_code(seite, en)
+    P.vergleich('email verify unbekannt', 'POST', kp('/email/verify'), body=lambda c: {'email': en, 'code': c['cu'], 'joinToken': c['jt']}, ctx=C, erwartet=404)
+    P.vergleich('lesen A2 (zweites gerät)', 'GET', kp(), kopf=S('A2'), ctx=C, erwartet=200, sortiere=tn_sort)
+    P.vergleich('lesen B nach verknüpfen', 'GET', kp(), kopf=S('B'), ctx=C, erwartet=200, sortiere=tn_sort)
+    # Link-Geheimnis, Zustimmung
+    P.vergleich('link falsch', 'PUT', kp('/link'), body={'secret': b64u(secrets.token_bytes(32))}, kopf=S('B'), ctx=C, erwartet=422)
+    P.vergleich('link kein text', 'PUT', kp('/link'), body={'secret': 5}, kopf=S('B'), ctx=C, erwartet=422)
+    P.vergleich('link ok', 'PUT', kp('/link'), body=lambda c: {'secret': c['ksecret']}, kopf=S('B'), ctx=C, erwartet=200)
+    P.vergleich('zustimmung ohne', 'PUT', kp('/zustimmung'), body={}, kopf=S('B'), ctx=C, erwartet=400)
+    P.vergleich('zustimmung', 'PUT', kp('/zustimmung'), body={'consent': KC}, kopf=S('B'), ctx=C, erwartet=200)
+    # Meine Kurse
+    P.vergleich('meine code ungültig', 'POST', 'api/meine-kurse/code', body={'email': 'x'})
+    P.vergleich('meine code unbekannt', 'POST', 'api/meine-kurse/code', body={'email': 'fremd@example.org'}, erwartet=200)
+    P.vergleich('meine code', 'POST', 'api/meine-kurse/code', body={'email': ea}, erwartet=200)
+    time.sleep(0.3)
+    for seite in C:
+        C[seite]['cm'] = letzter_code(seite, ea)
+    P.vergleich('meine falscher code', 'POST', 'api/meine-kurse', body=lambda c: {'email': ea, 'code': '000000' if c['cm'] != '000000' else '111111'}, ctx=C, erwartet=400)
+    P.vergleich('meine kurse', 'POST', 'api/meine-kurse', body=lambda c: {'email': ea, 'code': c['cm']}, ctx=C, erwartet=200)
+    # Fremde Personen
+    P.vergleich('fremd: falsche sitzung', 'GET', kp(), kopf={'X-Kurs-Session': tok()[:43]}, ctx=C, erwartet=404)
+    P.vergleich('fremd: sitzung anderer kurs-id', 'GET', 'api/kurse/fremderkurs1', kopf=S('A'), ctx=C, erwartet=404)
+    P.vergleich('fremd: teilnahme löscht kurs', 'DELETE', kp(), kopf=S('A'), ctx=C, erwartet=404)
+    P.vergleich('fremd: teilnahme löscht probe', 'DELETE', pr('p1'), kopf=S('A'), ctx=C, erwartet=404)
+    P.vergleich('fremd: A entfernt B', 'DELETE', lambda c: f"api/kurse/{c['kid']}/teilnehmende/unbekannt1", kopf=S('A'), ctx=C, erwartet=404)
+    # Entfernen, Austreten, Löschen
+    ids = []
+    P.vergleich('lesen leitung vor entfernen', 'GET', kp(), kopf=S('L'), ctx=C, erwartet=200, sortiere=lambda j: (ids.append(j), tn_sort(j)))
+    if all(ids):
+        for seite, j in zip(C, ids):
+            namen = {(t['name'] or {}).get('name'): t['id'] for t in j['teilnehmende']}
+            C[seite]['idX'], C[seite]['idB'], C[seite]['idL'] = namen['Xaver'], namen[' Beat '], namen[None]
+        tp = lambda n: (lambda c: f"api/kurse/{c['kid']}/teilnehmende/{c[n]}")
+        P.vergleich('leitung entfernt sich', 'DELETE', tp('idL'), kopf=S('L'), ctx=C, erwartet=409)
+        P.vergleich('leitung entfernt X', 'DELETE', tp('idX'), kopf=S('L'), ctx=C, erwartet=200)
+        P.vergleich('B tritt aus', 'DELETE', tp('idB'), kopf=S('B'), ctx=C, erwartet=200)
+        P.vergleich('B nach austritt', 'GET', kp(), kopf=S('B'), ctx=C, erwartet=404)
+    P.vergleich('probe löschen', 'DELETE', kp('/proben/leitungprobe1'), kopf=S('L'), ctx=C, erwartet=200)
+    P.vergleich('lesen leitung danach', 'GET', kp(), kopf=S('L'), ctx=C, erwartet=200, sortiere=tn_sort)
+    P.vergleich('vergleich nach austritt', 'GET', vg('p1'), kopf=S('A'), ctx=C, erwartet=200, sortiere=bsrt)
+    P.vergleich('logout A', 'POST', kp('/logout'), kopf=S('A'), ctx=C, erwartet=200)
+    P.vergleich('lesen nach logout', 'GET', kp(), kopf=S('A'), ctx=C, erwartet=404)
+    P.vergleich('kurs löschen', 'DELETE', kp(), kopf=S('L'), ctx=C, erwartet=200)
+    P.vergleich('lesen nach löschen', 'GET', kp(), kopf=S('A2'), ctx=C, erwartet=404)
+
+
+FAELLE = {'grundlagen': fall_grundlagen, 'rueckmeldung': fall_rueckmeldung, 'statistik': fall_statistik, 'anmeldung': fall_anmeldung, 'freigaben': fall_freigaben, 'konto': fall_konto, 'kurse': fall_kurse}
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
