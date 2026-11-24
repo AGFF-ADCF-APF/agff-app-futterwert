@@ -56,7 +56,7 @@ vergleicht Status, Sicherheits-Header und JSON.
 | Texterkennung | läuft auf dem Home-Server (Flask, `/futter/v2/api/labor/*`, CORS über `OCR_CORS_ORIGINS`); die PHP-App nennt die Adresse unter `api/labor/config` (konfig `OCR_URL`, ergänzt die CSP). Kein Server eingestellt oder erreichbar (30 s) → «Auf meinem Gerät» |
 | Deploy-Skript (dev mit Tor, live mit Bestätigung) | in Betrieb (dev und live) |
 | Datenumzug Server-Daten | `allinkl/skripte/umzug.sh --lokal|--dev|--live` (Export im Flask-Container → SSH-Pipe → `skripte/umzug.php`, alter → neuer Schlüssel, Fotos mit). Lokal geprüft mit `allinkl/test/umzug_pruefen.sh` (10/10 gleich); dev nur mit Testdaten; live wartet auf Martin |
-| Umzugsseite (Browserdaten, Plan Abschnitt 4) | `static/v2/umzug.js`, `api/umzug` (Flask `V2_UMZUG_ZIEL`, PHP `UMZUG_QUELLE`), Einstieg `/futter/umzug` ohne COOP-Sperre. Browser-Test `allinkl/test/umzug_browser.sh` (8/8). Eingeschaltet erst mit Martins Entscheid (Punkt 3) |
+| Umzugsseite (Browserdaten, Plan Abschnitt 4) | `static/v2/umzug.js`, `api/umzug` (Flask `V2_UMZUG_ZIEL`, PHP `UMZUG_QUELLE`), Einstieg `/futter/umzug` ohne COOP-Sperre. Browser-Test `allinkl/test/umzug_browser.sh` (8/8). Eingeschaltet am 24.11.2026: live `UMZUG_QUELLE`, Home-Server `V2_UMZUG_ZIEL` (Vorgabe in `docker-compose.yml`) |
 
 Abweichungen von Flask, bewusst: Ratenbegrenzung in MySQL statt im Arbeitsspeicher; Admin-Cookie nur für den Pfad
 der App (`/futter/`) statt `/`; unbekannte Adressen antworten mit JSON `{"error":"NOT_FOUND"}`; Fehler werden nie an Besucher ausgegeben (JSON 500, Stelle im Fehlerprotokoll);

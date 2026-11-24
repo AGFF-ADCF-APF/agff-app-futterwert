@@ -103,6 +103,8 @@ PHP: konfig `UMZUG_QUELLE`). Alte Seite: ohne Daten oder nach Umzug sofort weite
 Hinweis und «Daten mitnehmen» → Fenster `<ziel>/futter/umzug`, Übergabe der Sicherung (wie «Sicherung», plus übrige
 `agffV2*`-Einstellungen) per postMessage. Wegen COOP: alte Seite `same-origin-allow-popups` (nur mit Ziel), neue Seite
 `/umzug` mit `unsafe-none`, sonst überall `same-origin`. Server-Daten: `allinkl/skripte/umzug.sh` (alter → neuer Schlüssel).
+**Eingeschaltet 24.11.2026** (Entscheid Martin): Server-Daten am Morgen mit `umzug.sh --live` übernommen, danach live
+`UMZUG_QUELLE=https://apps.graswachstum.ch` und auf dem Home-Server `V2_UMZUG_ZIEL` (Vorgabe in `docker-compose.yml`).
 
 ## 5. Texterkennung (OCR)
 

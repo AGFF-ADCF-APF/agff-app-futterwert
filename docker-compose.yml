@@ -22,9 +22,10 @@ services:
       # Admin-Anmeldung mit dem AGFF-Konto (SSO graswachstum.ch, client futter): öffentlicher Ed25519-Schlüssel des Anbieters
       - SSO_URL=${SSO_URL:-https://graswachstum.ch}
       - SSO_PUBLIC_KEY=${SSO_PUBLIC_KEY:-}
+      # Umzug der Browserdaten an die neue Adresse: eingeschaltet 24.11.2026 (Entscheid Martin) – die alte Adresse leitet
+      # weiter bzw. bietet «Daten mitnehmen». Abschalten nur mit V2_UMZUG_ZIEL=aus in .env (kein gültiger Ursprung).
+      - V2_UMZUG_ZIEL=${V2_UMZUG_ZIEL:-https://app.graswachstum.ch}
       # Texterkennung für Futter v2 auf all-inkl: erlaubte Herkünfte (CORS, nur /v2/api/labor/*), kommagetrennt
-      # Umzug der Browserdaten an die neue Adresse (leer = aus; erst nach Martins Entscheid setzen, z. B. https://app.graswachstum.ch)
-      - V2_UMZUG_ZIEL=${V2_UMZUG_ZIEL:-}
       - OCR_CORS_ORIGINS=${OCR_CORS_ORIGINS:-https://app.graswachstum.ch,https://dev-app.graswachstum.ch}
     networks:
       - web-netzwerk
