@@ -11,4 +11,5 @@ return [
     'ASSETS_DIR' => '/app/public/assets',
     'V2_MAIL_DRYRUN_FILE' => '/daten/mail.jsonl',
     'V2_KURSLEITUNG_DOMAINS' => 'schule.example.org',
+    'UMZUG_QUELLE' => getenv('TEST_UMZUG_QUELLE') ?: '',   // nur Umzugstest (umzug_browser.py)
 ];

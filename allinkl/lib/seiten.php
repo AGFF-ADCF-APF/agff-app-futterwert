@@ -32,10 +32,32 @@ function datei_senden(string $pfad, string $typ, array $kopf = []): void
     exit;
 }
 
-function seite(string $name): void
+function seite(string $name, array $kopf = []): void
 {
     $datei = seiten_dir() . '/' . $name . (modus() === 'wiese' && $name !== 'admin' ? '-wiese' : '') . '.html';
-    datei_senden($datei, 'text/html; charset=utf-8', ['Cache-Control' => 'no-cache']);
+    datei_senden($datei, 'text/html; charset=utf-8', ['Cache-Control' => 'no-cache'] + $kopf);
+}
+
+// --- Umzug der Browserdaten von der alten Adresse (Plan Abschnitt 4) ---------------------------
+/** Alte Adresse (Ursprung), von der diese App Browserdaten annimmt, z. B. https://apps.graswachstum.ch; sonst null. */
+function umzug_quelle(): ?string
+{
+    $u = rtrim(trim((string) konfig('UMZUG_QUELLE', '')), '/');
+    return preg_match('#^https://[a-z0-9.-]+$|^http://127\.0\.0\.1:\d+$#D', $u) ? $u : null;
+}
+
+function r_umzug_config(): void
+{
+    json_ende(['quelle' => umzug_quelle(), 'ziel' => null]);
+}
+
+/**
+ * Einstieg für das Umzugsfenster: dieselbe Seite wie index, aber ohne COOP «same-origin», damit das Fenster der alten
+ * Adresse (window.opener) die Daten per postMessage übergeben kann. Ohne UMZUG_QUELLE wie index.
+ */
+function r_seite_umzug(): void
+{
+    seite('index', umzug_quelle() !== null ? ['Cross-Origin-Opener-Policy' => 'unsafe-none'] : []);
 }
 
 function r_seite_index(): void

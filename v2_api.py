@@ -309,13 +309,20 @@ CSP = '; '.join([
 ])
 
 
+# Umzug der Browserdaten an die neue Adresse (PHP auf all-inkl, Plan Abschnitt 4), z. B. https://app.graswachstum.ch.
+# Gesetzt: die App leitet weiter bzw. bietet «Meine Daten mitnehmen» an; COOP erlaubt dann das Umzugsfenster (window.open).
+UMZUG_ZIEL = os.environ.get('V2_UMZUG_ZIEL', '').strip().rstrip('/')
+if not re.match(r'^https://[a-z0-9.-]+$|^http://127\.0\.0\.1:\d+$', UMZUG_ZIEL):
+    UMZUG_ZIEL = ''
+
+
 @v2.after_request
 def v2_security_headers(resp):
     resp.headers['Content-Security-Policy'] = CSP
     resp.headers['X-Content-Type-Options'] = 'nosniff'
     resp.headers['Referrer-Policy'] = 'no-referrer'
     resp.headers['X-Frame-Options'] = 'DENY'
-    resp.headers['Cross-Origin-Opener-Policy'] = 'same-origin'
+    resp.headers['Cross-Origin-Opener-Policy'] = 'same-origin-allow-popups' if UMZUG_ZIEL else 'same-origin'
     resp.headers['Cross-Origin-Resource-Policy'] = 'same-origin'
     resp.headers['Permissions-Policy'] = 'camera=(self), geolocation=(self), microphone=(), payment=(), usb=()'
     resp.headers['Strict-Transport-Security'] = 'max-age=31536000'
@@ -434,7 +441,7 @@ def v2_basis():
 
 # --- Freigabe-Bereiche (nur mit Zustimmung; Zugriff nur mit Lese-/Bearbeiten-Link) ----
 mimetypes.add_type("image/webp", ".webp")  # fehlt in python:slim
-ASSET_BUILD = 'b1-94'  # gleich wie ?v= in templates/v2/index.html
+ASSET_BUILD = 'b1-95'  # gleich wie ?v= in templates/v2/index.html
 
 
 @v2.route('/v2/api/config')
@@ -443,6 +450,11 @@ def v2_config():
                     'privacyUrl': PRIVACY_URL or None, 'build': ASSET_BUILD})
     resp.headers['Cache-Control'] = 'no-store'
     return resp
+
+
+@v2.route('/v2/api/umzug')
+def v2_umzug_config():
+    return jsonify({'ziel': UMZUG_ZIEL or None, 'quelle': None})
 
 
 def _json_body():

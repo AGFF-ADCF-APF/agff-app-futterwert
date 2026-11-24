@@ -1498,6 +1498,42 @@
     });
   }
 
+  // ---------- Sicherung (Datei «Sicherung» und Umzug an die neue Adresse) ----------
+  async function sicherungErstellen() {
+    const copy = JSON.parse(JSON.stringify(db));
+    const fotos = [];
+    const alsText = (b) => new Promise((res) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.readAsDataURL(b); });
+    for (const p of db.proben) for (const f of (p.fotos || [])) {
+      const b = await F.blob(f.id).catch(() => null);
+      if (b) fotos.push({ id: f.id, probeId: p.id, mime: b.type, data: await alsText(b) });
+    }
+    const wiese = window.Wiese.sicherung();
+    for (const fid of window.Wiese.fotoIds()) {
+      const b = await F.blob(fid).catch(() => null);
+      if (b) fotos.push({ id: fid, probeId: 'wiese', mime: b.type, data: await alsText(b) });
+    }
+    return { f: 'agff-futter-backup', v: 2, exportiert: now(), db: copy, fotos, wiese };
+  }
+  /**
+   * Sicherung einspielen (ohne Rückfrage – die stellt der Aufrufer): Fotos, Wiese, Anlässe und Proben; bei gleicher
+   * Kennung gewinnt die neuere Fassung. Ist dieses Gerät noch leer (Umzug), werden auch die Einstellungen übernommen
+   * (u. a. die Geräte-Kennung für «Eigene» Proben in Gruppen). Liefert die Anzahlen.
+   */
+  async function sicherungEinspielen(obj, mitEinstellungen) {
+    const neu = Model.cleanDb(obj.db);
+    let nf = 0;
+    for (const f of (Array.isArray(obj.fotos) ? obj.fotos : [])) {
+      if (!f || !Model.FOTO_ID_RE.test(f.id || '') || typeof f.data !== 'string' || !/^image\/(webp|jpeg)$/.test(f.mime || '')) continue;
+      try { const bin = Uint8Array.from(atob(f.data), (ch) => ch.charCodeAt(0)); await F.ablegen(f.id, f.probeId, new Blob([bin], { type: f.mime })); nf++; } catch (er) { /* defektes Foto überspringen */ }
+    }
+    window.Wiese.wiederherstellen(obj.wiese);
+    if (mitEinstellungen && !db.proben.length && !db.anlaesse.length) db.prefs = Object.assign({}, db.prefs, neu.prefs);
+    neu.anlaesse.forEach((a) => { const l = anlassById(a.id); if (!l) db.anlaesse.push(a); else if ((a.updatedAt || '') > (l.updatedAt || '')) Object.assign(l, a); });
+    neu.proben.forEach((p) => { const l = probeById(p.id); if (!l) db.proben.push(p); else if ((p.updatedAt || '') > (l.updatedAt || '')) Object.assign(l, p); });
+    save(); flush();
+    return { anlaesse: neu.anlaesse.length, proben: neu.proben.length, fotos: nf };
+  }
+
   // ---------- Import ----------
   async function handleImportPayload(payload) {
     try { applyImport(await IO.unpack(payload)); } catch (e) { toast('Import fehlgeschlagen: ' + e.message); }
@@ -1506,17 +1542,9 @@
     if (obj.f === 'agff-futter-backup') {
       sheet('<h2>Sicherung wiederherstellen?</h2><p>' + obj.db.anlaesse.length + ' Anlässe und ' + obj.db.proben.length + ' Proben. Vorhandene Einträge mit gleicher Kennung werden durch die neuere Fassung ersetzt.</p><div class="row"><button class="btn ghost grow" data-close>Abbrechen</button><button class="btn primary grow" id="doRestore">Wiederherstellen</button></div>', (el) => {
         el.querySelector('#doRestore').onclick = async () => {
-          obj.db = Model.cleanDb(obj.db);
-          let nf = 0;
-          for (const f of (Array.isArray(obj.fotos) ? obj.fotos : [])) {
-            if (!f || !Model.FOTO_ID_RE.test(f.id || '') || typeof f.data !== 'string' || !/^image\/(webp|jpeg)$/.test(f.mime || '')) continue;
-            try { const bin = Uint8Array.from(atob(f.data), (ch) => ch.charCodeAt(0)); await F.ablegen(f.id, f.probeId, new Blob([bin], { type: f.mime })); nf++; } catch (er) { /* defektes Foto überspringen */ }
-          }
-          if (nf) toast(nf + ' Fotos wiederhergestellt.');
-          window.Wiese.wiederherstellen(obj.wiese);
-          obj.db.anlaesse.forEach((a) => { const l = anlassById(a.id); if (!l) db.anlaesse.push(a); else if ((a.updatedAt || '') > (l.updatedAt || '')) Object.assign(l, a); });
-          obj.db.proben.forEach((p) => { const l = probeById(p.id); if (!l) db.proben.push(p); else if ((p.updatedAt || '') > (l.updatedAt || '')) Object.assign(l, p); });
-          save(); closeSheet(); render(); toast('Sicherung wiederhergestellt.');
+          const n = await sicherungEinspielen(obj, false);
+          if (n.fotos) toast(n.fotos + ' Fotos wiederhergestellt.');
+          closeSheet(); render(); toast('Sicherung wiederhergestellt.');
         };
       });
       return;
@@ -1812,18 +1840,7 @@
       case 'pdf-anlass': { const a = id ? anlassById(id) : null; closeSheet(); await pdfFor(a, probenOf(id || null), 'Futterbeurteilung_' + fileSafe(a ? a.titel : 'Einzelproben') + '.pdf'); break; }
       case 'export-anlass': { const a = anlassById(id); closeSheet(); download(new Blob([JSON.stringify(IO.bundle(a, probenOf(id)), null, 1)], { type: 'application/json' }), 'Futterbeurteilung_' + fileSafe(a.titel) + '.json'); break; }
       case 'backup': {
-        const copy = JSON.parse(JSON.stringify(db));
-        const fotos = [];
-        for (const p of db.proben) for (const f of (p.fotos || [])) {
-          const b = await F.blob(f.id).catch(() => null);
-          if (b) fotos.push({ id: f.id, probeId: p.id, mime: b.type, data: await new Promise((res) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.readAsDataURL(b); }) });
-        }
-        const wiese = window.Wiese.sicherung();
-        for (const fid of window.Wiese.fotoIds()) {
-          const b = await F.blob(fid).catch(() => null);
-          if (b) fotos.push({ id: fid, probeId: 'wiese', mime: b.type, data: await new Promise((res) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.readAsDataURL(b); }) });
-        }
-        download(new Blob([JSON.stringify({ f: 'agff-futter-backup', v: 2, exportiert: now(), db: copy, fotos, wiese })], { type: 'application/json' }), 'Futterbeurteilung_Sicherung_' + new Date().toISOString().slice(0, 10) + '.json');
+        download(new Blob([JSON.stringify(await sicherungErstellen())], { type: 'application/json' }), 'Futterbeurteilung_Sicherung_' + new Date().toISOString().slice(0, 10) + '.json');
         toast('Enthält die Schlüssel Ihrer Freigabe-Links – vertraulich aufbewahren!'); break;
       }
       case 'qr-probe': {
@@ -1961,7 +1978,7 @@
   }
   // Schnittstelle für Zusatzmodule (Kurs)
   window.__app = {
-    get db() { return db; }, save, render, refreshChrome, rerenderDetail, sheet, closeSheet, toast, go, esc, I, uid, now, fmt,
+    get db() { return db; }, save, render, refreshChrome, rerenderDetail, sheet, closeSheet, toast, go, esc, I, uid, now, fmt, sicherungErstellen, sicherungEinspielen,
     typBadge, touchProbe, neueProbe, titelOf, modusKnopf, istEigen, fotoVomServer, syncAnlass, probenOf, basisTabelle: () => basis && basis.tabelle, radFokus: (p) => ui.fokus[p.id] || null, probeById, anlassById, auswertung, wheelSvg, tonOf, bestandStadium, sheetAnlass, sheetConsent, label, dateCH, route: () => ui.route,
   };
   load();

@@ -98,6 +98,12 @@ Apps (PWA) zeigen weiter auf `apps.graswachstum.ch`. Darum (Phase 5, ca. 2 Tage 
 
 Server-seitige Daten (Kurse, Konten, Freigaben, Pool) ziehen mit der Datenbank ohne Zutun mit.
 
+**Umsetzung (24.11.2026):** `static/v2/umzug.js` auf beiden Seiten; Rolle aus `api/umzug` (Flask: Umgebung `V2_UMZUG_ZIEL`,
+PHP: konfig `UMZUG_QUELLE`). Alte Seite: ohne Daten oder nach Umzug sofort weiter (Pfad-Rest, `?` und `#` bleiben), sonst
+Hinweis und «Daten mitnehmen» → Fenster `<ziel>/futter/umzug`, Übergabe der Sicherung (wie «Sicherung», plus übrige
+`agffV2*`-Einstellungen) per postMessage. Wegen COOP: alte Seite `same-origin-allow-popups` (nur mit Ziel), neue Seite
+`/umzug` mit `unsafe-none`, sonst überall `same-origin`. Server-Daten: `allinkl/skripte/umzug.sh` (alter → neuer Schlüssel).
+
 ## 5. Texterkennung (OCR)
 
 ### 5.1 Heute

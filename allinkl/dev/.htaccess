@@ -30,7 +30,8 @@ RemoveEncoding .gz
   Header always set X-Content-Type-Options "nosniff"
   Header always set Referrer-Policy "no-referrer"
   Header always set X-Frame-Options "DENY"
-  Header always set Cross-Origin-Opener-Policy "same-origin"
+  # COOP für das Umzugsfenster (/umzug) setzt PHP selbst (r_seite_umzug)
+  Header always set Cross-Origin-Opener-Policy "same-origin" "expr=%{THE_REQUEST} !~ m#^[A-Z]+ [^ ?]*/umzug[ ?]#"
   Header always set Cross-Origin-Resource-Policy "same-origin"
   Header always set Strict-Transport-Security "max-age=31536000"
   Header set Cache-Control "no-cache" "expr=%{REQUEST_URI} =~ m#/assets/#"

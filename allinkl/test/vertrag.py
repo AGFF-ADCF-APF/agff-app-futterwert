@@ -162,6 +162,7 @@ def letzter_code(seite, an):
 def fall_grundlagen(P):
     print('Grundlagen')
     P.vergleich('config', 'GET', 'api/config')
+    P.vergleich('umzug/config', 'GET', 'api/umzug')
     P.vergleich('statistik/config', 'GET', 'api/statistik/config')
     a, b = P.vergleich('basis', 'GET', 'api/basis')
     P.vergleich('admin/ich ohne Sitzung', 'GET', 'api/admin/ich')

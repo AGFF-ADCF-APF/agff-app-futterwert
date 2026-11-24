@@ -21,4 +21,6 @@ return [
     // Texterkennung auf dem Home-Server (Plan Abschnitt 5): Basis der Labor-Routen, mit Schrägstrich am Ende.
     // Leer = keine Server-Texterkennung, die App liest dann nur «Auf meinem Gerät».
     'OCR_URL' => '',                     // z. B. 'https://apps.graswachstum.ch/futter/v2/api/labor/'
+    // Umzug der Browserdaten: alte Adresse, von der die App Daten annimmt (Fenster /futter/umzug, postMessage). Leer = aus.
+    'UMZUG_QUELLE' => '',                // live: 'https://apps.graswachstum.ch'
 ];
