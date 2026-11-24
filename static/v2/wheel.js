@@ -31,16 +31,22 @@
       'L' + f1(x2) + ' ' + f1(y2) + 'A' + r0 + ' ' + r0 + ' 0 ' + large + ' 0 ' + f1(x3) + ' ' + f1(y3) + 'Z';
   }
 
+  /**
+   * Zeilen umbrechen. «-» bleibt ein echter Bindestrich (Umbruch danach erlaubt). «\u00AD» (weiches Trennzeichen) ist nur
+   * eine Trennstelle: auf derselben Zeile unsichtbar, am Zeilenende als «-» sichtbar.
+   */
   function wrap(text, maxChars) {
-    const words = String(text).replace(/-/g, '-\u0000').split(/[\s\u0000]+/).filter(Boolean);
+    const words = String(text).replace(/-/g, '-\u0000').replace(/\u00AD/g, '\u00AD\u0000').split(/[\s\u0000]+/).filter(Boolean);
     const lines = []; let cur = '';
+    const zeigen = (z) => z.replace(/\u00AD$/, '-').replace(/\u00AD/g, '');
     words.forEach((w) => {
-      const cand = cur ? (cur.endsWith('-') ? cur + w : cur + ' ' + w) : w;
-      if (cand.length <= maxChars || !cur) cur = cand; else { lines.push(cur); cur = w; }
+      const cand = cur ? (/[-\u00AD]$/.test(cur) ? cur + w : cur + ' ' + w) : w;
+      if (zeigen(cand).length <= maxChars || !cur) cur = cand; else { lines.push(zeigen(cur)); cur = w; }
     });
-    if (cur) lines.push(cur);
+    if (cur) lines.push(zeigen(cur));
     return lines;
   }
+  let pfadNr = 0; // eindeutige IDs für die Textpfade (mehrere Räder und Animationsbilder auf einer Seite)
 
   /** Platziert Text in einem Ringsegment: tangential wenn genug Bogen, sonst radial. */
   function label(text, r0, r1, a0, a1, opt) {
@@ -66,6 +72,18 @@
     if (tangential) { if (an > 90 && an < 270) { rot += 180; flip = true; } } else if (an > 180) { rot += 180; flip = true; }
     const lh = fs * 1.08;
     const start = -((lines.length - 1) * lh) / 2;
+    if (tangential && o.krumm !== false) {
+      // Gekrümmt: jede Zeile auf einem eigenen Bogen (oben im Uhrzeigersinn, unten umgekehrt, damit lesbar)
+      const ext = Math.min(20, (359 - (a1 - a0)) / 2); const b0 = a0 - ext, b1 = a1 + ext;
+      const zusatz = (o.weight ? ' font-weight="' + o.weight + '"' : '');
+      return lines.map((l, i) => {
+        const r = flip ? rm + start + i * lh : rm - start - i * lh;
+        const [x0, y0] = pt(r, flip ? b1 : b0), [x1, y1] = pt(r, flip ? b0 : b1);
+        const id = 'radtp' + (++pfadNr);
+        return '<path id="' + id + '" d="M' + f1(x0) + ' ' + f1(y0) + 'A' + f1(r) + ' ' + f1(r) + ' 0 ' + (b1 - b0 > 180 ? 1 : 0) + ' ' + (flip ? 0 : 1) + ' ' + f1(x1) + ' ' + f1(y1) + '" fill="none"/>' +
+          '<text font-size="' + f1(fs) + '" fill="' + (o.fill || INK) + '"' + zusatz + ' dominant-baseline="central"><textPath href="#' + id + '" startOffset="50%" text-anchor="middle">' + esc(l) + '</textPath></text>';
+      }).join('');
+    }
     const tsp = lines.map((l, i) => '<tspan x="0" y="' + f1(start + i * lh) + '">' + esc(l) + '</tspan>').join('');
     void flip;
     return '<text transform="translate(' + f1(x) + ' ' + f1(y) + ') rotate(' + f1(rot) + ')" font-size="' + f1(fs) +
@@ -195,7 +213,7 @@
         if (gz > 0.01) {
           let b0 = g0, b1 = g1;
           if (fb) { let x = g0; g.faktoren.forEach((f) => { const w = f.optionen.length * einheit * gew(f); if (f === fb) { b0 = x; b1 = x + w; } x += w; }); }
-          parts.lab.push(deck(label(g.name, R0, R1, b0, b1, { fs: 10, weight: 700, weglassen: lupe, min: 6.4 }), gz));
+          parts.lab.push(deck(label(g.name.replace(/-/g, '\u00AD'), R0, R1, b0, b1, { fs: 10, weight: 700, weglassen: lupe, min: 6.4 }), gz));
         }
       }
       a = g1 + GAP;
