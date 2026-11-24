@@ -15,6 +15,7 @@ services:
     environment:
       FUTTER_KONFIG: /konfig/konfig.php
       FUTTER_LIB: /app/lib
+      TEST_SERVER_KEY: ${TEST_SERVER_KEY:-}   # nur Umzugstest (umzug_pruefen.sh): neuer Schlüssel wie auf live
     volumes:
       - ../_bau:/app:ro
       - ../_bau/public:/var/www/html/futter:ro

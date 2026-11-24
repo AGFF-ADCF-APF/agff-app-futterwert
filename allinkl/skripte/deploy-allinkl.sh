@@ -104,7 +104,7 @@ docker run --rm -u "$(id -u):$(id -g)" -v "$BAU/src:/src:ro" -v "$BAU:/aus" -v "
   python3 -I allinkl/skripte/bauen.py /src /aus/paket /csv/futterwerte.csv
 P=$BAU/paket
 mkdir -p "$P/skripte"
-cp "$BAU/src/allinkl/skripte/server.php" "$P/skripte/"
+cp "$BAU/src/allinkl/skripte/server.php" "$BAU/src/allinkl/skripte/umzug.php" "$P/skripte/"
 if [ "$UMGEBUNG" = dev ]; then
   # Tor nur auf dev: tor.php und dessen .htaccess ersetzen die .htaccess von public/
   cp "$BAU/src/allinkl/dev/tor.php" "$BAU/src/allinkl/dev/.htaccess" "$P/public/"

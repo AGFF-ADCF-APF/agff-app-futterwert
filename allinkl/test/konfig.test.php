@@ -4,7 +4,7 @@ return [
     'DB_DSN' => 'mysql:host=db;dbname=futter;charset=utf8mb4',
     'DB_USER' => 'futter',
     'DB_PASS' => 'futter-test',
-    'V2_SERVER_KEY' => 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=',
+    'V2_SERVER_KEY' => getenv('TEST_SERVER_KEY') ?: 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=', // Umzugstest: anderer Schlüssel
     'ADMIN_PASSWORD' => 'test-admin-passwort',
     'DATEN_DIR' => '/daten',
     'SEITEN_DIR' => '/app/seiten',
