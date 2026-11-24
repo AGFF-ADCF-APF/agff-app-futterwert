@@ -446,7 +446,7 @@
     teaserFutter: 'Des questions sur votre fourrage ? J’ai des conseils.',
     teaserWiese: 'Des questions sur votre prairie ? J’ai des conseils.',
     berFutter: 'Questions sur votre fourrage', berWiese: 'Questions sur votre prairie',
-    erinnert: 'Rappelle', vorgehen: 'Comment faire', riechen: '👃 Bien sentir', riechenTitel: 'Bien sentir', verstanden: 'Compris',
+    radBedienung: '<b>Utiliser la roue :</b> toucher un facteur dans la roue – il tourne vers le haut et s’agrandit. Toucher ensuite la modalité qui convient (aussi le point au bord) ou choisir tranquillement en dessous.', erinnert: 'Rappelle', vorgehen: 'Comment faire', riechen: '👃 Bien sentir', riechenTitel: 'Bien sentir', verstanden: 'Compris',
     einfach: 'Simple', fachlich: 'Technique', ruhe: 'Silence, svp', stumm: 'Couper le son', einstellungen: 'Réglages', schliessen: 'Fermer', sprache: 'Langue',
     bildQuelle: 'Source : AGFF / AGRIDEA', schlaeft: 'Le tracteur dort. Touchez-le pour le réveiller.', btnLabel: 'Assistant tracteur : aide pour cette étape',
     passendProbe: 'Ces questions correspondent à votre échantillon :', passendAufnahme: 'Ces questions correspondent à votre relevé :', keineMaengel: 'Pas de défaut majeur – une question quand même ?',

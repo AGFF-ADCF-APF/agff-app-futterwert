@@ -327,11 +327,13 @@
     app.dataset.depth = depth;
     $('#r-nav').innerHTML = renderNav(r);
     $('#r-list').innerHTML = appVon(r) === 'wiese' ? (r.name === 'aufnahmen' ? window.Aufnahme.renderListe(r) : window.Wiese.renderListe(r)) : renderList(SEITEN.includes(r.name) ? ui.ctxAnlass : anlassId, r);
+    const stepsVorher = stepsLage();
     $('#main').innerHTML = r.name === 'probe' ? renderProbe(probeById(r.id), r.step)
       : r.name === 'anlass' ? (r.sammel ? window.Sammel.render(anlassId) : renderUebersicht(anlassId))
       : r.name === 'daten' ? renderDaten() : r.name === 'schweiz' ? window.Schweiz.render() : r.name === 'bilanz' ? window.Bilanz.render() : r.name === 'knappheit' ? window.Knappheit.render()
       : r.name === 'wiese' ? window.Wiese.render() : r.name === 'fotopunkte' ? window.Wiese.renderFotopunkte(r.id) : r.name === 'aufnahmen' ? window.Aufnahme.render(r.id) : r.name === 'labor' ? window.Laborauswertung.render(r) : r.name === 'texte' && window.Textpruefung ? window.Textpruefung.render(r) : r.name === 'pflanzen' ? window.Pflanzen.render() : r.name === 'hilfe' ? renderHilfe() : r.name === 'mediathek' ? renderMediathek() : r.name === 'pool' ? window.PoolOeffentlich.render(r.id) : renderWelcome();
     afterRender();
+    stepsZentrieren(stepsVorher);
   }
   let lastHash = null;
 
@@ -917,7 +919,7 @@
     }).join('') + '</div>';
     const live = '<div class="live"><span class="dot" style="background:' + (Rad.TON[z.ton] || Rad.TON.offen) + ';width:14px;height:14px"></span><span class="grow">' + esc(res.sperre.length ? 'Nicht verfüttern' : (z.ton === 'offen' ? 'Noch keine Angaben' : res.klasse ? res.klasse.label : '')) + '</span><span class="muted small">' + esc(z.wert + ' ' + (z.label || '')) + '</span></div>';
     return '<div class="rad-layout"><div class="rad-sticky"><div class="rad-box" id="radbox">' + wheelSvg(p, res, { interaktiv: true, fokus: fokusId, zoom: !!(window.matchMedia && window.matchMedia('(max-width: 640px)').matches) }) + '</div>' + live +
-      '<p class="hint">Tipp: Faktor im Rad antippen – er dreht sich nach oben und wird gross; dann die passende Ausprägung antippen. Oder unten in Ruhe auswählen.</p></div>' +
+      '</div>' +
       '<div>' + nav + factorCard + '</div></div>';
   }
 
@@ -1074,6 +1076,20 @@
     const sub = h1 && h1.querySelector('.sub'); if (sub) sub.setAttribute('aria-hidden', 'false');
     const text = h1 ? Array.from(h1.childNodes).filter((c) => !(c.nodeType === 1 && c.classList.contains('sub'))).map((c) => c.textContent).join('').trim() : '';
     document.title = (text ? text + ' – ' : '') + (MODUS_WIESE ? 'Wiese' : 'Futterbeurteilung');
+  }
+  /**
+   * Schrittleiste: aktiven Schritt in der Mitte halten (v. a. Smartphone), damit vorheriger und nächster Schritt daneben
+   * sichtbar sind. Die neue Leiste beginnt dort, wo die alte stand, und gleitet dann zum aktiven Schritt.
+   */
+  function stepsLage() { const n = $('#main .steps'); return n ? n.scrollLeft : null; }
+  function stepsZentrieren(vorher) {
+    const n = $('#main .steps'); const c = n && n.querySelector('[aria-current="step"]');
+    if (!c) return;
+    if (vorher != null) n.scrollLeft = vorher;
+    const nr = n.getBoundingClientRect(); const cr = c.getBoundingClientRect();
+    const ziel = Math.max(0, Math.min(n.scrollWidth - n.clientWidth, n.scrollLeft + (cr.left - nr.left) + cr.width / 2 - n.clientWidth / 2));
+    const sanft = vorher != null && !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    if (Math.abs(ziel - n.scrollLeft) > 1) n.scrollTo({ left: ziel, behavior: sanft ? 'smooth' : 'auto' });
   }
   function afterRender() {
     titelSetzen();
@@ -1703,7 +1719,9 @@
   function rerenderDetail(keepScroll) {
     const m = $('#main'); const st = m.scrollTop; const ws = window.scrollY;
     const p = currentProbe(); if (!p) return render();
+    const stepsVorher = stepsLage();
     m.innerHTML = renderProbe(p, ui.route.step);
+    stepsZentrieren(stepsVorher);
     if (keepScroll) { m.scrollTop = st; window.scrollTo(0, ws); }
     $('#r-list').innerHTML = renderList(p.anlassId || null, ui.route);
     appMini(); listeGriff();
@@ -1732,10 +1750,13 @@
     if (navigator.vibrate) try { navigator.vibrate(8); } catch (e) { /* ignore */ }
     touchProbe(p);
     rerenderDetail(true);
-    // Einzelfrage-Schritte: automatisch weiter
+    // Gewählte Antwort kurz aufblinken und leicht vergrössern, damit man sieht, was gewählt wurde
+    const gewaehlt = document.querySelector('.opt[aria-pressed="true"][data-set="' + CSS.escape(set) + '"][data-val="' + CSS.escape(String(val)) + '"]');
+    if (gewaehlt) gewaehlt.classList.add('gewaehlt');
+    // Einzelfrage-Schritte: automatisch weiter – erst nach dem Aufblinken (ca. 0,5 s sichtbar)
     if ((set === 'bestand' || set === 'stadium') && a[set]) {
       const steps = stepsFor(p); const i = steps.findIndex((s) => s.id === (set === 'bestand' ? 'bestand' : 'stadium'));
-      setTimeout(() => { if (currentProbe() === p && ui.route.step === steps[i].id) go('#/p/' + p.id + '/' + steps[i + 1].id); }, 260);
+      setTimeout(() => { if (currentProbe() === p && ui.route.step === steps[i].id) go('#/p/' + p.id + '/' + steps[i + 1].id); }, 650);
     }
   }
 

@@ -280,7 +280,7 @@
 
   // ---------- Sprache (Deutsch / Französisch) ----------
   const UD = { teaser: 'Soll ich dir helfen? Tipp mich an.', teaserFutter: 'Fragen zu deinem Futter? Ich habe Tipps.', teaserWiese: 'Fragen zu deiner Wiese? Ich habe Tipps.',
-    berFutter: 'Fragen zu deinem Futter', berWiese: 'Fragen zu deiner Wiese', erinnert: 'Erinnert an', vorgehen: 'So gehst du vor', riechen: '👃 So riechst du richtig', riechenTitel: 'So riechst du richtig',
+    radBedienung: '<b>So geht das Rad:</b> Faktor im Rad antippen – er dreht sich nach oben und wird gross. Dann die passende Ausprägung antippen (auch den Punkt am Rand) oder unten in Ruhe auswählen.', berFutter: 'Fragen zu deinem Futter', berWiese: 'Fragen zu deiner Wiese', erinnert: 'Erinnert an', vorgehen: 'So gehst du vor', riechen: '👃 So riechst du richtig', riechenTitel: 'So riechst du richtig',
     verstanden: 'Verstanden', einfach: 'Einfach', fachlich: 'Fachlich', ruhe: 'Ruhe, bitte', stumm: 'Stumm schalten', einstellungen: 'Einstellungen', schliessen: 'Schliessen', sprache: 'Sprache', bildQuelle: 'Quelle: AGFF / AGRIDEA',
     schlaeft: 'Der Traktor schläft. Antippen weckt ihn wieder.', btnLabel: 'Traktor-Assistent: Hilfe zu diesem Schritt' };
   /** Übersetzung der gewählten Sprache (fr/it), sonst null = Deutsch */
@@ -376,6 +376,7 @@
       (aktCtx && global.Beratung ? '<div class="assist-praxis ber"><b>' + (aktCtx.aufnahme ? u.berWiese : u.berFutter) + '</b>' + global.Beratung.bubble(aktCtx) + '</div>' : '') +
       (pp && pp.wie ? '<div class="assist-praxis"><b>' + u.erinnert + '</b><p>' + A.esc(pp.wie) + '</p></div>' : '') +
       (pp && pp.vorgehen ? '<div class="assist-praxis"><b>' + u.vorgehen + '</b><ol>' + pp.vorgehen.map((x) => '<li>' + A.esc(x) + '</li>').join('') + '</ol></div>' : '') +
+      (key.startsWith('rad.') ? '<p class="small assist-bedienung">' + (u.radBedienung || UD.radBedienung) + '</p>' : '') +
       (key.startsWith('rad.') && !/\.(regen|blaetter|mist|erde|ph)$/.test(key) ? '<button type="button" class="btn sm block assist-riechen" data-as="riechen">' + u.riechen + '</button>' : '') +
       (global.Beratung && eagFuer(key) ? global.Beratung.eagLinks(eagFuer(key)) : '') + '</div>' +
       (t.bilder ? '<div class="assist-bilder">' + t.bilder.map((b, i) => '<button type="button" data-as="bild" data-i="' + i + '"><img alt="' + A.esc(b.cap) + '" src="' + b.src + '" loading="lazy"><span>' + A.esc(b.cap) + '</span></button>').join('') + '</div>' : '') +
