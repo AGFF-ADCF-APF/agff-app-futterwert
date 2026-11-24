@@ -57,6 +57,7 @@ vergleicht Status, Sicherheits-Header und JSON.
 | Deploy-Skript (dev mit Tor, live mit Bestätigung) | in Betrieb (dev und live) |
 | Datenumzug Server-Daten | `allinkl/skripte/umzug.sh --lokal|--dev|--live` (Export im Flask-Container → SSH-Pipe → `skripte/umzug.php`, alter → neuer Schlüssel, Fotos mit). Lokal geprüft mit `allinkl/test/umzug_pruefen.sh` (10/10 gleich); dev nur mit Testdaten; live wartet auf Martin |
 | Umzugsseite (Browserdaten, Plan Abschnitt 4) | `static/v2/umzug.js`, `api/umzug` (Flask `V2_UMZUG_ZIEL`, PHP `UMZUG_QUELLE`), Einstieg `/futter/umzug` ohne COOP-Sperre. Browser-Test `allinkl/test/umzug_browser.sh` (8/8). Eingeschaltet am 24.11.2026: live `UMZUG_QUELLE`, Home-Server `V2_UMZUG_ZIEL` (Vorgabe in `docker-compose.yml`) |
+| Wiese → Pratum (24.11.2026, b1-99) | `/wiese/` leitet auf `/pratum/` weiter (`WIESE_WEITER`, Standard `/pratum/`, `'aus'` = Wiese-Modus), Links aus `agff-config` (`futterUrl`, `wieseUrl`, gesetzt in `bauen.py`). Gleicher Ursprung, Browserdaten geteilt; Pratum ab p1-16 behält Freigabe-/Kurszugänge |
 
 Abweichungen von Flask, bewusst: Ratenbegrenzung in MySQL statt im Arbeitsspeicher; Admin-Cookie nur für den Pfad
 der App (`/futter/`) statt `/`; unbekannte Adressen antworten mit JSON `{"error":"NOT_FOUND"}`; Fehler werden nie an Besucher ausgegeben (JSON 500, Stelle im Fehlerprotokoll);
