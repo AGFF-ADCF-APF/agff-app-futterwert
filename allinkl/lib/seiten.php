@@ -62,6 +62,13 @@ function r_seite_umzug(): void
 
 function r_seite_index(): void
 {
+    // Die Wiese ist in Pratum aufgegangen (gleicher Ursprung, dieselben Browserdaten): /wiese/ leitet weiter, #… behält der Browser
+    $weiter = (string) konfig('WIESE_WEITER', '/pratum/');
+    if (modus() === 'wiese' && preg_match('#^/[a-z0-9/_-]*$#', $weiter)) {
+        header('Cache-Control: no-cache');
+        header('Location: ' . $weiter, true, 302);
+        exit;
+    }
     seite('index');
 }
 

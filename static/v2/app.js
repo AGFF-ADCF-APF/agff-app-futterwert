@@ -354,9 +354,10 @@
   const appStandMerken = () => { try { localStorage.setItem(APP_KEY, JSON.stringify(appStand)); } catch (e) { /* privat */ } };
   /** Adresse /wiese: dieselbe App, nur die Wiese-Seite im Vordergrund (Futter bleibt über einen Link erreichbar) */
   const MODUS_WIESE = (window.AGFF_V2 || {}).modus === 'wiese';
-  const FUTTER_URL = '/futter/v2/';
-  // Futter (/futter/v2) und Wiese (/wiese) sind getrennte Apps; auf dem Testserver (localhost) bleibt alles in einer App erreichbar.
-  const WIESE_URL = '/wiese/';
+  // Futter und Wiese sind getrennte Apps; auf dem Testserver (localhost) bleibt alles in einer App erreichbar. Adressen aus der
+  // Seite (agff-config): Flask /futter/v2/ und /wiese/, all-inkl /futter/ und /pratum/ (die Wiese ist in Pratum aufgegangen).
+  const FUTTER_URL = (window.AGFF_V2 || {}).futterUrl || '/futter/v2/';
+  const WIESE_URL = (window.AGFF_V2 || {}).wieseUrl || '/wiese/';
   const LOKAL = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
   const NUR_WIESE = ['wiese', 'fotopunkte', 'aufnahmen'];
   function appVon(r) { if (!MODUS_WIESE && !LOKAL) return 'futter'; if (MODUS_WIESE && r.name === 'probe') return 'wiese'; return WIESE_ROUTEN.includes(r.name) ? 'wiese' : NEUTRAL_ROUTEN.includes(r.name) ? (MODUS_WIESE ? 'wiese' : (appStand.aktiv || 'futter')) : 'futter'; }

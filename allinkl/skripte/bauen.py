@@ -42,7 +42,9 @@ if falsch:
 open(os.path.join(ziel, 'seiten', 'build.txt'), 'w').write(build + '\n')
 
 env = Environment(loader=FileSystemLoader(os.path.join(src, 'templates')), autoescape=select_autoescape(['html']))
-werte = dict(consent_version=v2_api.CONSENT_VERSION, retention_days=v2_api.RETENTION_DAYS, privacy_url=v2_api.PRIVACY_URL)
+werte = dict(consent_version=v2_api.CONSENT_VERSION, retention_days=v2_api.RETENTION_DAYS, privacy_url=v2_api.PRIVACY_URL,
+             # all-inkl: Futter unter /futter/, die Wiese ist in Pratum aufgegangen (/wiese/ leitet dorthin weiter)
+             futter_url='/futter/', wiese_url='/pratum/')
 for name, vorlage in (('index', 'v2/index.html'), ('datenschutz', 'v2/datenschutz.html')):
     for modus, endung in (('', ''), ('wiese', '-wiese')):
         html = env.get_template(vorlage).render(modus=modus, **werte)

@@ -16,6 +16,7 @@ return [
     'V2_RETENTION_DAYS' => 730,
     'DATEN_DIR' => __DIR__ . '/daten',   // Fotos
     'WIESE_PFADE' => ['/wiese/'],
+    'WIESE_WEITER' => '/pratum/',        // /wiese/ leitet hierhin weiter (Pratum); 'aus' = Wiese-Modus wie bisher
     'COOKIE_PFAD' => null,               // dev: '/' (Admin-Anmeldung gilt dann auch für /wiese/, das Tor braucht sie dort)
     'CSP_CONNECT_EXTRA' => [],           // weitere Adressen für connect-src (OCR_URL wird automatisch ergänzt)
     // Texterkennung auf dem Home-Server (Plan Abschnitt 5): Basis der Labor-Routen, mit Schrägstrich am Ende.
