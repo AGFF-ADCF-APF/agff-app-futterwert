@@ -171,8 +171,12 @@
             parts.lab.push(deck(label(op.kurz, R2, r3, a0, a1, { force: 'rad', fs: op.kurz.length > 2 ? 11 : 15, weight: isSel ? 800 : 600, fill: isSel ? '#fff' : INK }), 1 - gf));
           }
           if (!mini) {
-            const [tx, ty] = pt(RT + gf * (RF + 10 - RT), (a0 + a1) / 2);
-            parts.ticks.push('<circle cx="' + f1(tx) + '" cy="' + f1(ty) + '" r="5.2" fill="' + (isSel ? INK : '#fff') + '" stroke="' + darker(f.farbe, 0.15) + '" stroke-width="1.4"/>');
+            const rPunkt = RT + gf * (RF + 10 - RT);
+            const [tx, ty] = pt(rPunkt, (a0 + a1) / 2);
+            parts.ticks.push('<circle cx="' + f1(tx) + '" cy="' + f1(ty) + '" r="' + f1(5.2 + gf * 3.3) + '" fill="' + (isSel ? INK : '#fff') + '" stroke="' + darker(f.farbe, 0.15) + '" stroke-width="' + f1(1.4 + gf * 0.8) + '"/>');
+            // Unsichtbare Fangfläche vom Feld bis über den Randpunkt hinaus: der Punkt ist das, was man antippen will
+            // (auch mit Handschuh). Ohne sie lag er ausserhalb der antippbaren Fläche.
+            if (o.interaktiv) parts.seg.push('<path d="' + arc(r3, rPunkt + 18, a0, a1) + '" fill="#000" fill-opacity="0" data-f="' + f.id + '" data-o="' + op.id + '" class="rz-hit rz-fang" aria-hidden="true"/>');
           }
           a = a1;
         });

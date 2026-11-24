@@ -192,6 +192,7 @@ textarea.input { min-height: 88px; resize: vertical; }
 .rad { display: block; width: 100%; height: auto; max-width: 460px; margin: 0 auto; touch-action: manipulation; }
 .rad .rz-hit { cursor: pointer; }
 .rad .rz-hit:hover { filter: brightness(.94); }
+.rad .rz-fang:hover { filter: none; }
 .rad-mini { width: 46px; height: 46px; }
 .factor-nav { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
 .factor-nav button { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 4px 10px 4px 6px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); font-size: .84rem; font-weight: 650; cursor: pointer; }
@@ -782,7 +783,13 @@ html.kb-hinweise [data-kb]::after { content: attr(data-kb); position: absolute; 
 /* Druckrückmeldung ohne Hover (Touch) */
 .btn:active, .step-chip:active, .au-chip:active, .icon-btn:active, .seg button:active { transform: scale(.97); }
 /* Touch: alle «kleinen» Bedienelemente auf Tippgrösse, mehr Abstand gegen Fehltreffer */
+/* Touch (auch mit Handschuh): grössere Tippziele; «Draussen» bleibt bei 56 px */
 @media (pointer: coarse) {
+  :root:not([data-outdoor="1"]) { --tap: 54px; }
+  .factor-nav { gap: 10px; }
+  .factor-nav button { padding: 4px 14px 4px 8px; font-size: .92rem; }
+  .factor-nav .sw { width: 22px; height: 22px; }
+  .opts { gap: 10px; }
   .btn.sm, .step-chip, .au-chip, .seg.sm button, .factor-nav button, .aufnahme .au-seg button, .au-weg-btn, .code6-einf { min-height: var(--tap); }
   .icon-btn { width: var(--tap); height: var(--tap); }
   .au-chips, .row, .seg, .steps { gap: 8px; }
