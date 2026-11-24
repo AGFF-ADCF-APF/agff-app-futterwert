@@ -1,0 +1,287 @@
+{
+  "_hinweis": "Gemeinsame Videoliste der AGFF-Apps (futter, Heureka/drysim, drywatch). Gepflegt nur hier; die anderen Apps laden sie über /futter/v2/assets/mediathek.json. Felder: id (eindeutig), titel, url (nur https), quelle (Sendung/Herausgeber), anbieter (Plattform), sprache (de/fr/it/en), dauer (Minuten), datum (JJJJ-MM-TT, Veröffentlichung), verfuegbarBis (JJJJ-MM-TT, danach ausgeblendet; leer = unbefristet), beschreibung (eigene Worte, keine Kopie), themen (siehe themenNamen), apps (optional: nur in diesen Apps zeigen: futter, wiese, heureka, drywatch), bilder (optional false: bei YouTube keine Standbilder anbieten). Bei YouTube-Links bietet die Mediathek die drei Standbilder von YouTube an (erst nach Klick geladen).",
+  "themenNamen": {
+    "anwelken": "Anwelken",
+    "trocknung": "Trocknung auf dem Feld",
+    "heu": "Heu",
+    "belueftung": "Heubelüftung",
+    "silage": "Silage",
+    "ernte": "Ernte und Technik",
+    "wiese": "Wiese und Bestand"
+  },
+  "videos": [
+    {
+      "id": "agrarheute-grassilage-anwelken",
+      "titel": "Ratgeber Grassilage: Siliergut richtig anwelken",
+      "url": "https://www.youtube.com/watch?v=E8Fd_jFLJRs",
+      "quelle": "agrarheute",
+      "anbieter": "YouTube",
+      "sprache": "de",
+      "dauer": 2,
+      "datum": "2016-05-24",
+      "verfuegbarBis": "",
+      "beschreibung": "Kurz erklärt: auf welchen TS-Gehalt Gras für Silage anwelken soll, und was passiert, wenn es zu nass oder zu trocken ins Silo kommt.",
+      "themen": [
+        "anwelken",
+        "silage"
+      ]
+    },
+    {
+      "id": "topagrar-aufbereiter-systemvergleich",
+      "titel": "Gras mit Aufbereiter trocknen oder geht's auch ohne? (Systemvergleich)",
+      "url": "https://www.youtube.com/watch?v=urvxU9JAB94",
+      "quelle": "top agrar",
+      "anbieter": "YouTube",
+      "sprache": "de",
+      "dauer": 7,
+      "datum": "2021-11-26",
+      "verfuegbarBis": "",
+      "beschreibung": "Versuch der Redaktion: Mähen mit und ohne Aufbereiter im Vergleich, mit Leistungsbedarf und dem Verlauf der Abtrocknung auf dem Feld.",
+      "themen": [
+        "anwelken",
+        "trocknung",
+        "ernte"
+      ]
+    },
+    {
+      "id": "moeller-gras-maehen-aufbereiter",
+      "titel": "Gras mähen mit oder ohne Aufbereiter?",
+      "url": "https://www.youtube.com/watch?v=twlIbnX1VRI",
+      "quelle": "Möller Agrarmarketing",
+      "anbieter": "YouTube",
+      "sprache": "de",
+      "dauer": 11,
+      "datum": "2025-04-25",
+      "verfuegbarBis": "",
+      "beschreibung": "Jan-Hendrik Puckhaber erklärt, wann sich ein Mähaufbereiter für Grassilage lohnt und was er beim Anwelken bewirkt.",
+      "themen": [
+        "anwelken",
+        "trocknung",
+        "ernte",
+        "silage"
+      ]
+    },
+    {
+      "anbieter": "Play SRF",
+      "verfuegbarBis": "",
+      "id": "srf-perfektes-heuwetter",
+      "titel": "Es ist perfektes Heuwetter",
+      "url": "https://www.srf.ch/play/tv/srf-news-videos/video/es-ist-perfektes-heuwetter?urn=urn:srf:video:40f80fd4-db86-489d-be87-bb71025af1bc",
+      "quelle": "SRF News",
+      "sprache": "de",
+      "dauer": 1,
+      "datum": "2026-05-23",
+      "beschreibung": "Kurzer Nachrichtenbeitrag aus der Schweiz: Hitze und kein Regen in Sicht machen die Tage ideal für die Heuernte, bringen aber viel Arbeit.",
+      "themen": [
+        "trocknung",
+        "heu"
+      ]
+    },
+    {
+      "anbieter": "YouTube",
+      "verfuegbarBis": "",
+      "id": "fibl-demo-faucheuses",
+      "titel": "Démo Faucheuses: Rapid, Aebi, Enorossi, Gaspardo, Brielmaier, Wepfer",
+      "url": "https://www.youtube.com/watch?v=1ZgSDFj-C0M",
+      "quelle": "FiBL",
+      "sprache": "fr",
+      "dauer": 8,
+      "datum": "2015-07-03",
+      "beschreibung": "Vorführung verschiedener Mähwerke, wie sie in der Schweiz verbreitet sind, an einem Anlass im Juni 2015. Auf Französisch.",
+      "themen": [
+        "ernte"
+      ]
+    },
+    {
+      "id": "agrarheute-grassilage-haeckseln-verdichten",
+      "titel": "Ratgeber Grassilage: Häckseln und Silo verdichten",
+      "url": "https://www.youtube.com/watch?v=6Am21FV9zbE",
+      "quelle": "agrarheute",
+      "anbieter": "YouTube",
+      "sprache": "de",
+      "dauer": 2,
+      "datum": "2016-05-24",
+      "verfuegbarBis": "",
+      "beschreibung": "Wie lang gehäckselt werden soll und warum beim Einsilieren das Walzen das Tempo vorgibt, nicht der Häcksler.",
+      "themen": [
+        "silage",
+        "ernte"
+      ]
+    },
+    {
+      "id": "lkv-bw-reskuh-grassilage-grundlagen",
+      "titel": "Projekt ResKuh: Grundlagen der Grassilageproduktion",
+      "url": "https://www.youtube.com/watch?v=WDpUZ58RiQk",
+      "quelle": "LKV Baden-Württemberg",
+      "anbieter": "YouTube",
+      "sprache": "de",
+      "dauer": 5,
+      "datum": "2025-09-02",
+      "verfuegbarBis": "",
+      "beschreibung": "Überblick über die Arbeitsschritte zu guter Grassilage, aus einem Beratungsprojekt des Landeskontrollverbands Baden-Württemberg.",
+      "themen": [
+        "silage",
+        "anwelken",
+        "ernte"
+      ]
+    },
+    {
+      "id": "br-unser-land-silage",
+      "titel": "Konserviertes Futter: Silage",
+      "url": "https://www.youtube.com/watch?v=RGRSWZ2KvAc",
+      "quelle": "Unser Land (BR)",
+      "anbieter": "YouTube",
+      "sprache": "de",
+      "dauer": 5,
+      "datum": "2019-06-26",
+      "verfuegbarBis": "",
+      "beschreibung": "Fernsehbeitrag darüber, wie aus Gras Silage wird und weshalb sie als Winterfutter so verbreitet ist.",
+      "themen": [
+        "silage"
+      ]
+    },
+    {
+      "anbieter": "YouTube",
+      "verfuegbarBis": "",
+      "id": "strickhof-grassilage",
+      "titel": "Grassilage Strickhof",
+      "url": "https://www.youtube.com/watch?v=cS7uAFvodu0",
+      "quelle": "Strickhof",
+      "sprache": "de",
+      "dauer": 1,
+      "datum": "2022-09-20",
+      "beschreibung": "Kurzer Clip vom Strickhof, dem Bildungs- und Beratungszentrum des Kantons Zürich, zur Grassilage.",
+      "themen": [
+        "silage"
+      ]
+    },
+    {
+      "id": "silieren-heute-schweiz-ausschnitt",
+      "titel": "Silieren heute in der Schweiz (Ausschnitt)",
+      "url": "https://www.youtube.com/watch?v=edOwB-ZjyHg",
+      "quelle": "bauernfilme",
+      "anbieter": "YouTube",
+      "sprache": "de",
+      "dauer": 3,
+      "datum": "2010-06-15",
+      "verfuegbarBis": "",
+      "beschreibung": "Ausschnitt aus dem Film, der 2010 am Strickhof Premiere hatte. Der ganze Film ist online nicht verfügbar.",
+      "themen": [
+        "silage",
+        "ernte"
+      ]
+    },
+    {
+      "id": "silovereinigung-vorbereitung-hochsilo",
+      "titel": "Vorbereitung Hochsilo",
+      "url": "https://www.youtube.com/watch?v=qg2GJ8U2bUc",
+      "quelle": "Schweizerische Silovereinigung",
+      "anbieter": "YouTube",
+      "sprache": "de",
+      "dauer": 2,
+      "datum": "2020-04-25",
+      "verfuegbarBis": "",
+      "beschreibung": "Kurzer Clip der Silovereinigung: wie ein Hochsilo vor dem Befüllen vorbereitet wird.",
+      "themen": [
+        "silage"
+      ]
+    },
+    {
+      "id": "br-unser-land-heu-trocknungsanlage",
+      "titel": "Hochwertiges Heu, gesunde Kühe, mehr Milch: Die moderne Heutrocknung",
+      "url": "https://www.youtube.com/watch?v=6cF04RJYkcs",
+      "quelle": "Unser Land (BR)",
+      "anbieter": "YouTube",
+      "sprache": "de",
+      "dauer": 6,
+      "datum": "2025-07-09",
+      "verfuegbarBis": "",
+      "beschreibung": "Ein Milchviehbetrieb in Bayern trocknet sein Heu nicht nur mit der Sonne auf der Wiese, sondern in einer eigenen Anlage fertig. Der Beitrag zeigt, warum sich das für die Futterqualität lohnen kann und worauf es dabei ankommt.",
+      "themen": [
+        "heu",
+        "belueftung",
+        "trocknung"
+      ]
+    },
+    {
+      "id": "lasco-heutrocknung-bergzone-schweiz",
+      "titel": "Heutrocknung ohne Dachabsaugung, Bergzone 1 (Schweiz)",
+      "url": "https://www.youtube.com/watch?v=1MEIEC0u_eI",
+      "quelle": "LASCO Heutechnik (Hersteller)",
+      "anbieter": "YouTube",
+      "sprache": "de",
+      "dauer": 2,
+      "datum": "2017-01-16",
+      "verfuegbarBis": "",
+      "beschreibung": "Ein Milchviehbetrieb im St. Galler Rheintal zeigt seine Heubelüftung mit Lüfter, Steuerung und Luftentfeuchter, ohne Dachabsaugung. Video des Herstellers.",
+      "themen": [
+        "heu",
+        "belueftung"
+      ]
+    },
+    {
+      "anbieter": "YouTube",
+      "verfuegbarBis": "",
+      "id": "fibl-sechoir-foin-chaubert",
+      "titel": "Le séchoir pour du foin optimal (Michel Chaubert)",
+      "url": "https://www.youtube.com/watch?v=gVmS1n3V5QI",
+      "quelle": "FiBL",
+      "sprache": "fr",
+      "dauer": 3,
+      "datum": "2018-05-04",
+      "beschreibung": "Ein Landwirt aus Puidoux VD zeigt seine Heubelüftung und erklärt, warum gut geführte Belüftung die Heuqualität deutlich verbessert. Auf Französisch.",
+      "themen": [
+        "heu",
+        "belueftung"
+      ]
+    },
+    {
+      "anbieter": "YouTube",
+      "verfuegbarBis": "",
+      "id": "agroscope-raufutterqualitaet-pferde",
+      "titel": "Gute Raufutterqualität für Pferde",
+      "url": "https://www.youtube.com/watch?v=AM41-waDWyA",
+      "quelle": "Agroscope, Schweizerisches Nationalgestüt",
+      "sprache": "de",
+      "dauer": 4,
+      "datum": "2014-02-03",
+      "beschreibung": "Woran man einwandfreies, strukturreiches Heu erkennt und wie man seine Qualität selbst beurteilt. Gedreht für Pferdehaltende, gilt aber für Raufutter allgemein. Auch auf Französisch: youtube.com/watch?v=QqYEVVCIsCs",
+      "themen": [
+        "heu"
+      ]
+    },
+    {
+      "id": "segrafo-foin-sechage-en-grange",
+      "titel": "Itinéraire technique du foin de séchage en grange",
+      "url": "https://www.youtube.com/watch?v=4iTKgUJBCkk",
+      "quelle": "Association SEGRAFO",
+      "anbieter": "YouTube",
+      "sprache": "fr",
+      "dauer": 10,
+      "datum": "2026-08-24",
+      "verfuegbarBis": "",
+      "beschreibung": "Der ganze Ablauf für Belüftungsheu, vom Mähen über das Anwelken bis zur Trocknung auf dem Heustock. Auf Französisch.",
+      "themen": [
+        "heu",
+        "belueftung",
+        "trocknung"
+      ]
+    },
+    {
+      "id": "fugea-sechage-foin-en-grange",
+      "titel": "Le séchage de foin en grange",
+      "url": "https://www.youtube.com/watch?v=9QiPJ45TS0E",
+      "quelle": "FUGEA (Belgien)",
+      "anbieter": "YouTube",
+      "sprache": "fr",
+      "dauer": 6,
+      "datum": "2017-12-19",
+      "verfuegbarBis": "",
+      "beschreibung": "Belgischer Bauernverband stellt die Heubelüftung vor: wie sie funktioniert und was sie dem Betrieb bringt. Auf Französisch.",
+      "themen": [
+        "heu",
+        "belueftung"
+      ]
+    }
+  ]
+}

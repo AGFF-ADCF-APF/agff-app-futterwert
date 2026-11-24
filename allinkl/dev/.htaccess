@@ -1,0 +1,43 @@
+# NUR Testumgebung (dev): JEDE Anfrage unter /futter/ bzw. /wiese/ läuft durch tor.php (Anmeldung mit dem AGFF-Konto).
+# Das Deploy-Skript legt diese Datei und tor.php statt public/.htaccess nach public/ (im Repo: allinkl/dev/). Nie auf live.
+Options -Indexes -MultiViews
+DirectoryIndex tor.php
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  # Auch Dateien unter assets/ gehen durch das Tor (es liefert sie nur mit Sitzung aus)
+  RewriteRule ^tor\.php$ - [L]
+  RewriteRule ^ tor.php [L,QSA]
+</IfModule>
+
+# Typen wie in Flask (v2_assets): .mjs als JavaScript, Sprachdaten roh (Tesseract.js entpackt selbst)
+AddType text/javascript .mjs
+AddType application/manifest+json .webmanifest
+AddType image/webp .webp
+AddType application/wasm .wasm
+<FilesMatch "\.traineddata\.gz$">
+  ForceType application/octet-stream
+  <IfModule mod_headers.c>
+    Header unset Content-Encoding
+  </IfModule>
+</FilesMatch>
+RemoveEncoding .gz
+
+<IfModule mod_headers.c>
+  Header always set X-Robots-Tag "noindex, nofollow"
+  # Gleiche Sicherheits-Header wie die PHP-Antworten (lib/kern.php sicherheits_header) für statische Dateien
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; style-src-elem 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob: https://i.ytimg.com; font-src 'self'; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" "expr=%{REQUEST_URI} =~ m#/assets/#"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "no-referrer"
+  Header always set X-Frame-Options "DENY"
+  # COOP für das Umzugsfenster (/umzug) setzt PHP selbst (r_seite_umzug)
+  Header always set Cross-Origin-Opener-Policy "same-origin" "expr=%{THE_REQUEST} !~ m#^[A-Z]+ [^ ?]*/umzug[ ?]#"
+  Header always set Cross-Origin-Resource-Policy "same-origin"
+  Header always set Strict-Transport-Security "max-age=31536000"
+  Header set Cache-Control "no-cache" "expr=%{REQUEST_URI} =~ m#/assets/#"
+</IfModule>
+
+# Versteckte Dateien (.htaccess, .deploy-commit …) nie ausliefern
+<FilesMatch "^\.">
+  Require all denied
+</FilesMatch>
