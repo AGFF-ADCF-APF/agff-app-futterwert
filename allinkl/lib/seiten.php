@@ -74,6 +74,15 @@ function asset_build(): string
     return $b ??= trim((string) @file_get_contents(seiten_dir() . '/build.txt'));
 }
 
+/**
+ * Texterkennung: läuft nicht auf all-inkl, sondern auf dem Home-Server (konfig OCR_URL) oder im Browser.
+ * url = Basis für lesen/bericht beim Home-Server, null = nur «Auf meinem Gerät». (Flask liefert kein url → gleiche Herkunft.)
+ */
+function r_labor_config(): void
+{
+    json_ende(['consentVersion' => '2026-10-o1', 'url' => ocr_url()]);
+}
+
 function r_config(): void
 {
     $privacy = (string) konfig('V2_PRIVACY_URL', '');

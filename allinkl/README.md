@@ -53,8 +53,8 @@ vergleicht Status, Sicherheits-Header und JSON.
 | E-Mail-Codes, Freigaben (Spaces) inkl. Fotos und Gruppen-Beitritt | portiert, geprüft |
 | Konto und Cloud-Speicherung, Antrag Foto-Speicher | portiert, geprüft |
 | Kurse, Pool, Administration (Übersicht, Kursleitung, Einladungen) | portiert, geprüft |
-| Texterkennung | bleibt auf dem Home-Server bzw. im Browser (Plan Abschnitt 5) |
-| Deploy-Skript (dev mit Tor, live mit Bestätigung) | geschrieben, lokal geprüft; erster Dev-Deploy wartet auf Datenbank und konfig.php |
+| Texterkennung | läuft auf dem Home-Server (Flask, `/futter/v2/api/labor/*`, CORS über `OCR_CORS_ORIGINS`); die PHP-App nennt die Adresse unter `api/labor/config` (konfig `OCR_URL`, ergänzt die CSP). Kein Server eingestellt oder erreichbar (30 s) → «Auf meinem Gerät» |
+| Deploy-Skript (dev mit Tor, live mit Bestätigung) | in Betrieb (dev und live) |
 | Datenumzug, Umzugsseite | offen |
 
 Abweichungen von Flask, bewusst: Ratenbegrenzung in MySQL statt im Arbeitsspeicher; Admin-Cookie nur für den Pfad

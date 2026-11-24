@@ -3,6 +3,7 @@
 Das hochgeladene PDF/Foto wird ausschliesslich im Arbeitsspeicher bzw. in einem temporären
 Verzeichnis verarbeitet und sofort verworfen. Es wird nichts gespeichert und nichts protokolliert.
 """
+import os
 import threading
 
 from flask import jsonify, request
@@ -14,6 +15,24 @@ from v2_api import v2, _rate_hit
 OCR_CONSENT_VERSION = '2026-10-o1'
 MAX_BYTES = 12 * 1024 * 1024
 _gleichzeitig = threading.BoundedSemaphore(2)  # CPU schonen
+
+# Aufruf aus einer anderen App (Futter v2 auf all-inkl, app.graswachstum.ch): nur diese Herkünfte, ohne Cookies.
+# OCR_CORS_ORIGINS=https://app.graswachstum.ch,https://dev-app.graswachstum.ch (leer = nur gleiche Herkunft)
+CORS_ORIGINS = {o.strip().rstrip('/') for o in os.environ.get('OCR_CORS_ORIGINS', '').split(',') if o.strip()}
+_LABOR_PFADE = ('/v2/api/labor/lesen', '/v2/api/labor/bericht', '/v2/api/labor/config')
+
+
+@v2.after_request
+def _labor_cors(resp):
+    """CORS-Kopfzeilen; die Vorabfrage (OPTIONS) beantwortet Flask selbst (automatische OPTIONS-Route)."""
+    herkunft = (request.headers.get('Origin') or '').rstrip('/')
+    if request.path in _LABOR_PFADE and herkunft and herkunft in CORS_ORIGINS:
+        resp.headers['Access-Control-Allow-Origin'] = herkunft
+        resp.headers['Vary'] = 'Origin'
+        resp.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        resp.headers['Access-Control-Allow-Headers'] = 'Content-Type, X-OCR-Consent'
+        resp.headers['Access-Control-Max-Age'] = '600'
+    return resp
 
 
 @v2.route('/v2/api/labor/lesen', methods=['POST'])

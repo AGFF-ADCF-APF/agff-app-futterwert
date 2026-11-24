@@ -22,6 +22,8 @@ services:
       # Admin-Anmeldung mit dem AGFF-Konto (SSO graswachstum.ch, client futter): öffentlicher Ed25519-Schlüssel des Anbieters
       - SSO_URL=${SSO_URL:-https://graswachstum.ch}
       - SSO_PUBLIC_KEY=${SSO_PUBLIC_KEY:-}
+      # Texterkennung für Futter v2 auf all-inkl: erlaubte Herkünfte (CORS, nur /v2/api/labor/*), kommagetrennt
+      - OCR_CORS_ORIGINS=${OCR_CORS_ORIGINS:-https://app.graswachstum.ch,https://dev-app.graswachstum.ch}
     networks:
       - web-netzwerk
     labels:

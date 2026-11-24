@@ -17,5 +17,8 @@ return [
     'DATEN_DIR' => __DIR__ . '/daten',   // Fotos
     'WIESE_PFADE' => ['/wiese/'],
     'COOKIE_PFAD' => null,               // dev: '/' (Admin-Anmeldung gilt dann auch für /wiese/, das Tor braucht sie dort)
-    'CSP_CONNECT_EXTRA' => [],           // z. B. ['https://ocr.graswachstum.ch'] für die Texterkennung auf dem Home-Server
+    'CSP_CONNECT_EXTRA' => [],           // weitere Adressen für connect-src (OCR_URL wird automatisch ergänzt)
+    // Texterkennung auf dem Home-Server (Plan Abschnitt 5): Basis der Labor-Routen, mit Schrägstrich am Ende.
+    // Leer = keine Server-Texterkennung, die App liest dann nur «Auf meinem Gerät».
+    'OCR_URL' => '',                     // z. B. 'https://apps.graswachstum.ch/futter/v2/api/labor/'
 ];

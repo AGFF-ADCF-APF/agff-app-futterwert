@@ -75,11 +75,32 @@ function json_text($daten): string
     return json_encode($daten, JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR);
 }
 
+// --- Texterkennung auf dem Home-Server (konfig OCR_URL) ----------------------------------
+/** Basis-Adresse der Labor-Routen (https, mit / am Ende) oder null, wenn keine eingestellt ist. */
+function ocr_url(): ?string
+{
+    $u = trim((string) konfig('OCR_URL', ''));
+    if ($u === '' || !preg_match('#^https://[a-z0-9.-]+(/[A-Za-z0-9._~/-]*)?$#D', $u)) {
+        return null;
+    }
+    return rtrim($u, '/') . '/';
+}
+
+function ocr_herkunft(): ?string
+{
+    $u = ocr_url();
+    return $u === null ? null : (string) preg_replace('#^(https://[^/]+).*$#', '$1', $u);
+}
+
 // --- Sicherheits-Header (wie v2_api.CSP) ------------------------------------------------
 function csp(): string
 {
     $connect = ["'self'"];
-    foreach ((array) konfig('CSP_CONNECT_EXTRA', []) as $u) { // z. B. https://ocr.graswachstum.ch
+    $extra = (array) konfig('CSP_CONNECT_EXTRA', []);
+    if (($ocr = ocr_herkunft()) !== null) {
+        $extra[] = $ocr;
+    }
+    foreach ($extra as $u) {
         if (preg_match('#^https://[a-z0-9.-]+$#D', (string) $u)) {
             $connect[] = $u;
         }

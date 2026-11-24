@@ -51,12 +51,35 @@
   }
 
   // ---------- Server ----------
-  async function serverLesen(blob) {
-    const r = await fetch('api/labor/lesen', { method: 'POST', headers: { 'Content-Type': blob.type || 'application/octet-stream', 'X-OCR-Consent': OCR_CONSENT }, body: blob, credentials: 'omit', cache: 'no-store' });
+  // Die Texterkennung läuft nicht immer am selben Ort wie die App: Futter v2 auf all-inkl schickt Dateien direkt an den
+  // Home-Server (api/labor/config → url), die Flask-App liest selbst (kein url → gleiche Herkunft). Ist kein Server
+  // eingestellt oder erreichbar, wird «Auf meinem Gerät» gelesen. Der Rest der App wartet nie auf den Home-Server.
+  let zielP = null;
+  function serverZiel() {
+    if (!zielP) {
+      zielP = fetch('api/labor/config', { cache: 'no-store', credentials: 'omit', signal: AbortSignal.timeout ? AbortSignal.timeout(6000) : undefined })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => (!j ? null : ('url' in j ? (typeof j.url === 'string' && /^https:\/\/[^/]+\/.*\/$/.test(j.url) ? j.url : null) : 'api/labor/')))
+        .catch(() => null);
+      zielP.then((z) => { if (!z) zielP = null; }); // später erneut versuchen
+    }
+    return zielP;
+  }
+  class OfflineFehler extends Error {}
+  /** Datei an den Texterkennungs-Server schicken (pfad: 'lesen' oder 'bericht'). OfflineFehler → auf dem Gerät lesen. */
+  async function serverSenden(pfad, blob, typ) {
+    const basis = await serverZiel();
+    if (!basis) throw new OfflineFehler('Texterkennung auf dem Server ist nicht verfügbar.');
+    let r;
+    try {
+      r = await fetch(basis + pfad, { method: 'POST', headers: { 'Content-Type': typ || blob.type || 'application/octet-stream', 'X-OCR-Consent': OCR_CONSENT }, body: blob, credentials: 'omit', cache: 'no-store', mode: 'cors', referrerPolicy: 'no-referrer', signal: AbortSignal.timeout ? AbortSignal.timeout(30000) : undefined });
+    } catch (e) { throw new OfflineFehler('Server nicht erreichbar.'); }
     const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error({ RATE_LIMITED: 'Zu viele Anfragen – bitte später erneut.', TOO_LARGE: 'Datei zu gross (max. 12 MB).', FORMAT: 'Bitte PDF oder Foto (JPEG, PNG, WebP).', NICHT_LESBAR: 'Die Datei konnte nicht gelesen werden.', BESCHAEFTIGT: 'Server ausgelastet – bitte gleich nochmals.' }[j.error] || ('Fehler ' + r.status));
+    if (r.status === 404 || r.status === 502 || r.status === 504 || (r.status === 503 && !j.error)) throw new OfflineFehler('Server nicht erreichbar (' + r.status + ').');
+    if (!r.ok) { const e = new Error({ RATE_LIMITED: 'Zu viele Anfragen – bitte später erneut.', TOO_LARGE: 'Datei zu gross (max. 12 MB).', FORMAT: 'Bitte PDF oder Foto (JPEG, PNG, WebP).', NICHT_LESBAR: 'Die Datei konnte nicht gelesen werden.', BESCHAEFTIGT: 'Server ausgelastet – bitte gleich nochmals.' }[j.error] || ('Fehler ' + r.status)); e.code = j.error; throw e; }
     return j;
   }
+  const serverLesen = (blob) => serverSenden('lesen', blob);
 
   // ---------- Auf dem Gerät ----------
   let tessWorker = null;
@@ -189,6 +212,11 @@
         '<p class="hint" id="ocrMsg"></p><div class="row"><button type="button" class="btn ghost grow" data-close>Abbrechen</button><button class="btn primary grow">Lesen</button></div></form>' +
         '<button class="btn ghost block" id="ocrManuell" style="margin-top:8px">Werte von Hand eingeben</button>', (el) => {
         const msg = el.querySelector('#ocrMsg');
+        serverZiel().then((z) => { // kein Server eingestellt/erreichbar: gleich «Auf meinem Gerät» vorwählen
+          if (z) return; const srv = el.querySelector('[name=wo][value=server]'); const ger = el.querySelector('[name=wo][value=geraet]');
+          if (srv && srv.checked && ger) { ger.checked = true; ger.dispatchEvent(new Event('change')); }
+          if (srv) { srv.disabled = true; srv.closest('.opt').style.opacity = '.55'; const sm = srv.closest('.opt').querySelector('small'); if (sm) sm.textContent = 'zurzeit nicht verfügbar'; }
+        });
         el.querySelector('#ocrManuell').onclick = () => pruefen({ werte: {}, zeilen: {}, sicher: {}, quelle: 'manuell' }, resolve);
         el.querySelectorAll('[name=wo]').forEach((r) => r.addEventListener('change', () => { el.querySelector('#ocrHinweis').style.display = r.value === 'server' && r.checked ? '' : (el.querySelector('[name=wo]:checked').value === 'server' ? '' : 'none'); }));
         el.querySelector('#ocrForm').addEventListener('submit', async (e) => {
@@ -202,8 +230,14 @@
           try {
             let r;
             blob = await flaechenAufhellen(blob);
-            if (wo === 'server') { A.db.prefs.ocrConsent = OCR_CONSENT; A.save(); msg.textContent = 'Lese auf dem Server …'; r = await serverLesen(blob); }
-            else r = await geraetLesen(blob, (t) => { msg.textContent = t; });
+            if (wo === 'server') {
+              A.db.prefs.ocrConsent = OCR_CONSENT; A.save(); msg.textContent = 'Lese auf dem Server …';
+              try { r = await serverLesen(blob); } catch (er) {
+                if (!(er instanceof OfflineFehler)) throw er;
+                msg.textContent = 'Server nicht erreichbar – lese auf diesem Gerät …';
+                r = await geraetLesen(blob, (t) => { msg.textContent = t + ' (Server nicht erreichbar)'; });
+              }
+            } else r = await geraetLesen(blob, (t) => { msg.textContent = t; });
             if (!Object.keys(r.werte).length) { msg.textContent = 'Keine Werte erkannt. Tipp: Foto gerade und bei gleichmässigem Licht aufnehmen – oder die Werte von Hand eingeben.'; btn.disabled = false; return; }
             pruefen(r, resolve);
           } catch (er) { msg.textContent = er.message; btn.disabled = false; }
@@ -450,5 +484,5 @@
     return /\d/.test(z) && (PARAM.some(([, rx]) => rx.test(z)) || NAEHRSTOFF.test(z));
   }
 
-  global.LaborOCR = { gbHtml, nelMitLabor, tabelleHtml, bestePassung, zeilen, istWertzeile, flaechenAufhellen, dialog, parse, vergleich, vergleichHtml, FELDER, OCR_CONSENT };
+  global.LaborOCR = { serverZiel, serverSenden, geraetLesen, OfflineFehler, gbHtml, nelMitLabor, tabelleHtml, bestePassung, zeilen, istWertzeile, flaechenAufhellen, dialog, parse, vergleich, vergleichHtml, FELDER, OCR_CONSENT };
 })(window);

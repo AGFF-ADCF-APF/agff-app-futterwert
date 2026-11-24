@@ -138,6 +138,15 @@ Server-seitige Daten (Kurse, Konten, Freigaben, Pool) ziehen mit der Datenbank o
 **Empfehlung:** Text-PDFs in den Browser (5.2.1), Fotos an den Home-Server mit Gerät als Rückfall
 (5.2.2). Den Tesseract-Versuch auf all-inkl nur machen, falls der Home-Server ganz wegfallen soll.
 
+### 5.4 Umsetzung (24.11.2026, erster Schritt)
+- Die bestehende Flask-App auf dem Home-Server bleibt Texterkennungs-Server: `apps.graswachstum.ch/futter/v2/api/labor/*`,
+  CORS nur für die Herkünfte in `OCR_CORS_ORIGINS` (Vorgabe app. und dev-app.graswachstum.ch), ohne Cookies. Keine neue
+  Subdomain, kein neuer Container, keine DNS-Änderung nötig. Beim Abschalten des Flask-Futters (Punkt 3) bleiben nur diese Routen.
+- PHP: `api/labor/config` liefert `url` aus konfig `OCR_URL` (null = keine Server-Texterkennung); die CSP ergänzt die Herkunft.
+- Browser: «Auf dem Server» nur, wenn erreichbar; Zeitlimit 30 s, sonst automatisch «Auf meinem Gerät» (auch bei
+  «Laboranalyse auswerten», dort dann eine Probe statt des ganzen Prüfberichts).
+- Offen: Prüfberichte (Text-PDF) im Browser lesen (5.2.1), damit «Laboranalyse auswerten» auch ohne Home-Server mehrere Proben liefert.
+
 ## 6. Was verloren ginge – und wie nicht
 
 | Funktion | Ohne Massnahme | Mit diesem Plan |

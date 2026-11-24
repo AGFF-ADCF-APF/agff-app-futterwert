@@ -84,7 +84,7 @@
     const A = app(); const v = global.LaborOCR && global.LaborOCR.OCR_CONSENT;
     if (A.db.prefs.ocrConsent === v) return Promise.resolve(v);
     return new Promise((ok) => {
-      A.sheet('<h2>Bericht einlesen</h2><div class="consent"><ul><li>Der Bericht wird zum Lesen an den Server der App geschickt, <b>nur im Arbeitsspeicher</b> verarbeitet und sofort gelöscht.</li>' +
+      A.sheet('<h2>Bericht einlesen</h2><div class="consent"><ul><li>Der Bericht wird zum Lesen an den Texterkennungs-Server geschickt, <b>nur im Arbeitsspeicher</b> verarbeitet und sofort gelöscht. Ist er nicht erreichbar, wird auf diesem Gerät gelesen.</li>' +
         '<li>Übernommen werden nur Probenangaben und Messwerte. <b>Kunden-Nr., Name, Adresse und Standortcode</b> werden nicht übernommen.</li><li>Die Auswertung bleibt auf diesem Gerät.</li></ul>' +
         '<div class="row"><button class="btn ghost grow" data-close>Abbrechen</button><button class="btn primary grow" id="laOk">Einverstanden, einlesen</button></div></div>', (el) => {
         el.querySelector('#laOk').onclick = () => { A.db.prefs.ocrConsent = v; A.save(); A.closeSheet(); ok(v); };
@@ -98,13 +98,22 @@
     const v = await zustimmung(); if (!v) return;
     A.sheet('<h2>Bericht wird gelesen …</h2><p class="small">Das dauert bei Fotos bis zu einer halben Minute.</p><div class="la-laden"></div>');
     let r;
+    const O = global.LaborOCR;
     try {
-      const res = await fetch('api/labor/bericht', { method: 'POST', headers: { 'Content-Type': 'application/octet-stream', 'X-OCR-Consent': v }, body: (window.LaborOCR && window.LaborOCR.flaechenAufhellen ? await window.LaborOCR.flaechenAufhellen(file) : file), credentials: 'omit', cache: 'no-store' });
-      r = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(r.error || 'HTTP ' + res.status);
+      const daten = O.flaechenAufhellen ? await O.flaechenAufhellen(file) : file;
+      try {
+        r = await O.serverSenden('bericht', daten, 'application/octet-stream');
+      } catch (e) {
+        if (!(e instanceof O.OfflineFehler)) throw e;
+        // Server nicht eingestellt oder nicht erreichbar: eine Probe auf dem Gerät lesen (Tesseract.js / pdf.js)
+        A.sheet('<h2>Bericht wird auf diesem Gerät gelesen …</h2><p class="small" id="laStatus">Der Server ist nicht erreichbar. Beim ersten Mal werden ca. 6–11 MB geladen.</p><div class="la-laden"></div>');
+        const g = await O.geraetLesen(daten, (t) => { const el = document.getElementById('laStatus'); if (el) el.textContent = t; });
+        const werte = {}; Object.keys(g.werte || {}).forEach((k) => { werte[k] = { v: g.werte[k] }; });
+        r = { quelle: 'geraet', labor: null, proben: Object.keys(werte).length ? [{ nr: '1', meta: {}, werte, kommentare: [] }] : [] };
+      }
     } catch (e) {
       A.closeSheet();
-      A.toast({ FORMAT: 'Nur PDF oder Bild (JPEG, PNG, WebP).', TOO_LARGE: 'Datei zu gross.', NICHT_LESBAR: 'Bericht konnte nicht gelesen werden.', BESCHAEFTIGT: 'Server ausgelastet – bitte gleich nochmals.', RATE_LIMITED: 'Zu viele Versuche – bitte später.' }[e.message] || 'Einlesen fehlgeschlagen: ' + e.message);
+      A.toast({ FORMAT: 'Nur PDF oder Bild (JPEG, PNG, WebP).', TOO_LARGE: 'Datei zu gross.', NICHT_LESBAR: 'Bericht konnte nicht gelesen werden.', BESCHAEFTIGT: 'Server ausgelastet – bitte gleich nochmals.', RATE_LIMITED: 'Zu viele Versuche – bitte später.' }[e.code] || 'Einlesen fehlgeschlagen: ' + e.message);
       return;
     }
     A.closeSheet();

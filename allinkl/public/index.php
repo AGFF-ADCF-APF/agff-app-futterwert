@@ -44,6 +44,7 @@ $ROUTEN = [
     ['GET', 'manifest.webmanifest', 'r_manifest'],
     ['GET', 'api/basis', 'r_basis'],
     ['GET', 'api/config', 'r_config'],
+    ['GET', 'api/labor/config', 'r_labor_config'],
     ['PUT', 'api/statistik/([^/]+)', 'r_beitrag_speichern'],
     ['DELETE', 'api/statistik/([^/]+)', 'r_beitrag_loeschen'],
     ['GET', 'api/statistik/vergleich', 'r_vergleich'],
