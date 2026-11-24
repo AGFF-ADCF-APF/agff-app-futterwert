@@ -125,7 +125,9 @@
         (i.cloud[a] ? '<button class="btn sm ghost" data-ko="sync" data-app="' + a + '">Jetzt abgleichen</button>' : '') + '</div>'; };
     const f = i.fotos; const pz = Math.min(100, Math.round(f.bytes / Math.max(1, f.limit) * 100));
     return '<div class="card stack ko-karte"><div class="row" style="align-items:center"><span class="grow">Angemeldet als <b>' + esc(i.email) + '</b></span><button class="btn sm ghost" data-ko="abmelden">Abmelden</button></div>' +
-      sw('futter', 'Futter', '🌾') + sw('wiese', 'Wiese', '🌱') +
+      sw('futter', 'Futter', '🌾') + (i.cloud.wiese ? sw('wiese', 'Wiese', '🌱') : '') +
+      // «Wiese in der Cloud» ist abgeschaltet (24.11.2026): Wiesenaufnahmen, Fotopunkte und Referenzbilder gleicht Pratum ab
+      '<p class="small muted" style="margin:0">🌱 Wiesenaufnahmen, Fotopunkte und Referenzbilder gleicht neu <a href="' + esc((window.AGFF_V2 || {}).wieseUrl || '/pratum/') + '#/daten">Pratum</a> ab (Cloud mit dem AGFF-Login).' + (i.cloud.wiese ? ' Die Wiese-Kopie hier wird nicht mehr abgeglichen; bitte ausschalten und löschen.' : '') + '</p>' +
       '<div><div class="small">Foto-Speicher: ' + mb(f.bytes) + ' von ' + mb(f.limit) + ' MB</div><div class="ko-balken"><i style="width:' + pz + '%"' + (pz >= 90 ? ' class="voll"' : '') + '></i></div>' +
       (f.antrag ? '<div class="small muted">Antrag auf ' + f.antrag.wunsch_mb + ' MB vom ' + zeit(f.antrag.created_at) + ' ist in Prüfung.</div>' : '<button class="btn sm ghost" data-ko="quota" data-bereich="konto">Mehr Speicher beantragen</button>') + '</div>' +
       '<details><summary class="small">Geräte und Anmelde-Links (' + i.geraete.length + ' / ' + i.links.length + ')</summary>' +
@@ -291,10 +293,11 @@
       if (app().route().name === 'daten') { info = null; infoLaden().then(() => app().route().name === 'daten' && app().render()); }
     }
   }
-  function allesAbgleichen() { if (!angemeldet()) return; ['futter', 'wiese'].reduce((p, a) => p.then(() => abgleichen(a)), Promise.resolve()); }
+  // Nur noch Futter: «Wiese in der Cloud» ist abgeschaltet (24.11.2026), die Wiese-Daten gleicht Pratum mit eigener Cloud ab
+  function allesAbgleichen() { if (!angemeldet()) return; abgleichen('futter'); }
   const timer = {};
   /** Von app.js / wiese.js / aufnahme.js nach dem Speichern aufgerufen */
-  function geaendert(a) { if (!angemeldet() || !info || !info.cloud[a]) return; clearTimeout(timer[a]); timer[a] = setTimeout(() => abgleichen(a), 4000); }
+  function geaendert(a) { if (a !== 'futter' || !angemeldet() || !info || !info.cloud[a]) return; clearTimeout(timer[a]); timer[a] = setTimeout(() => abgleichen(a), 4000); }
   setInterval(() => { if (document.visibilityState === 'visible') allesAbgleichen(); }, 3 * 60 * 1000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') allesAbgleichen(); });
   global.addEventListener('online', allesAbgleichen);
@@ -343,13 +346,13 @@
       case 'cloud': {
         e.preventDefault();
         if (!info) break;
-        if (!info.cloud[a]) { cloudZustimmung(a, () => { A.render(); abgleichen(a).then(() => A.render()); }); break; }
+        if (!info.cloud[a]) { if (a !== 'futter') break; cloudZustimmung(a, () => { A.render(); abgleichen(a).then(() => A.render()); }); break; }
         const loeschen = confirm('Cloud-Speicherung für ' + (a === 'futter' ? 'Futter' : 'Wiese') + ' ausschalten.\n\nOK = auch die Cloud-Daten (inkl. Fotos) dieser App vom Server löschen\nAbbrechen = nichts ändern');
         if (!loeschen) break;
         try { await api('konto/cloud', { method: 'PUT', body: { app: a, an: false, loeschen: true } }); const s = lesen(KEY_STAND, {}); delete s[a]; schreiben(KEY_STAND, s); await infoLaden(true); A.toast('Ausgeschaltet und Cloud-Daten gelöscht. Auf diesem Gerät bleibt alles erhalten.'); A.render(); } catch (er) { A.toast('Fehler: ' + er.message); }
         break;
       }
-      case 'sync': await abgleichen(a); A.render(); A.toast(status[a].fehler ? status[a].fehler : 'Abgeglichen.'); break;
+      case 'sync': if (a !== 'futter') break; await abgleichen(a); A.render(); A.toast(status[a].fehler ? status[a].fehler : 'Abgeglichen.'); break;
       case 'geraet-weg': if (confirm('Dieses Gerät abmelden?')) { await api('konto/geraete/' + t.dataset.id, { method: 'DELETE' }).catch(() => {}); await infoLaden(true); A.render(); } break;
       case 'links-weg': if (confirm('Alle Anmelde-Links in Ihren E-Mails ungültig machen? Angemeldete Geräte bleiben angemeldet.')) { await api('konto/links', { method: 'DELETE' }).catch(() => {}); await infoLaden(true); A.render(); A.toast('Alle Anmelde-Links widerrufen.'); } break;
       case 'konto-weg':

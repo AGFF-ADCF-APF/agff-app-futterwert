@@ -280,6 +280,10 @@ function r_konto_cloud(): void
         fehler('BAD_REQUEST', 400);
     }
     $k = konto_oder_404();
+    if ($an && $app === 'wiese') {
+        // «Wiese in der Cloud» ist abgeschaltet (24.11.2026): Pratum gleicht diese Daten mit eigener Cloud ab. Ausschalten und Löschen gehen weiter.
+        fehler('UMGEZOGEN', 409, ['ziel' => '/pratum/']);
+    }
     if ($an) {
         $c = feld($body, 'consent');
         $c = wahr($c) ? $c : new stdClass();
