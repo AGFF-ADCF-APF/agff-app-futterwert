@@ -17,13 +17,13 @@
 #   durch das Tor (allinkl/dev/tor.php + .htaccess: nur mit Admin-Anmeldung über das AGFF-Konto). Der Rest der Subdomain dev-app
 #   bleibt gesperrt (Block «dev-app-sperre» in der .htaccess der Dokumentenwurzel, freie App-Pfade in .sperre-frei, gemeinsam mit
 #   den anderen Apps). Ohne gültigen Block wird auf dev nie deployt.
-# Live: NUR nach ausdrücklichem Ja für genau diesen Deploy. Das Skript verlangt die interaktive Eingabe «live» und bricht ohne
-#   Terminal ab. Claude führt --live nie aus.
+# Live: NUR nach Martins ausdrücklichem Ja (im Chat) für genau diesen Deploy. Das Skript verlangt dafür den Zusatz --ja
+#   (keine Terminal-Eingabe mehr, Entscheid Martin 24.11.2026); ohne --ja bricht es ab. --trocken braucht kein --ja.
 #
 # Aufruf:
 #   allinkl/skripte/deploy-allinkl.sh --dev einrichten     einmalig: Ordner, Symlinks, konfig.php aus der Vorlage (ohne Geheimnisse)
 #   allinkl/skripte/deploy-allinkl.sh --dev [--trocken]    Paket aus dem letzten Commit bauen, sichern, hochladen, Schema, prüfen
-#   allinkl/skripte/deploy-allinkl.sh --live einrichten|--trocken|(ohne)
+#   allinkl/skripte/deploy-allinkl.sh --live --ja [einrichten]   bzw.   --live --trocken
 #
 # Der Code kommt immer aus dem letzten Commit (git archive), nie aus dem Arbeitsordner. Die Nährwert-Basis (seiten/basis.json)
 # wird aus futterwerte.csv gebaut: $FUTTERWERTE_CSV oder data/futterwerte.csv im Repo.
@@ -43,9 +43,11 @@ esac
 DOCROOT=$W/$HOST
 SICHERUNGEN=$APP-sicherungen
 AKTION=deploy
+JA=
 while [ $# -gt 0 ]; do
   case "$1" in
     einrichten|--trocken) AKTION=$1; shift ;;
+    --ja) JA=1; shift ;;
     *) echo "Unbekannt: $1"; exit 1 ;;
   esac
 done
@@ -55,9 +57,8 @@ exec 9>"${TMPDIR:-/tmp}/futter-allinkl-$UMGEBUNG-deploy.lock"
 flock -w 600 9
 
 if [ "$UMGEBUNG" = live ] && [ "$AKTION" != --trocken ]; then
-  [ -t 0 ] || { echo "Abgebrochen: Live-Deploy nur nach ausdrücklichem Ja, die Bestätigung braucht ein Terminal."; exit 1; }
-  read -r -p "LIVE (https://$HOST/futter und /wiese, $AKTION). Zur Bestätigung «live» eintippen: " antwort
-  [ "$antwort" = live ] || { echo "Abgebrochen."; exit 1; }
+  [ -n "$JA" ] || { echo "Abgebrochen: Live-Deploy nur nach Martins ausdrücklichem Ja, dann mit --ja aufrufen."; exit 1; }
+  echo "LIVE (https://$HOST/futter und /wiese, $AKTION)"
 fi
 
 # --- Sperre von dev-app: gültiger Block in der .htaccess der Dokumentenwurzel? (Ohne Block ist dev offen: nie deployen) ---

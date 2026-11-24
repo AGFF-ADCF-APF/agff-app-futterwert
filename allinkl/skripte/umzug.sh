@@ -3,7 +3,7 @@
 #
 #   allinkl/skripte/umzug.sh --lokal          Testdaten (Flask-Referenz des Prüfstands) → PHP des Prüfstands (allinkl/test/start.sh vorher)
 #   allinkl/skripte/umzug.sh --dev            Testdaten → dev-app.graswachstum.ch (ohne Einzelfrage erlaubt)
-#   allinkl/skripte/umzug.sh --live           Betrieb (apps.graswachstum.ch/futter, Container agff-futterrechner) → app.graswachstum.ch
+#   allinkl/skripte/umzug.sh --live --ja      Betrieb (apps.graswachstum.ch/futter, Container agff-futterrechner) → app.graswachstum.ch
 #   Zusatz: --ersetzen   Zieltabellen vorher leeren (sonst Abbruch, wenn dort schon Daten liegen)
 #
 # Ablauf: umzug_export.py läuft im Flask-Container (entschlüsselt mit dem alten Schlüssel) und fliesst per Pipe (bei dev/live
@@ -12,7 +12,7 @@
 #
 # Regeln (~/git/CLAUDE.md): dev bekommt keine Personendaten → dev und lokal nur mit den Testdaten des Prüfstands.
 # --live liest die echten Daten aus dem Betrieb auf dem Home-Server (/opt/stacks, nur lesend über docker exec) und schreibt
-# auf live: NUR nach Martins ausdrücklichem Ja, das Skript verlangt die Eingabe «live» im Terminal. Claude führt --live nie aus.
+# auf live: NUR nach Martins ausdrücklichem Ja (im Chat) für genau diesen Umzug, dann mit --ja (keine Terminal-Eingabe, Entscheid 24.11.2026).
 set -euo pipefail
 ZIEL=ssh-w01573d0@w01573d0.kasserver.com
 W=/www/htdocs/w01573d0
@@ -29,16 +29,16 @@ case "${1:-}" in
 esac
 shift
 ERSETZEN=
+JA=
 for a in "$@"; do
-  case "$a" in --ersetzen) ERSETZEN=--ersetzen ;; *) echo "Unbekannt: $a"; exit 1 ;; esac
+  case "$a" in --ersetzen) ERSETZEN=--ersetzen ;; --ja) JA=1 ;; *) echo "Unbekannt: $a"; exit 1 ;; esac
 done
 
 docker inspect -f '{{.State.Running}}' "$QUELLE" 2>/dev/null | grep -q true || { echo "Quelle $QUELLE läuft nicht${UMGEBUNG:+ (Prüfstand: allinkl/test/start.sh)}."; exit 1; }
 
 if [ "$UMGEBUNG" = live ]; then
-  [ -t 0 ] || { echo "Abgebrochen: Umzug auf live nur nach ausdrücklichem Ja, die Bestätigung braucht ein Terminal."; exit 1; }
-  read -r -p "UMZUG der echten Daten von apps.graswachstum.ch nach LIVE (https://app.graswachstum.ch/futter${ERSETZEN:+, Zieltabellen werden geleert}). Zur Bestätigung «live» eintippen: " antwort
-  [ "$antwort" = live ] || { echo "Abgebrochen."; exit 1; }
+  [ -n "$JA" ] || { echo "Abgebrochen: Umzug auf live nur nach Martins ausdrücklichem Ja, dann mit --ja aufrufen."; exit 1; }
+  echo "UMZUG der echten Daten von apps.graswachstum.ch nach LIVE (https://app.graswachstum.ch/futter${ERSETZEN:+, Zieltabellen werden geleert})"
 fi
 
 export_strom() { docker exec -i "$QUELLE" python3 -I - < "$EXPORT"; }
