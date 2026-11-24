@@ -1,1 +1,3 @@
 oeffentlich *   # bewusst öffentliches Repo, Push mit Prüfung erlaubt (Entscheid Martin, 24.11.2026)
+private-datei .env.example   # Vorlage ohne Werte (Felder leer bzw. Platzhalter); Geheimnisse stehen nur in .env (nicht in git). Zeilenprüfung gilt weiter (Entscheid Martin, 24.11.2026)
+archiv allinkl/schema.sql   # reines Tabellenschema (CREATE TABLE), keine Daten und kein Dump (Entscheid Martin, 24.11.2026)
