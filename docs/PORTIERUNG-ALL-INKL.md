@@ -148,12 +148,12 @@ Server-seitige Daten (Kurse, Konten, Freigaben, Pool) ziehen mit der Datenbank o
 | Laboranalyse auswerten | weg | Text-PDF im Browser, Scans über Home-Server |
 | Daten im Browser | unter der neuen Adresse zuerst leer | Umzugsseite (Abschnitt 4) |
 | Anfragebegrenzung im Speicher | – | MySQL-Tabelle |
-| Mediathek für drywatch | weg (siehe unten) | Kopie in drywatch oder drywatch zieht mit um |
+| Mediathek für drywatch | weg (siehe unten) | vorläufig deaktiviert (24.11.2026); später Kopie in drywatch oder drywatch zieht mit um |
 
 **Mediathek (`static/v2/mediathek.*`)**
 - futter selbst: Die drei Dateien gehen als Assets mit. CSP-Ausnahme `img-src https://i.ytimg.com` (YouTube-Standbilder, erst nach Klick) und der Absatz in der Datenschutzerklärung sind im Port schon enthalten (`allinkl/lib/kern.php`, `allinkl/public/.htaccess`).
 - Heureka liegt schon auf `app.graswachstum.ch` und hat eine eigene Kopie (`tools/seiten.mjs` im Repo agff-drysim). Nach dem Umzug von futter liegen beide auf demselben Host, Heureka könnte die Dateien dann wieder direkt bei futter laden (`/futter/v2/assets/mediathek.*`). Vorher prüfen, wie der Port Assets ausliefert.
-- **drywatch** lädt die Mediathek heute von `apps.graswachstum.ch/futter/v2/assets/`. Zieht futter um und bleibt drywatch auf dem Home-Server, kommt die Liste von einem fremden Ursprung. futter sendet `Cross-Origin-Resource-Policy: same-origin`, also schlägt der Abruf fehl, und der Block «Videos» in drywatch bleibt unsichtbar. Abhilfe: drywatch bekommt wie Heureka eine Kopie (Sync-Skript), oder drywatch zieht ebenfalls um. CORS für drywatch zu öffnen ist nicht nötig und wäre die schwächere Lösung.
+- **drywatch** lädt die Mediathek heute von `apps.graswachstum.ch/futter/v2/assets/`. Zieht futter um und bleibt drywatch auf dem Home-Server, kommt die Liste von einem fremden Ursprung. futter sendet `Cross-Origin-Resource-Policy: same-origin`, also schlägt der Abruf fehl, und der Block «Videos» in drywatch bleibt unsichtbar. **Stand 24.11.2026:** In drywatch vorläufig auskommentiert (`src/views/head.php`, `app-content.php`). Wieder einschalten: drywatch bekommt wie Heureka eine Kopie (Sync-Skript), oder drywatch zieht ebenfalls um. CORS für drywatch zu öffnen ist nicht nötig und wäre die schwächere Lösung.
 - Die alte Adresse `apps.graswachstum.ch/futter/v2/assets/mediathek.*` nach der Umschaltung nicht sofort abschalten, solange drywatch sie noch nutzt.
 
 ## 7. Sicherheit (Vorrang)
